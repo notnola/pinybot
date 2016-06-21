@@ -1,0 +1,7 @@
+pip
+setuptools
+requests
+pyamf
+colorama
+beautifulsoup4
+wikipedia
