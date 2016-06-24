@@ -89,6 +89,8 @@ You can always disable this feature in the **config.ini** in the project folder.
 * Other files:
 	* ChangeLog.html (*file*) - Contains all the recent changes made to the project.
 	* CREDITS (*file*) - The acknowledgements and credits to all those who helped with the bot.
+	* CONTRIBUTING (*file*) - Simple introduction to contributing to this project in any shape or form.
+	* RELEASE-PROCEDURE (*file*) - Outline as to how releases/updates to the repository will work.
 	*  LICENSE (*file*) - The MIT license for the project.
 	* README.md (*file*) - This file.
 
