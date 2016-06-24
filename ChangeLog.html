@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+
+<!-- Originally created by Aida (Autotonic - https://github.com/Autotonic/)
+     Now maintained by TechWhizZ199 (https://github.com/TechWhizZ199)
+-->
+
+<!-- TODO: JavaScript function to put together a GitHub link to the right lines in the appropriate files; returns
+           a "href" given the file name and line number.
+-->
+
+<head>
+    <title>
+        pinybot Changelog
+    </title>
+    <!-- UTF-8 character set, set as metadata. -->
+    <meta charset="utf-8">
+</head>
+
+<body>
+    <h1 style="text-align:center;">
+        pinybot ChangeLog
+    </h1>
+
+    <!-- ====== TEMPLATE ======
+    Tags inline in main blocks of changelog to conserve space.
+        <dl>
+            <dt><i>NAME + DATE(DD/MM/YYYY)</i></dt>
+            <dd>FILENAME - LINE NUMBER(s) - changes</dd>
+            <dd> </dd>
+            <dd> </dd>
+            <dd> </dd>
+        </dl>
+    -->
+
+    <!-- ============ BEGIN CHANGELOG =========== -->
+
+    <strong>Formatting:</strong>  File - Line Number(s) - Changes
+
+    <p>-
+        <i>
+            <strong> Version 1.4.1</strong>
+        </i>
+    </p>
+
+    <dl><dt><i>TechWhizZ199 22/06/2016</i></dt>
+        <dd>.gitignore file added - remove .pyc's</dd>
+        <dd>auto_url.py - Various - Tidied the file up slightly.</dd>
+        <dd>cleverbot.py - None - Removed, as it produced an invalid connection.</dd>
+        <dd>other_apis.py - 182 - Wikipedia module disabled until further debugging.</dd>
+        <dd>other_apis.py - 337 - New sets of tags/topics added to the one_liners function.</dd>
+        <dd>other_apis.py - 393 - <a href="http://etymonline.com/" target="_blank">Etymonline</a> function added to handle  requests.</dd>
+        <dd>privacy_settings.py - None - New module (created by Nortxort) to handle extra owner commands, e.g. add new
+            room moderators, clear all bans, set room to "push2talk", set "greenroom" etc.
+        </dd>
+        <dd>tinychat_api.py - 136, 171, 208 - get_captcha_key, get_cauth_cookie and get_recaptcha methods simplified.</dd>
+        <dd>tinychat_api.py - 19 - "api" to "apl" to conform to Tinychat protocol.</dd>
+        <dd>web_request.py - None - Added new functions to match Nortxort's base.</dd>
+        <dd>youtube.py - 12 - Logging/exception handling to match pinylib base.</dd>
+        <dd>pinybot.py - <strong>Various</strong>:
+            <ul>
+                <li>Small bug fixes, etymonline function added, line/indentation corrections, playlist true/false (boolean option) in <i>config.ini</i> and toggle in bot.</li>
+                <li>New toggle for auto_url mode, links made to privacy_settings.py (Line 217), splitting lines character for auto_pm replaced from "¬" to "|" for easier use (L275). </li>
+                <li>New tidy_exit function when receiving "on_quit" from a clients exit to handle sorting related lists (L368), fixed double on_quit error with tidy_exit - double run
+                    of the function which resulted in the user being non-existent in the room_users dictionary (L362/363).
+                </li>
+                <li>Bot listening has been improved - still needs to be checked (L573).</li>
+                <li>Fixed old mobile parsing issues, in correspondence with pinylib, new parsing method (L230).</li>
+                <li>"privateroom" command has been kept as it is still active, despite not knowing what it's actual use is (L677).</li>
+                <li>Bugs for do_kick - "kick"/"ban" have been fixed. Start-point (L704/708) & end-point for both (L348).</li>
+                <li>Private stop_media method has been cleared of tries and is now using hasattr function (L1928).</li>
+                <li>Added Super Mod & super mod related do_* functions (L909).</li>
+                <li>Auto-PM replies now if there is no message preset in <i>config.ini</i> (L1102).</li>
+                <li>The sync_media bug has been fixed, "!syncall" replied with no media in playlist when there was media playing.
+                    Rather than checking for if the playlist was greater than zero, we check for an active timer thread instead (L1946).
+                </li>
+                <li>Logic check in do_kick function seems to work. (L1285)</li>
+                <li>Text spam prevention entry point fix; moderators would be checked, logic gate issue. (L580)</li>
+                <li>send_private_bot_msg function removed and send_private_msg method is in use (L2788).</li>
+            </ul>
+        </dd>
+        <dd>pinylib.py - <strong>Various</strong>:
+            <ul>
+                <li>Smaller fixes including that of line/indentation corrections as well variables renames.</li>
+                <li>RTMPE connection, set in <i>config.ini</i> as a boolean true/false and set to connect via tc_url in RTMP (L256).</li>
+                <li>Slight edit to key function names from the command functions and onwards (L1219).</li>
+                <li>Mutability error in _send_command method with passing params list has been resolved, with the construction of the parameters
+                    as a list within the function (L1196).
+                </li>
+                <li>encode_msg/decode_msg methods are static now (L1455/1464).</li>
+                <li>Native methods such as _send_create_stream() have been appropriately adapted to the new base and converted simply to
+                    e.g. send_create_stream() etc. (L1216).
+                </li>
+            </ul>
+        </dd>
+        <dd>message_structures.py - Various - Smaller edits to function names and variables.</dd>
+        <dd>rtmp_protocol.py - Various - Inclusion of handle_packet() method, variable name alterations, similar to pinylib base and various tidy ups.</dd>
+        <dd>rtmp_protocol_base.py - Small - Variable modifications & remove extra whitespaces/newlines.</dd>
+        <dd>ADDITIONAL FILES: Addition of CREDITS, CONTRIBUTING, RELEASE-PROCEDURE, ChangeLog.html (this file) and various edits to README.md</dd>
+        <dd>Timestamp: 01:04-24/06/2016</dd>
+
+    </dl>
+
+    <strong>
+        Maintaining changelog above version 1.4.1 (1.4.0 was a preview build).
+    </strong>
+
+    <p>-
+        <i>
+            <strong>
+                Version 1.3.8
+            </strong>
+        </i>
+    </p>
+
+    <dl>
+        <dt><i>Aida 15/02/2016</i></dt>
+        <dd>other_apis.py - 331 - Added IMDB search.</dd>
+        <dd>pinybot.py -751 - Add 'imdb' command to message_handler.</dd>
+        <dd>pinybot.py - 2021 - Add IMDB do_* function.</dd>
+    </dl>
+
+    <!-- ============== END CHANGELOG ============ -->
+
+</body>

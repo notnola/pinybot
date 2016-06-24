@@ -84,6 +84,7 @@ def module_updater(CONFIG):
         return new_changes
 
 
+# TODO: Split this function into smaller methods.
 # Update handler; processes updates if the latest version of the bot is not present on the client computer.
 def bot_updater(CONFIG):
     """

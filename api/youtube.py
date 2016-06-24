@@ -6,9 +6,6 @@ import web_request
 # YouTube API key.
 YOUTUBE_API_KEY = 'AIzaSyCPQe4gGZuyVQ78zdqf9O5iEyfVLPaRwZg'
 
-# TODO: Allow for logging to be enabled in module.
-# TODO: Retrieve more information in one API call.
-
 log = logging.getLogger(__name__)
 
 
@@ -29,7 +26,7 @@ def youtube_search(search):
             search = search.split('?list')[0]
         youtube_search_url = 'https://www.googleapis.com/youtube/v3/search?' \
                              'type=video&key=%s' \
-                             '&maxResults=50&q=%s&part=snippet' % (YOUTUBE_API_KEY, search, )
+                             '&maxResults=50&q=%s&part=snippet' % (YOUTUBE_API_KEY, search)
 
         api_response = web_request.get_request(youtube_search_url, json=True)
 
@@ -63,7 +60,7 @@ def youtube_search_list(search, results=10):
     if search:
         youtube_search_url = 'https://www.googleapis.com/youtube/v3/search?type=video' \
                              '&key=%s' \
-                             '&maxResults=50&q=%s&part=snippet' % (YOUTUBE_API_KEY, search, )
+                             '&maxResults=50&q=%s&part=snippet' % (YOUTUBE_API_KEY, search)
 
         api_response = web_request.get_request(youtube_search_url, json=True)
         if api_response['content'] is not None:
@@ -101,7 +98,7 @@ def youtube_playlist_search(search, results=5):
     if search:
         youtube_search_url = 'https://www.googleapis.com/youtube/v3/search?' \
                              'type=playlist&key=%s' \
-                             '&maxResults=50&q=%s&part=snippet' % (YOUTUBE_API_KEY, search, )
+                             '&maxResults=50&q=%s&part=snippet' % (YOUTUBE_API_KEY, search)
 
         api_response = web_request.get_request(youtube_search_url, json=True)
         if api_response is not None:
@@ -132,7 +129,7 @@ def youtube_playlist_videos(playlist_id):
     """
     playlist_details_url = 'https://www.googleapis.com/youtube/v3/playlistItems?' \
                            'key=%s&playlistId=%s' \
-                           '&maxResults=50&part=contentDetails' % (YOUTUBE_API_KEY, playlist_id, )
+                           '&maxResults=50&part=contentDetails' % (YOUTUBE_API_KEY, playlist_id)
 
     video_list = []
     start_token = True
@@ -145,7 +142,7 @@ def youtube_playlist_videos(playlist_id):
                 pageToken = str(api_response['content']['nextPageToken'])
                 playlist_details_url = 'https://www.googleapis.com/youtube/v3/playlistItems?' \
                                        'key=%s&playlistId=%s' \
-                                       '&maxResults=50&part=status,contentDetails&pageToken=%s' % (YOUTUBE_API_KEY, playlist_id, pageToken, )
+                                       '&maxResults=50&part=status,contentDetails&pageToken=%s' % (YOUTUBE_API_KEY, playlist_id, pageToken)
             except KeyError as ke:
                 log.error(ke, exc_info=True)
                 start_token = False

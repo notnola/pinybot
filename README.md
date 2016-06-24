@@ -1,104 +1,136 @@
 # pinybot
+> "The true base for your Tinychat bot needs."
 
-A Tinychat room helper forked and extended from [nortxort's pinylib](https://github.com/nortxort/pinylib). Featuring all the essential features to help kickstart a room.
-If you like or found this useful i.e. practically or contextually, please do star the repository. We also happily accept any new features or interesting pull requests!
+![Github code](https://img.shields.io/badge/Code-Python-green.svg) [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/TechWhizZ199/pinybot/master/LICENSE) [![GitHub issues](https://img.shields.io/github/issues/TechWhizZ199/pinybot.svg)](https://github.com/TechWhizZ199/pinybot/issues) [![GitHub stars](https://img.shields.io/github/stars/TechWhizZ199/pinybot.svg)](https://github.com/TechWhizZ199/pinybot/stargazers) [![GitHub forks](https://img.shields.io/github/forks/TechWhizZ199/pinybot.svg)](https://github.com/TechWhizZ199/pinybot/network) ![Github downloads](https://img.shields.io/github/downloads/TechWhizZ199/pinybot/total.svg)
 
-Be sure to post an issue if there is a bug you want to highlight or if you are plagued by anything else. 
 
-Visit our **[homepage](https://oddballz.github.io/pinybot/)** for general information and what we (as a group) are.
+A Tinychat room helper forked and extended from [nortxort's pinylib](https://github.com/nortxort/pinylib), featuring all the essential features to help kickstart a room on [Tinychat](https://tinychat.com/).
+
+If you like or found this useful i.e. practically or contextually, please do star the repository. We also happily accept any new features or interesting pull requests you would like to be included in the project.
+
+If there is a bug you want to highlight or if you are plagued by any other aspect of the project, be sure to post an issue in the [issues section](https://github.com/TechWhizZ199/pinybot/issues).
+
+Visit our **[homepage](https://techwhizz199.github.io/pinybot/)** for general information.
+
+All our releases can be found in the [release section](https://github.com/TechWhizZ199/pinybot/releases) with the source code. Release information/order is within the release procedures file, found in the project folder.
+
+*Windows users also can optionally download an executable version of the program.*
 
 ---
 
-## Requires
+## Requirements
 
 * [Python 2.7 (sub-version 10+)](https://www.python.org/downloads/)
 
-Windows users are encouraged to add Python to their environment paths; more information [here](https://superuser.com/questions/143119/how-to-add-python-to-the-windows-path).
-The following Windows instructions assume you *do not* have Python27 set in your environment/system variables.
 
 ### Dependencies
 
-* [PyAMF](https://github.com/hydralabs/pyamf)
 * [Requests](http://docs.python-requests.org/en/master/)
+* [PyAMF](https://github.com/hydralabs/pyamf)
 * [PySocks](https://github.com/Anorov/PySocks) (*Provided*)
 * [colorama](https://github.com/tartley/colorama)
 * [BeautifulSoup4](http://www.crummy.com/software/BeautifulSoup/)
 
-Linux
+**Linux**
 
+Run this on a linux terminal:
 ```sh
 pip2 install bs4 requests pysocks colorama pyamf
+OR
+pip install [module name]
 ```
-Windows
+**Windows**
+
+*Note:* Windows users are encouraged to add Python to their environment paths; more information [here](https://superuser.com/questions/143119/how-to-add-python-to-the-windows-path).
+
+The following Windows instructions assume you *do not* have Python27 set in your environment/system variables.
+
+In order to install on windows, be sure to use command prompt:
 ```
-C:\Python27\Scripts\pip2 install bs4 requests pysocks colorama pyamf
+C:\Python27\Scripts\pip2.exe install bs4 requests pysocks colorama pyamf
 ```
 
-(All module requirements information is stored within **requirements.txt**)
+Modules and requirements information is stored within **requirements.txt**, found in the project folder.
 
 ### Optional Dependencies
 
 * [Wikipedia](https://github.com/goldsmith/Wikipedia) (for use with wikipedia searches)
 
-Linux
+**Linux**
 ```sh
 pip2 install wikipedia
 ```
-Windows
+**Windows**
 ```
 C:\Python27\Scripts\pip2 install wikipedia
 ```
 
-### Automatic bot/dependencies via update script
+### Automatic dependencies via update script
 
-An alternative to installing all the dependencies one by one or downloading the latest version of the bot, is to simply start pinybot.py. Upon startup, the update script will commence and determine
-if you have the current version of the bot and/or if you have the latest versions of the modules needed to run it. If there was any modifications made to a new version of the bot, then the latest 
-version will be downloaded to a new directory, where you can easily extract it and overwrite your local copy.
+An alternative to installing all the dependencies one by one or downloading the latest version of the bot from GitHub, is to simply start pinybot.py . Upon starting the file, the update script will commence and determine if you have the latest version of the bot and/or if you have the latest versions of the modules needed to run it. 
+
+If there were any modifications made to a new version of the bot, then the latest version will be downloaded to a new directory which will be placed in the project folder, where you can easily extract it and overwrite your local copy.
+
+You can always disable this feature in the **config.ini** in the project folder.
 
 ---
 
 ## File information
 
 * **api** *(directory)* - Contains scripts related to external features e.g. communicating with the Tinychat API. 
-* **files** *(directory)* - Here resides all the bot created files and the file handling script(s) files.
-* **rtmp** *(directory)* - The basic communcation scripts reside here, and all other various low level functions to interact with the server.
-* **config.ini** *(file)* - All the pertinent configurations/settings for the bot and the core can be set in here. **NOTE: If the bot is placed on a webserver, the config.ini file must be setup with respect to that (more information regarding this below).**
-* **pinybot.py** *(file)* - The MAIN bot script itself. Running this will intiate a console connection to the room.
+* **files** *(directory)* - Here resides all the bot generated files and the file handling script(s).
+* **rtmp** *(directory)* - The basic communications scripts reside here, and all other various low level functions to interact with the remote server.
+* **config.ini** *(file)* - All the pertinent configurations and settings for both the bot and core can be set in here.
+* **pinybot.py** *(file)* - The **MAIN** bot script itself. Running this will intiate a console connection to the room.
+* **pinylib.py** *(file)* - The **CORE** bot script which is a store for all the essential functions in order for a normal connection to be made to the server and allowing for low-level communications to be executed.
 * **requirements.txt** *(file)* - Contains the modules which are required in order for the bot to run wholly.
-* **tinychat.py** *(file)* - The CORE bot script which is a store for all the essential functions in order for a normal connection to be made to the server and allowing for low-level communications to be executed.
 * **update.py** *(file)* - Hosts the module updating (based on the requirements file) and bot version checking script to allow for you stay updated with any new changes made.
+
+* Other files:
+	* ChangeLog.html (*file*) - Contains all the recent changes made to the project.
+	* CREDITS (*file*) - The acknowledgements and credits to all those who helped with the bot.
+	*  LICENSE (*file*) - The MIT license for the project.
+	* README.md (*file*) - This file.
 
 
 ### Detailed information
 
-All further information in regards to the functions/features of the bot can be found in the GitHub Repository [Wiki](https://github.com/oddballz/pinybot/wiki). 
+All further information in regards to the functions/features of the bot can be found in the GitHub repository [Wiki](https://github.com/TechWhizZ199/pinybot/Wiki).
 
 ---
 
 ## Run the bot!
 
 There is very little you need to follow to run the bot normally, i.e. downloading and extracting the files and opening **pinybot.py** will start the bot.
-However, if you would like to configure the various other settings, then feel free to. All custom setting options are available in the default **config.ini** file.
 
-Linux
+*However*, if you would like to configure the various other settings, then feel free to. All custom settings/options are found in the default **config.ini** file.
+
+**Linux**
 ```sh
 python2 pinybot.py
+OR
+python pinybot.py
 ```
-Create a Linux executable (optional)
+*Create a Linux executable* (**optional**)
 ```sh
 chmod +x pinybot.py
 ./pinybot.py
 ```
-Windows (assumes you are in the pinybot-master directory)
+Windows (assumes you are in the ***pinybot-master*** directory)
 ```
 C:\Python27\python pinybot.py
 ```
 
-### "How can I help?"
+If you have any trouble navigating command prompt within Windows, please refer to this [beginner's guide to command prompt](http://www.online-tech-tips.com/computer-tips/how-to-use-dos-command-prompt/).
 
-You can easily leave a comment, or an issue asking to help us fix a bug, sort a pending issue, or even join the team.
+## *"How can I help?"*
 
-### Interested in a webserver?
+You can easily leave a comment or an issue regarding help to fix a bug, sort a pending issue, a suggestion or even joining the team to help with the project.
 
-If you are interested in running the bot online (instead of locally) why not try the OpenShift dedicated [pinybot repository](https://github.com/oddballz/pinybot-OpenShift).
-It's almost configured to a 'click to setup and run' standard, to save you time and effort in setting up the bot. Please do tell us if you have issues with this, either by posting an issue here or on that repository.
+## Interested running it remotely?
+
+If you are interested in running the bot online (instead of locally), why not try the OpenShift dedicated [pinybot repository](https://github.com/oddballz/pinybot-OpenShift).
+
+It's almost configured to a 'click to setup and run' standard to save you time and effort in setting up the bot. 
+
+Please do tell us if you have issues with this, either by posting an issue here or on the dedicated repository.

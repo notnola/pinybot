@@ -9,7 +9,6 @@ import time
 import threading
 import random
 import traceback
-# TODO: Implement logging.
 import logging
 
 import os
@@ -24,6 +23,7 @@ from api import web_request, tinychat_api
 # Set console colors as false in the configuration file to prevent colorama from loading in interpreters or consoles
 # which do not support the rendering of colors.
 from colorama import init, Fore, Style
+
 #  Console colors.
 COLOR = {
     'white': Fore.WHITE,
@@ -39,17 +39,11 @@ COLOR = {
     'bright_magenta': Style.BRIGHT + Fore.MAGENTA
 }
 
-# except ImportError:
-#     CONFIG['console_colors'] = False
-#     seq = ('white', 'green', 'bright_green', 'yellow',
-#            'bright_yellow', 'cyan', 'bright_cyan', 'red',
-#            'bright_red', 'magenta', 'bright_magenta')
-#     COLOR = dict.fromkeys(seq, False)
-
+__version__ = '4.2.0'
 
 # TODO: Reorganise and reduce these initial configuration steps, shorten the link between.
 #       pinybot.py and tinychat.py/pinylib.py.
-# ------------------------------------------------------------------------------
+
 # Loads CONFIG in the configuration file from the root directory:
 CONFIG_FILE_NAME = '/config.ini'  # State the name of the '.ini' file here.
 CURRENT_PATH = sys.path[0]
@@ -59,18 +53,7 @@ CONFIG = fh.configuration_loader(CONFIG_PATH)
 if CONFIG is None:
     print('No file named ' + CONFIG_FILE_NAME + ' found in: ' + CONFIG_PATH)
     sys.exit(1)  # Exit to system safely whilst returning exit code 1.
-# ------------------------------------------------------------------------------
 
-# TODO: Web server importation if it is specified in the configuration.
-# TODO: Remove files in a generic fashion rather than specifying the exact file names.
-# Remove unnecessary files remaining from previous web-server runs
-# if os.path.exists(str(CURRENT_PATH) + '/api/index.html'):
-#     os.remove(str(CURRENT_PATH) + '/api/index.html')
-# if os.path.exists(str(CURRENT_PATH) + '/api/recaptcha.txt'):
-#     os.remove(str(CURRENT_PATH) + '/api/recaptcha.txt')
-
-
-__version__ = 4.0
 if CONFIG['console_colors']:
     init(autoreset=True)
 log = logging.getLogger(__name__)
@@ -100,17 +83,8 @@ def write_to_log(msg, room_name):
     """
     d = time.strftime('%Y-%m-%d')
     file_name = d + '_' + room_name + '.log'
-    fh.file_writer(CONFIG['log_path'], file_name, msg.encode('ascii', 'ignore'))
-
-
-def random_color():
-    """
-    Get a random Tinychat color.
-    :return: str random color
-    """
-    colors = ['#000000', '#7db257', '#a78901', '#9d5bb5', '#5c1a7a', '#c53332', '#821615', '#a08f23',
-              '#487d21', '#c356a3', '#1d82eb', '#919104', '#b9807f', '#7bb224', '#1965b6', '#32a5d9']
-    return random.choice(colors)
+    path = CONFIG['log_path'] + room_name + '/logs/'
+    fh.file_writer(path, file_name, msg.encode('ascii', 'ignore'))
 
 
 def set_window_title(window_message):
@@ -141,13 +115,13 @@ class RoomUser:
         self.user_account_type = None
         self.user_account_giftpoints = None
         self.is_owner = False
+        self.is_super = False
         self.is_mod = False
         self.has_power = False
         self.tinychat_id = None
         self.last_login = None
         self.device_type = ''
         self.reading_only = False
-        self.is_playable = False
 
 
 class TinychatRTMPClient:
@@ -157,56 +131,50 @@ class TinychatRTMPClient:
 
         # Standard settings
         self.roomname = room
-        self.tc_url = tcurl
-        self.app = app
-        self.roomtype = room_type
+        self._tc_url = tcurl
+        self._app = app
+        self._roomtype = room_type
+        self._ip = ip
+        self._port = port
+        self._prefix = u'tinychat'
+        self._swf_url = u'http://tinychat.com/embed/Tinychat-11.1-1.0.0.0665.swf?version=1.0.0.0665/[[DYNAMIC]]/8'
+        self._desktop_version = u'Desktop 1.0.0.0665'
+        self._embed_url = u'http://tinychat.com/' + self.roomname
+        self._swf_version = 'WIN 21,0,0,216'
+
+        # Specific connection settings:
         self.client_nick = nick
         self.account = account
         self.password = password
         self.room_pass = room_pass
-        self.ip = ip
-        self.port = port
         self.proxy = proxy
         self.greenroom = False
         self.private_room = False
-        self.prefix = u'tinychat'
-        self.swf_url = u'http://tinychat.com/embed/Tinychat-11.1-1.0.0.0665.swf?version=1.0.0.0665/[[DYNAMIC]]/8'
-        self.desktop_version = u'Desktop 1.0.0.0665'
-        self.swf_version = 'WIN 21,0,0,216'
-        self.embed_url = u'http://tinychat.com/' + self.roomname
+        self.room_broadcast_pass = None
+
+        # Personal user settings:
         self.client_id = None
         self.connection = None
         self.is_connected = False
+        self.is_client_owner = False
         self.is_client_mod = False
         self.room_users = {}
         self.user_obj = object
         self.room_banlist = {}
         self.is_reconnected = False
+        self.topic_msg = None
         self.reconnect_delay = CONFIG['reconnect_delay']
 
-        # Streams settings
+        # Stream settings:
         self.streams = {}
-        self.stream_sort = False
-
-        # Basic A/V configuration:
-        self.publish_connection = False
-        # Send audio packets?
-        self.play_audio = True
-        # Send video packets?
-        self.play_video = True
-        # Send a constant or automatic timestamp? (Default None automatically retrieves timestamps)
-        self.force_time_stamp = None
-
-        # self.play_connection = False
         self.create_stream_id = 1
-        # self.setting_stream = None
-        # self.play_publishers = {}
+        self.stream_sort = False
+        self.publish_connection = False
+        self.force_time_stamp = 0
+        self.play_audio = False
+        self.play_video = False
 
-        # Others:
-        self.ping_request = False
-        # self.ping_content = None
-
-    # TODO: Implement decode procedure utilised by the bot here so an array
+    # TODO: Implement decode procedure utilised by the bot here, so an array
     #       of unicode can be parsed without any further unicode errors.
     def console_write(self, color, message):
         """
@@ -271,23 +239,22 @@ class TinychatRTMPClient:
                 else:
                     self.console_write(COLOR['red'], 'Password Failed.')
 
-        # TODO: Include the availability of RTMPE packets.
-        # Run via RTMPE (RTMP Encrypted) instead if set in the configuration.
-        # Thanks to Nola for advising us of the availability of encrypted messages.
-        # if CONFIG['rtmp_encrypted']:
-        #    self.tc_url = self.tc_url.replace('rtmp', 'rtmpe')
-
         if CONFIG['debug_mode']:
             for k in config:
                 self.console_write(COLOR['white'], k + ': ' + str(config[k]))
 
-        self.ip = config['ip']
-        self.port = config['port']
-        self.tc_url = config['tcurl']
-        self.app = config['app']
-        self.roomtype = config['roomtype']
+        self._ip = config['ip']
+        self._port = config['port']
+        self._tc_url = config['tcurl']
+        self._app = config['app']
+        self._roomtype = config['roomtype']
         self.greenroom = config['greenroom']
-        self.room_broadcast_pass = config['roombroadcastpass']
+        self.room_broadcast_pass = config['room_broadcast_pass']
+
+        # [Temporary]: Allow an RTMPE connection to be made.
+        if CONFIG['rtmpe_connection']:
+            self._tc_url = self._tc_url.replace('rtmp', 'rtmpe')
+            self.console_write(COLOR['white'], 'Connecting via RTMPE (as set in configuration).')
 
         self.console_write(COLOR['white'], '============ CONNECTING ============\n\n')
         self.connect()
@@ -298,30 +265,26 @@ class TinychatRTMPClient:
             log.info('Trying to connect to: %s' % self.roomname)
             try:
                 tinychat_api.recaptcha(proxy=self.proxy)
-
                 cauth_cookie = tinychat_api.get_cauth_cookie(self.roomname, proxy=self.proxy)
 
-                self.connection = rtmp_protocol.RtmpClient(self.ip, self.port, self.tc_url, self.embed_url,
-                                                           self.swf_url, self.app, self.swf_version, self.roomtype, self.prefix,
-                                                           self.roomname, self.desktop_version, cauth_cookie,
-                                                           self.account, self.proxy)
+                # Pass connection parameters and initiate a connection.
+                self.connection = rtmp_protocol.RtmpClient(self._ip, self._port, self._tc_url, self._embed_url,
+                                                           self._swf_url, self._app, self._swf_version, self._roomtype,
+                                                           self._prefix, self.roomname, self._desktop_version,
+                                                           cauth_cookie, self.account, self.proxy)
                 self.connection.connect([])
 
                 # After-hand connection settings.
                 self.is_connected = True
                 # Set windows title as connected room name & IP ADDRESS:PORT of the room.
-                window_message = str(self.roomname) + ' @ ' + str(self.ip) + ':' + str(self.port)
+                window_message = str(self.roomname) + ' @ ' + str(self._ip) + ':' + str(self._port)
                 set_window_title(window_message)
-
-                # Initial NetConnection default communications channel
-                self.streams['NetConnection'] = 0
 
                 # Main command (callbacks) handle.
                 self._callback()
 
             except Exception as ex:
                 log.error('Connect error: %s' % ex, exc_info=True)
-                self.is_connected = False
                 if CONFIG['debug_mode']:
                     traceback.print_exc()
                 self.reconnect()
@@ -336,6 +299,8 @@ class TinychatRTMPClient:
 
             # Reset custom variables.
             self.room_banlist.clear()
+            # TODO: Should this be in the core or in the bot? Maybe uptime should be a general information
+            #       variable for the connection?
             self.uptime = 0
 
             self.connection.shutdown()
@@ -366,86 +331,15 @@ class TinychatRTMPClient:
     def client_manager(self, amf0_cmd):
         """
         A client stream managing function to set the streams required for the client to publish.
-        :param amf0_cmd: list containg the amf decoded commands.
+        :param amf0_cmd: list containing the amf decoded commands.
         """
         result_stream_id = int(amf0_cmd[3])
         self.streams['client_stream'] = result_stream_id
         self.streams['client_publish'] = result_stream_id
-        self.streams['client_closestream'] = result_stream_id
-        self.streams['client_deletestream'] = result_stream_id
+        self.streams['client_close_stream'] = result_stream_id
+        self.streams['client_delete_stream'] = result_stream_id
         self.stream_sort = False
         self.console_write(COLOR['white'], 'Done client manager.')
-
-    '''
-    def start_play_connect(self):
-        """ Add a new publisher to our local streams. """
-        # while not self.play_connection:
-            # time.sleep(1)
-        if len(self.play_publishers) is not 0:
-            for publisher in self.play_publishers.keys():
-                print 'Publishing user:', publisher
-                # TODO: Process gets caught up, possibly a loop - rtmp_protocol issue?
-                # NONE Type issue?
-                self.add_new_publisher(publisher)
-                time.sleep(5)
-                print 'added new publisher'
-            print 'playstreams finished'
-        else:
-            self.console_write(COLOR['cyan'], 'No publishing users.')
-
-    def add_new_publisher(self, publisher):
-        """
-        Opens a new stream for a publisher.
-        :param publisher:
-        """
-        # Allocate a new stream for the publisher
-        # user = self.find_user_info(publisher)
-        self.play_connection = True
-        self._send_create_stream(play=True)
-        while self.stream_sort:
-            time.sleep(1)
-        # Issue a play stream request on the new stream
-        print('request play:'+ publisher)
-        self._send_play(int(self.streams['play' + str(self.create_stream_id)]), int(self.play_publishers[publisher]))
-        print 'play was sent successfully'
-        self.create_stream_id += 1
-
-    def play_message(self, stream_id, stream_message):
-        """
-        Monitor the play messages regarding a particular playstream.
-        :param stream_id: int the StreamID.
-        :param stream_message: str the particular decoded code received.
-        """
-        print('received message:', stream_message, 'on StreamID:', stream_id)
-
-    def play_manager(self, amf0_cmd):
-        """
-        A play stream managing function to start play stream for publishers and handle play events.
-        :param amf0_cmd: list containg the amf decoded commands.
-        """
-        # Assign  RTMP stream information items key/pair values
-        # in a dictionary to handle further commands
-        result_stream_id = int(amf0_cmd[3])
-        self.streams['stream' + str(self.create_stream_id)] = result_stream_id
-        self.streams['play' + str(self.create_stream_id)] = result_stream_id
-        self.streams['closestream' + str(self.create_stream_id)] = result_stream_id
-        self.streams['deletestream' + str(self.create_stream_id)] = result_stream_id
-        print 'Allocated StreamID:', result_stream_id
-
-        #_result_info = {
-        #    'TransactionID': str(amf0_cmd[1]),
-        #    'CommandObject': str(amf0_cmd[2]),
-        #    'StreamID': str(result_stream_id)
-        #}
-
-        # Finalise stream sorting; set it to False to make sure the next stream has a new id to play on
-        # and record the user who is being streamed.
-        self.stream_sort = False
-        print 'stream sort off'
-        self.play_connection = False
-        print 'play connection off'
-        # self.play_publishers[self.setting_stream] = result_stream_id
-    '''
 
     def tidy_streams(self, stream_id):
         """
@@ -453,7 +347,7 @@ class TinychatRTMPClient:
         :param stream_id: int StreamID which should be found and all keys matching it
                           should be deleted from the streams dictionary.
         """
-        self.console_write(COLOR['white'], 'Deleting all stream information residing on StreamID ' + str(stream_id) + '.')
+        self.console_write(COLOR['white'], 'Deleting all stream information residing on StreamID %s.' % stream_id)
 
         for stream_item in self.streams.keys():
             if self.streams[stream_item] == stream_id:
@@ -461,8 +355,9 @@ class TinychatRTMPClient:
 
     def _callback(self):
         """ Callback loop that reads from the RTMP stream. """
+        log.info('Starting the callback loop.')
         failures = 0
-        amf0_data_type = 0
+        amf0_data_type = 0  # TODO: Should be a -1(?)
         amf0_data = None
         while self.is_connected:
             try:
@@ -470,7 +365,7 @@ class TinychatRTMPClient:
                 amf0_data_type = amf0_data['msg']
 
                 if CONFIG['amf_reply']:
-                    print(amf0_data)
+                    self.console_write(COLOR['white'], 'REPLY --> %s' % amf0_data)
 
             except Exception as ex:
                 failures += 1
@@ -483,229 +378,212 @@ class TinychatRTMPClient:
             else:
                 failures = 0
             try:
-                if amf0_data_type == rtmp_protocol.DataTypes.SET_CHUNK_SIZE:
-                    if 0 < amf0_data['chunk_size'] <= 65536:
-                        self.connection.reader.chunk_size = amf0_data['chunk_size']
-                        self.console_write(COLOR['white'], 'Server sent \'SET_CHUNK_SIZE\'; now reading chunks in size\'s of %s.'
-                                                        % (str(self.connection.reader.chunk_size)))
-                    else:
-                        self.console_write(COLOR['red'], 'The CHUNK SIZE was not set; invalid size received.')
-
-                elif amf0_data_type == rtmp_protocol.DataTypes.USER_CONTROL:
-                    # if amf0_data['event_type'] == rtmp_protocol.UserControlTypes.STREAM_BEGIN:
-                        # self.console_write(COLOR['white'], 'Server sent \'STREAM_BEGIN\'; ready to receive data.')
-                    # elif amf0_data['event_type'] ==  rtmp_protocol.UserControlTypes.STREAM_EOF:
-                        # self.console_write(COLOR['white'], 'Server sent \'STREAM_EOF\'; end of data.')
-                    if amf0_data['event_type'] == rtmp_protocol.UserControlTypes.PING_RESPONSE:
-                        self.console_write(COLOR['white'], 'Server sent \'PING_RESPONSE\'.')
+                handled = self.connection.handle_packet(amf0_data)
+                if handled:
+                    msg = 'Handled packet of type: %s Packet data: %s' % (amf0_data_type, amf0_data)
+                    log.info(msg)
+                    if CONFIG['debug_mode']:
+                        self.console_write(COLOR['white'], msg)
+                    continue
 
                 else:
-                    try:
-                        amf0_cmd = amf0_data['command']
-                        cmd = amf0_cmd[0]
-                        iparam0 = 0
-                    except Exception:
-                        continue
+                    # This is specific to Tinychat.
+                    if amf0_data_type == rtmp_protocol.DataTypes.USER_CONTROL:
+                        if amf0_data['event_type'] == rtmp_protocol.UserControlTypes.PING_RESPONSE:
+                            self.console_write(COLOR['white'], 'Server sent \'PING_RESPONSE\'.')
 
-                    # ----------------------- ROOM CALLBACKS -----------------------
-                    # These are most of the room callbacks that are identified within
-                    # the SWF; the defunct callbacks have been ommitted for the library
-                    # to be in correspondence with the currently established and working
-                    # Tinychat protocol.
+                    else:
+                        try:
+                            amf0_cmd = amf0_data['command']
+                            cmd = amf0_cmd[0]
+                            iparam0 = 0
+                        except (Exception, KeyError):
+                            traceback.print_exc()
+                            continue
 
-                    if cmd == '_result':
-                        if self.stream_sort:
-                            # if self.play_connection:
-                                # Set stream for individual users
-                                # self.play_manager(amf0_cmd)
-                            # else:
+                        # ----------------------- ROOM CALLBACKS -----------------------
+                        # These are most of the room callbacks that are identified within
+                        # the SWF; the defunct callbacks have been omitted for the library
+                        # to be in correspondence with the currently established and working
+                        # Tinychat protocol.
 
-                            # Set streams for the client
-                            self.client_manager(amf0_cmd)
-                            # result_info = {
-                            #     'TransactionID': str(amf0_cmd[1]),
-                            #     'CommandObject': str(amf0_cmd[2]),
-                            #     'StreamID': str(amf0_cmd[3])
-                            # }
-                        else:
-                            # Handle the initial NetConnection _result message.
+                        if cmd == '_result':
+                            if self.stream_sort:
+                                # Set streams for the client.
+                                self.client_manager(amf0_cmd)
+                            else:
+                                # Handle the initial NetConnection _result message.
+                                try:
+                                    _result_info = {
+                                        'Capabilities': str(amf0_cmd[2]['capabilities']),
+                                        'FmsVer': amf0_cmd[2]['fmsVer'],
+                                        'Code': amf0_cmd[3]['code'],
+                                        'ObjectEncoding': str(amf0_cmd[3]['objectEncoding']),
+                                        'Description': amf0_cmd[3]['description'],
+                                        'Level': amf0_cmd[3]['level']
+                                    }
+                                    self.on_result(_result_info)
+                                except (Exception, KeyError):
+                                    log.error('"_result" callback error occured: %s' % amf0_cmd)
+                                    self.console_write(COLOR['green'], str(amf0_cmd))
+
+                        elif cmd == '_error':
                             try:
-                                _result_info = {
-                                    'Capabilities': str(amf0_cmd[2]['capabilities']),
-                                    'FmsVer': amf0_cmd[2]['fmsVer'],
+                                _error_info = {
                                     'Code': amf0_cmd[3]['code'],
-                                    'ObjectEncoding': str(amf0_cmd[3]['objectEncoding']),
                                     'Description': amf0_cmd[3]['description'],
                                     'Level': amf0_cmd[3]['level']
                                 }
-                                self.on_result(_result_info)
-                            except Exception as ex:
-                                log.error('"_result" callback error occured: %s' % amf0_cmd)
-                                self.console_write(COLOR['green'], str(amf0_cmd))
+                                self.on_error(_error_info)
+                            except (Exception, KeyError):
+                                log.error('"_error" callback error occured: %s' % amf0_cmd)
+                                self.console_write(COLOR['red'], str(amf0_cmd))
 
-                    elif cmd == '_error':
-                        try:
-                            _error_info = {
-                                'Code': amf0_cmd[3]['code'],
-                                'Description': amf0_cmd[3]['description'],
-                                'Level': amf0_cmd[3]['level']
-                            }
-                            self.on_error(_error_info)
-                        except Exception as ex:
-                            log.error('"_error" callback error occured: %s' % amf0_cmd)
-                            self.console_write(COLOR['red'], str(amf0_cmd))
+                        elif cmd == 'onBWDone':
+                            self.on_bwdone()
 
-                    elif cmd == 'onBWDone':
-                        self.on_bwdone()
+                        elif cmd == 'onStatus':
+                            try:
+                                self.stream_sort = False
+                                _status_info = {
+                                    'Level': amf0_cmd[3]['level'],
+                                    'Code': amf0_cmd[3]['code'],
+                                    'Details': amf0_cmd[3]['details'],
+                                    'Clientid': amf0_cmd[3]['clientid'],
+                                    'Description': amf0_cmd[3]['description']
+                                }
+                                self.on_status(_status_info)
+                            except (Exception, KeyError):
+                                log.error('"onStatus" callback error occured: %s' % amf0_cmd)
+                                self.console_write(COLOR['magenta'], str(amf0_cmd))
 
-                    elif cmd == 'onStatus':
-                        # try:
-                            # self.stream_manager(amf0_data['stream_id'], amf0_data)
-                        # except Exception:
-                        try:
-                            self.stream_sort = False
-                            _status_info = {
-                                'Level': amf0_cmd[3]['level'],
-                                'Code': amf0_cmd[3]['code'],
-                                'Details': amf0_cmd[3]['details'],
-                                'Clientid': amf0_cmd[3]['clientid'],
-                                'Description': amf0_cmd[3]['description']
-                            }
-                            self.on_status(_status_info)
-                        except Exception as ex:
-                            log.error('"onStatus" callback error occured: %s' % amf0_cmd)
-                            self.console_write(COLOR['magenta'], str(amf0_cmd))
+                        elif cmd == 'registered':
+                            client_info_dict = amf0_cmd[3]
+                            self.on_registered(client_info_dict)
 
-                    elif cmd == 'registered':
-                        client_info_dict = amf0_cmd[3]
-                        self.on_registered(client_info_dict)
+                        elif cmd == 'join':
+                            usr_join_info_dict = amf0_cmd[3]
+                            threading.Thread(target=self.on_join, args=(usr_join_info_dict, )).start()
 
-                    elif cmd == 'join':
-                        usr_join_info_dict = amf0_cmd[3]
-                        threading.Thread(target=self.on_join, args=(usr_join_info_dict, )).start()
+                        elif cmd == 'joins':
+                            current_room_users_info_list = amf0_cmd[3:]
+                            if len(current_room_users_info_list) is not 0:
+                                while iparam0 < len(current_room_users_info_list):
+                                    self.on_joins(current_room_users_info_list[iparam0])
+                                    iparam0 += 1
 
-                    elif cmd == 'joins':
-                        current_room_users_info_list = amf0_cmd[3:]
-                        if len(current_room_users_info_list) is not 0:
-                            while iparam0 < len(current_room_users_info_list):
-                                self.on_joins(current_room_users_info_list[iparam0])
-                                iparam0 += 1
+                        elif cmd == 'joinsdone':
+                            self.on_joinsdone()
 
-                    elif cmd == 'joinsdone':
-                        self.on_joinsdone()
-
-                    elif cmd == 'oper':
-                        oper_id_name = amf0_cmd[3:]
-                        while iparam0 < len(oper_id_name):
-                            oper_id = str(oper_id_name[iparam0]).split('.0')
-                            oper_name = oper_id_name[iparam0 + 1]
-                            if len(oper_id) == 1:
-                                self.on_oper(oper_id[0], oper_name)
-                            iparam0 += 2
-
-                    elif cmd == 'deop':
-                        deop_id = amf0_cmd[3]
-                        deop_nick = amf0_cmd[4]
-                        self.on_deop(deop_id, deop_nick)
-
-                    elif cmd == 'owner':
-                        self.on_owner()
-
-                    elif cmd == 'avons':
-                        avons_id_name = amf0_cmd[4:]
-                        if len(avons_id_name) is not 0:
-                            while iparam0 < len(avons_id_name):
-                                avons_id = avons_id_name[iparam0]
-                                avons_name = avons_id_name[iparam0 + 1]
-                                self.on_avon(avons_id, avons_name)
+                        elif cmd == 'oper':
+                            oper_id_name = amf0_cmd[3:]
+                            while iparam0 < len(oper_id_name):
+                                oper_id = str(oper_id_name[iparam0]).split('.0')
+                                oper_name = oper_id_name[iparam0 + 1]
+                                if len(oper_id) == 1:
+                                    self.on_oper(oper_id[0], oper_name)
                                 iparam0 += 2
 
-                    elif cmd == 'pros':
-                        pro_ids = amf0_cmd[4:]
-                        if len(pro_ids) is not 0:
-                            for pro_id in pro_ids:
-                                pro_id = str(pro_id).replace('.0', '')
-                                self.on_pro(pro_id)
+                        elif cmd == 'deop':
+                            deop_id = amf0_cmd[3]
+                            deop_nick = amf0_cmd[4]
+                            self.on_deop(deop_id, deop_nick)
 
-                    elif cmd == 'nick':
-                        old_nick = amf0_cmd[3]
-                        new_nick = amf0_cmd[4]
-                        nick_id = int(amf0_cmd[5])
-                        self.on_nick(old_nick, new_nick, nick_id)
+                        elif cmd == 'owner':
+                            self.on_owner()
 
-                    elif cmd == 'nickinuse':
-                        self.on_nickinuse()
+                        elif cmd == 'avons':
+                            avons_id_name = amf0_cmd[4:]
+                            if len(avons_id_name) is not 0:
+                                while iparam0 < len(avons_id_name):
+                                    avons_id = avons_id_name[iparam0]
+                                    avons_name = avons_id_name[iparam0 + 1]
+                                    self.on_avon(avons_id, avons_name)
+                                    iparam0 += 2
 
-                    elif cmd == 'quit':
-                        quit_name = amf0_cmd[3]
-                        quit_id = amf0_cmd[4]
-                        self.on_quit(quit_id, quit_name)
+                        elif cmd == 'pros':
+                            pro_ids = amf0_cmd[4:]
+                            if len(pro_ids) is not 0:
+                                for pro_id in pro_ids:
+                                    pro_id = str(pro_id).replace('.0', '')
+                                    self.on_pro(pro_id)
 
-                    elif cmd == 'kick':
-                        kick_id = amf0_cmd[3]
-                        kick_name = amf0_cmd[4]
-                        self.on_kick(kick_id, kick_name)
+                        elif cmd == 'nick':
+                            old_nick = amf0_cmd[3]
+                            new_nick = amf0_cmd[4]
+                            nick_id = int(amf0_cmd[5])
+                            self.on_nick(old_nick, new_nick, nick_id)
 
-                    elif cmd == 'banned':
-                        self.on_banned()
+                        elif cmd == 'nickinuse':
+                            self.on_nickinuse()
 
-                    elif cmd == 'banlist':
-                        banlist_id_nick = amf0_cmd[3:]
-                        if len(banlist_id_nick) is not 0:
-                            while iparam0 < len(banlist_id_nick):
-                                banned_id = banlist_id_nick[iparam0]
-                                banned_nick = banlist_id_nick[iparam0 + 1]
-                                self.on_banlist(banned_id, banned_nick)
-                                iparam0 += 2
+                        elif cmd == 'quit':
+                            quit_name = amf0_cmd[3]
+                            quit_id = amf0_cmd[4]
+                            self.on_quit(quit_id, quit_name)
 
-                    elif cmd == 'startbanlist':
-                        self.on_startbanlist()
+                        elif cmd == 'kick':
+                            kick_id = amf0_cmd[3]
+                            kick_name = amf0_cmd[4]
+                            self.on_kick(kick_id, kick_name)
 
-                    elif cmd == 'topic':
-                        topic = amf0_cmd[3]
-                        self.on_topic(topic)
+                        elif cmd == 'banned':
+                            self.on_banned()
 
-                    elif cmd == 'gift':
-                        self.console_write(COLOR['white'], str(amf0_cmd))
+                        elif cmd == 'banlist':
+                            banlist_id_nick = amf0_cmd[3:]
+                            if len(banlist_id_nick) is not 0:
+                                while iparam0 < len(banlist_id_nick):
+                                    banned_id = banlist_id_nick[iparam0]
+                                    banned_nick = banlist_id_nick[iparam0 + 1]
+                                    self.on_banlist(banned_id, banned_nick)
+                                    iparam0 += 2
 
-                    elif cmd == 'prepare_gift_profile':
-                        self.console_write(COLOR['white'], str(amf0_cmd))
+                        elif cmd == 'startbanlist':
+                            self.on_startbanlist()
 
-                    elif cmd == 'from_owner':
-                        owner_msg = amf0_cmd[3]
-                        self.on_from_owner(owner_msg)
+                        elif cmd == 'topic':
+                            topic = amf0_cmd[3]
+                            self.on_topic(topic)
 
-                    elif cmd == 'doublesignon':
-                        self.on_doublesignon()
+                        elif cmd == 'gift':
+                            self.console_write(COLOR['white'], str(amf0_cmd))
 
-                    elif cmd == 'privmsg':
-                        # self.msg_raw = amf0_cmd[4]
-                        msg_text = self._decode_msg(u'' + amf0_cmd[4])
-                        msg_sender = str(amf0_cmd[6])
-                        if msg_text == '/reported':
-                            self.on_reported(msg_sender)
-                        else:
+                        elif cmd == 'prepare_gift_profile':
+                            self.console_write(COLOR['white'], str(amf0_cmd))
+
+                        elif cmd == 'from_owner':
+                            owner_msg = amf0_cmd[3]
+                            self.on_from_owner(owner_msg)
+
+                        elif cmd == 'doublesignon':
+                            self.on_doublesignon()
+
+                        elif cmd == 'privmsg':
+                            # self.msg_raw = amf0_cmd[4]
+                            msg_text = self._decode_msg(u'' + amf0_cmd[4])
+                            msg_sender = str(amf0_cmd[6])
                             self.on_privmsg(msg_text, msg_sender)
 
-                    elif cmd == 'notice':
-                        notice_msg = amf0_cmd[3]
-                        notice_msg_id = amf0_cmd[4]
-                        if notice_msg == 'avon':
-                            avon_name = amf0_cmd[5]
-                            self.on_avon(notice_msg_id, avon_name)
-                        elif notice_msg == 'pro':
-                            self.on_pro(notice_msg_id)
+                        elif cmd == 'notice':
+                            notice_msg = amf0_cmd[3]
+                            notice_msg_id = amf0_cmd[4]
+                            if notice_msg == 'avon':
+                                avon_name = amf0_cmd[5]
+                                self.on_avon(notice_msg_id, avon_name)
+                            elif notice_msg == 'pro':
+                                self.on_pro(notice_msg_id)
 
-                    elif cmd == 'private_room':
-                        private_status = str(amf0_cmd[3])
-                        if private_status == 'yes':
-                            self.private_room = True
-                        elif private_status == 'no':
-                            self.private_room = False
-                        self.on_private_room()
+                        elif cmd == 'private_room':
+                            private_status = str(amf0_cmd[3])
+                            if private_status == 'yes':
+                                self.private_room = True
+                            elif private_status == 'no':
+                                self.private_room = False
+                            self.on_private_room()
 
-                    else:
-                        self.console_write(COLOR['bright_red'], 'Unknown command:' + cmd)
+                        else:
+                            self.console_write(COLOR['bright_red'], 'Unknown command: %s' % cmd)
 
             except Exception as ex:
                 log.error('General callback error: %s' % ex, exc_info=True)
@@ -718,7 +596,7 @@ class TinychatRTMPClient:
         if len(result_info) is 4 and type(result_info[3]) is int:
             # TODO: Verify that the stream ID works in this case.
             # self.stream_id = result_info[3]  # stream ID?
-            log.debug('Stream ID: %s' % self.stream_id)
+            # log.debug('Stream ID: %s' % self.stream_id)
             pass
         if CONFIG['debug_mode']:
             for list_item in result_info:
@@ -756,6 +634,7 @@ class TinychatRTMPClient:
     def on_registered(self, client_info):
         self.client_id = client_info['id']
         self.is_client_mod = client_info['mod']
+        self.is_client_owner = client_info['own']
         user = self.add_user_info(client_info['nick'])
         user.id = client_info['id']
         user.nick = client_info['nick']
@@ -764,14 +643,14 @@ class TinychatRTMPClient:
         user.is_owner = client_info['own']
         user.is_mod = self.is_client_mod
 
-        self.console_write(COLOR['bright_green'], 'registered with ID: ' + str(self.client_id))
+        self.console_write(COLOR['bright_green'], 'registered with ID: %d' % self.client_id)
 
         key = tinychat_api.get_captcha_key(self.roomname, str(self.client_id), proxy=self.proxy)
         if key is None:
-            self.console_write(COLOR['bright_red'], 'There was a problem parsing the captcha key. Key=' + str(key))
+            self.console_write(COLOR['bright_red'], 'There was a problem obtaining the captcha key. Key=%s' % str(key))
             sys.exit(1)
         else:
-            self.console_write(COLOR['bright_green'], 'Captcha key found: ' + key)
+            self.console_write(COLOR['bright_green'], 'Captcha key found: %s' % key)
             self.send_cauth_msg(key)
             self.set_nick()
 
@@ -793,18 +672,21 @@ class TinychatRTMPClient:
                 user.tinychat_id = tc_info['tinychat_id']
                 user.last_login = tc_info['last_active']
             if join_info_dict['own']:
-                self.console_write(COLOR['red'], 'Room Owner ' + join_info_dict['nick'] + ':'
-                                   + str(join_info_dict['id']) + ':' + join_info_dict['account'])
+                self.console_write(COLOR['red'],
+                                   'Room Owner %s:%d:%s' % (join_info_dict['nick'], join_info_dict['id'],
+                                                            join_info_dict['account']))
             elif join_info_dict['mod']:
-                self.console_write(COLOR['bright_red'], 'Moderator ' + join_info_dict['nick'] + ':'
-                                   + str(join_info_dict['id']) + ':' + join_info_dict['account'])
+                self.console_write(COLOR['bright_red'],
+                                   'Moderator %s:%d:%s' % (join_info_dict['nick'], join_info_dict['id'],
+                                                           join_info_dict['account']))
             else:
-                self.console_write(COLOR['bright_yellow'], join_info_dict['nick'] + ':' + str(join_info_dict['id'])
-                                   + ' has account: ' + join_info_dict['account'])
+                self.console_write(COLOR['bright_yellow'],
+                                   '%s:%d has account: %s' % (join_info_dict['nick'], join_info_dict['id'],
+                                                              join_info_dict['account']))
         else:
             if join_info_dict['id'] is not self.client_id:
-                self.console_write(COLOR['bright_cyan'], join_info_dict['nick'] + ':' + str(join_info_dict['id'])
-                                   + ' joined the room.')
+                self.console_write(COLOR['bright_cyan'],
+                                   '%s:%d joined the room.' % (join_info_dict['nick'], join_info_dict['id']))
 
     def on_joins(self, joins_info_dict):
         user = self.add_user_info(joins_info_dict['nick'])
@@ -820,21 +702,25 @@ class TinychatRTMPClient:
 
         if joins_info_dict['account']:
             if joins_info_dict['own']:
-                self.console_write(COLOR['red'], 'Joins Room Owner ' + joins_info_dict['nick'] + ':' +
-                                   str(joins_info_dict['id']) + ':' + joins_info_dict['account'])
+                self.console_write(COLOR['red'],
+                                   'Joins Room Owner %s:%d:%s' % (joins_info_dict['nick'], joins_info_dict['id'],
+                                                                  joins_info_dict['account']))
             elif joins_info_dict['mod']:
-                self.console_write(COLOR['bright_red'], 'Joins Moderator ' + joins_info_dict['nick'] +
-                                   ':' + str(joins_info_dict['id']) + ':' + joins_info_dict['account'])
+                self.console_write(COLOR['bright_red'],
+                                   'Joins Moderator %s:%d:%s' % (joins_info_dict['nick'], joins_info_dict['id'],
+                                                                 joins_info_dict['account']))
             else:
-                self.console_write(COLOR['bright_yellow'], 'Joins: ' + joins_info_dict['nick'] + ':' +
-                                   str(joins_info_dict['id']) + ':' + joins_info_dict['account'])
+                self.console_write(COLOR['bright_yellow'],
+                                   'Joins: %s:%d:%s' % (joins_info_dict['nick'], joins_info_dict['id'],
+                                                        joins_info_dict['account']))
         else:
             if joins_info_dict['id'] is not self.client_id:
-                self.console_write(COLOR['bright_cyan'], 'Joins: ' + joins_info_dict['nick'] + ':' +
-                                   str(joins_info_dict['id']))
+                self.console_write(COLOR['bright_cyan'],
+                                   'Joins: %s:%d' % (joins_info_dict['nick'], joins_info_dict['id']))
 
     def on_joinsdone(self):
         self.console_write(COLOR['cyan'], 'All joins information received.')
+
         if self.is_client_mod:
             self.send_banlist_msg()
 
@@ -842,47 +728,43 @@ class TinychatRTMPClient:
         user = self.add_user_info(nick)
         user.is_mod = True
         if uid != self.client_id:
-            self.console_write(COLOR['bright_red'], nick + ':' + uid + ' is moderator.')
+            self.console_write(COLOR['bright_red'], '%s:%s is moderator.' % (nick, uid))
 
     def on_deop(self, uid, nick):
         user = self.add_user_info(nick)
         user.is_mod = False
-        self.console_write(COLOR['red'], nick + ':' + uid + ' was deoped.')
+        self.console_write(COLOR['red'], '%s:%s was deoped.' % (nick, uid))
 
     def on_owner(self):
-        # self.is_client_mod = True
-        # self.send_banlist_msg()
         pass
 
     def on_avon(self, uid, name):
-        self.console_write(COLOR['cyan'], name + ':' + uid + ' is broadcasting.')
+        self.console_write(COLOR['cyan'], '%s:%s is broadcasting.' % (name, uid))
 
     def on_pro(self, uid):
-        self.console_write(COLOR['cyan'], uid + ' is pro.')
+        self.console_write(COLOR['cyan'], '%s is pro.' % uid)
 
     def on_nick(self, old, new, uid):
-        # self.console_write(COLOR['cyan'], 'Received client nick: \'' +
-        #                   str(self.client_nick) + '\' With ID: ' + str(uid))
         if uid is not self.client_id:
             old_info = self.find_user_info(old)
             old_info.nick = new
             if old in self.room_users.keys():
                 del self.room_users[old]
                 self.room_users[new] = old_info
-            self.console_write(COLOR['bright_cyan'], old + ':' + str(uid) + ' changed nick to: ' + new)
+            self.console_write(COLOR['bright_cyan'], '%s:%s changed nick to: %s  ' % (old, uid, new))
 
     def on_nickinuse(self):
         self.client_nick += str(random.randint(0, 10))
-        self.console_write(COLOR['white'], 'Nick already taken. Changing nick to: ' + self.client_nick)
+        self.console_write(COLOR['white'], 'Nick already taken. Changing nick to: %s' % self.client_nick)
         self.set_nick()
 
     def on_quit(self, uid, name):
         if name in self.room_users.keys():
             del self.room_users[name]
-            self.console_write(COLOR['cyan'], name + ':' + uid + ' left the room.')
+            self.console_write(COLOR['cyan'], '%s:%s left the room.' % (name, uid))
 
     def on_kick(self, uid, name):
-        self.console_write(COLOR['bright_red'], name + ':' + uid + ' was banned.')
+        self.console_write(COLOR['bright_red'], '%s:%s was banned.' % (name, uid))
         self.send_banlist_msg()
 
     def on_banned(self):
@@ -892,30 +774,28 @@ class TinychatRTMPClient:
         self.console_write(COLOR['cyan'], 'Checking banlist.')
 
     def on_banlist(self, uid, nick):
-        if uid not in self.room_banlist.values():
-            self.room_banlist[nick] = uid
-            self.console_write(COLOR['bright_red'], 'Banned user: ' + nick + ':' + uid)
+        self.room_banlist[nick] = uid
+        self.console_write(COLOR['bright_red'], 'Banned user: %s:%s' % (nick, uid))
 
     def on_topic(self, topic):
-        # TODO: Allow topic message to be a class variable so it can be recalled later.
-        topic_msg = topic.encode('utf-8', 'replace')
-        self.console_write(COLOR['cyan'], 'room topic: ' + topic_msg)
+        self.topic_msg = topic.encode('utf-8', 'replace')
+        self.console_write(COLOR['cyan'], 'Room topic: %s' % self.topic_msg)
 
     def on_private_room(self):
-        self.console_write(COLOR['cyan'], 'Private Room: ' + str(self.private_room))
+        self.console_write(COLOR['cyan'], 'Private Room: %s' % self.private_room)
 
     def on_from_owner(self, owner_msg):
         msg = str(owner_msg).replace('notice', '').replace('%20', ' ')
         self.console_write(COLOR['bright_red'], msg)
 
     def on_doublesignon(self):
-        self.console_write(COLOR['bright_red'], 'This account is already in this room. Aborting!')
+        self.console_write(COLOR['bright_red'], 'Double account sign on. Aborting!')
         self.is_connected = False
         if CONFIG['double_signon_reconnect']:
             self.reconnect()
 
-    def on_reported(self, reporter):
-        self.console_write(COLOR['bright_red'], 'You were reported by %s.' % reporter)
+    def on_reported(self, uid, nick):
+        self.console_write(COLOR['bright_red'], 'You were reported by %s:%s.' % (uid, nick))
 
     def on_privmsg(self, msg, msg_sender):
         """
@@ -931,6 +811,9 @@ class TinychatRTMPClient:
             if msg_cmd[0] == '/msg':
                 private_msg = ' '.join(msg_cmd[2:])
                 self.private_message_handler(msg_sender, private_msg.strip())
+
+            elif msg_cmd[0] == '/reported':
+                self.on_reported(self.user_obj.id, msg_sender)
 
             elif msg_cmd[0] == '/mbs':
                 media_type = msg_cmd[1]
@@ -968,7 +851,7 @@ class TinychatRTMPClient:
         :param msg_sender: str the user sending a message
         :param msg: str the message
         """
-        self.console_write(COLOR['green'], msg_sender + ':' + msg)
+        self.console_write(COLOR['green'], '%s:%s' % (msg_sender, msg))
 
     # Private message Handler.
     def private_message_handler(self, msg_sender, private_msg):
@@ -977,7 +860,7 @@ class TinychatRTMPClient:
         :param msg_sender: str the user sending the private message.
         :param private_msg: str the private message.
         """
-        self.console_write(COLOR['white'], 'Private message from ' + msg_sender + ':' + private_msg)
+        self.console_write(COLOR['white'], 'Private message from %s:%s' % (msg_sender, private_msg))
 
     # Media Events.
     def on_media_broadcast_start(self, media_type, video_id, time_point, usr_nick):
@@ -988,8 +871,8 @@ class TinychatRTMPClient:
         :param time_point: int the time in the video/track which we received to start playing.
         :param usr_nick: str the user name of the user playing media.
         """
-        self.console_write(COLOR['bright_magenta'], usr_nick + ' is playing ' +
-                                media_type + ' ' + video_id + ' (' + str(time_point) + ')' )
+        self.console_write(COLOR['bright_magenta'], '%s is playing %s %s (%s)' %
+                           (usr_nick, media_type, video_id, time_point))
 
     def on_media_broadcast_close(self, media_type, usr_nick):
         """
@@ -997,7 +880,7 @@ class TinychatRTMPClient:
         :param media_type: str the type of media. youTube or soundCloud.
         :param usr_nick: str the user name of the user closing the media.
         """
-        self.console_write(COLOR['bright_magenta'], usr_nick + ' closed the ' + media_type)
+        self.console_write(COLOR['bright_magenta'], '%s closed the %s' % (usr_nick, media_type))
 
     def on_media_broadcast_paused(self, media_type, usr_nick):
         """
@@ -1005,7 +888,7 @@ class TinychatRTMPClient:
         :param media_type: str the type of media being paused. youTube or soundCloud.
         :param usr_nick: str the user name of the user pausing the media.
         """
-        self.console_write(COLOR['bright_magenta'], usr_nick + ' paused the ' + media_type)
+        self.console_write(COLOR['bright_magenta'], '%s paused the %s' % (usr_nick, media_type))
 
     def on_media_broadcast_play(self, media_type, time_point, usr_nick):
         """
@@ -1014,7 +897,7 @@ class TinychatRTMPClient:
         :param time_point: int the time point in the tune in milliseconds.
         :param usr_nick: str the user resuming the tune.
         """
-        self.console_write(COLOR['bright_magenta'], usr_nick + ' resumed the ' + media_type + ' at: ' + str(time_point))
+        self.console_write(COLOR['bright_magenta'], '%s resumed the %s at: %s' % (usr_nick, media_type, time_point))
 
     def on_media_broadcast_skip(self, media_type, time_point, usr_nick):
         """
@@ -1023,8 +906,8 @@ class TinychatRTMPClient:
         :param time_point: int the time point in the tune in milliseconds.
         :param usr_nick: str the user time searching the tune.
         """
-        self.console_write(COLOR['bright_magenta'], usr_nick + ' time searched the ' + media_type + ' at: '
-                           + str(time_point))
+        self.console_write(COLOR['bright_magenta'], '%s time searched the %s at: %s' %
+                           (usr_nick, media_type, time_point))
 
     # User Related
     def add_user_info(self, usr_nick):
@@ -1066,7 +949,8 @@ class TinychatRTMPClient:
         """
         self._send_command('cauth', [u'' + cauth_key])
 
-    # TODO: Refine this method in order remove the nested tries.
+    # TODO: Refine this method in order remove the nested tries and/or specify correct errors;
+    #       and eventually remove quote dependency(?).
     def send_owner_run_msg(self, msg):
         """
         Send owner run message. The client has to be mod when sending this message.
@@ -1084,39 +968,13 @@ class TinychatRTMPClient:
                     msg_encoded += '%20'
                 else:
                     msg_encoded += msg[x]
-            except Exception:
+            except (Exception, UnicodeEncodeError):
                 try:
                     msg_encoded += quote_plus(msg[x].encode('utf8'), safe='/')
-                except Exception:
+                except (Exception, UnicodeEncodeError):
                     pass
 
         self._send_command('owner_run', [u'notice' + msg_encoded])
-
-    # TODO: Move to bot file.
-    def send_bot_msg(self, msg, is_mod=False):
-        """
-        Send a message in the color black.
-        :param msg: str the message to send.
-        :param is_mod: bool if True we send owner run message, else we send a normal message in the color black.
-        """
-        if is_mod:
-            self.send_owner_run_msg(msg)
-        else:
-            self._send_command('privmsg', [u'' + self._encode_msg(msg), u'#262626,en'])
-
-    # TODO: Move to bot file.
-    def send_private_bot_msg(self, msg, nick):
-        """
-        Send a private message to a user in the color black.
-        :param msg: str the message to send.
-        :param nick: str the user to receive the message.
-        """
-        user = self.find_user_info(nick)
-        if user is not None:
-            self._send_command('privmsg', [u'' + self._encode_msg('/msg ' + nick + ' ' + msg), u'#262626,en',
-                                           u'n' + str(user.id) + '-' + nick])
-            self._send_command('privmsg', [u'' + self._encode_msg('/msg ' + nick + ' ' + msg), u'#262626,en',
-                                           u'b' + str(user.id) + '-' + nick])
 
     def send_chat_msg(self, msg):
         """
@@ -1163,7 +1021,7 @@ class TinychatRTMPClient:
         """ Send the nick message. """
         if not self.client_nick:
             self.client_nick = create_random_string(5, 25)
-        self.console_write(COLOR['white'], 'Setting nick: ' + self.client_nick)
+        self.console_write(COLOR['white'], 'Setting nick: %s' % self.client_nick)
         self._send_command('nick', [u'' + self.client_nick])
 
     def send_ban_msg(self, nick, uid):
@@ -1224,8 +1082,8 @@ class TinychatRTMPClient:
         """
         user = self.find_user_info(nick)
         if user is not None and self.room_broadcast_pass is not None:
-            self._send_command('privmsg', [u'' + self._encode_msg('/allowbroadcast ' + self.room_broadcast_pass),'#0,en',
-                                           u'n' + str(user.id) + '-' + nick])
+            self._send_command('privmsg', [u'' + self._encode_msg('/allowbroadcast ' + self.room_broadcast_pass),
+                                           '#0,en', u'n' + str(user.id) + '-' + nick])
 
     def send_private_room_msg(self, state=None):
         """
@@ -1234,6 +1092,8 @@ class TinychatRTMPClient:
         OPTIONAL: param state: boolean default None and connection value is used, set as True/False depending on
                                whether private_room should be turned on or not.
         """
+        value = ''
+
         if state is not None:
             if state:
                 value = 'yes'
@@ -1266,7 +1126,7 @@ class TinychatRTMPClient:
     def send_media_broadcast_close(self, media_type, private_nick=None):
         """
         Close a media broadcast.
-        NOTE: This method replaces stop_youtube and stop_soundcloud
+        NOTE: This method replaces stop_youtube and stop_soundcloud.
         :param media_type: str 'youTube' or 'soundCloud'
         :param private_nick: str if not None, stop the media broadcast for this nickname only.
         """
@@ -1276,7 +1136,7 @@ class TinychatRTMPClient:
         else:
             self.send_chat_msg(mbc_msg)
 
-    # TODO: implement this
+    # TODO: Implement send_media_broadcast_play.
     def send_media_broadcast_play(self, media_type, time_point, private_nick=None):
         """
         Play a currently paused media broadcast.
@@ -1290,11 +1150,11 @@ class TinychatRTMPClient:
         else:
             self.send_chat_msg(mbpl_msg)
 
-    # TODO: implement this
+    # TODO: Implement send_media_broadcast_pause.
     def send_media_broadcast_pause(self, media_type, private_nick=None):
         """
         Pause a currently playing media broadcast.
-        :param media_type: str 'youTube' or 'soundCloud'
+        :param media_type: str 'youTube' or 'soundCloud'.
         :param private_nick: str if not None, send this message to this username only.
         """
         mbpa_msg = '/mbpa %s' % media_type
@@ -1303,11 +1163,11 @@ class TinychatRTMPClient:
         else:
             self.send_chat_msg(mbpa_msg)
 
-    # TODO: implement this
+    # TODO: Implement send_media_broadcast_skip.
     def send_media_broadcast_skip(self, media_type, time_point, private_nick=None):
         """
         Time search a currently playing/paused media broadcast.
-        :param media_type: str 'youTube' or 'soundCloud'
+        :param media_type: str 'youTube' or 'soundCloud'.
         :param time_point: int the time point to skip to.
         :param private_nick: str if not None, send this message to this username only.
         :return:
@@ -1318,28 +1178,33 @@ class TinychatRTMPClient:
         else:
             self.send_chat_msg(mbsk_msg)
 
-    # TODO: Adapt this to work with the new base.
     # Message Construction.
-    def _send_command(self, cmd, params=[]):
+    def _send_command(self, cmd, params=None, trans_id=0):
         """
          Sends command messages to the server.
          Calls remote procedure calls (RPC) at the receiving end.
 
         :param cmd: str command name.
         :param params: list command parameters.
+        :param trans_id: int the transaction ID.
         """
-        # Retrieve message structure
-        msg = message_structures.sendCommand(
+        msg_format = [u'' + cmd, trans_id, None]
+        if params and type(params) is list:
+            msg_format.extend(params)
+
+        # Retrieve/generate message structure.
+        msg = message_structures.send_command(
             rtmp_protocol.DataTypes.COMMAND,
-            cmd,
-            params)
+            msg_format)
+
+        #  cmd, params
 
         try:
             self.connection.writer.write(msg)
             self.connection.writer.flush()
 
             if CONFIG['amf_sent']:
-                print(msg)
+                self.console_write(COLOR['white'], 'SENT --> ' + str(msg))
 
         except Exception as ex:
             log.error('send command error: %s' % ex, exc_info=True)
@@ -1348,7 +1213,7 @@ class TinychatRTMPClient:
             self.reconnect()
 
     # Stream functions
-    def _send_create_stream(self, play=False):
+    def send_create_stream(self, play=False):
         """
         Send createStream message.
         :param play: Boolean True/False depending on whether the create stream is used for playing a stream.
@@ -1358,98 +1223,94 @@ class TinychatRTMPClient:
         else:
             transaction_id = 0
 
-        # Retrieve/generate message structure
-        msg = message_structures.createStream(
+        # Retrieve/generate message structure.
+        msg = message_structures.create_stream(
             rtmp_protocol.DataTypes.COMMAND,
             transaction_id)
 
-        self.console_write(COLOR['white'], 'Sending createStream message #' + str(transaction_id))
+        self.console_write(COLOR['white'], 'Sending createStream message #%s' % transaction_id)
         self.connection.writer.write(msg)
         self.connection.writer.flush()
 
-        # Set to sort the stream information appropriately upon the arrival of _result
+        # Set to sort the stream information appropriately upon the arrival of a "_result" packet from the server.
         self.stream_sort = True
 
-    def _send_publish(self):
+    def send_publish(self):
         """ Send publish message. """
-        try:
-            self.streams['client_publish']
-        except KeyError:
+        if 'client_publish' in self.streams:
+
+            # Publish type may vary from live, record or append. Live is the only supported publishing type at
+            # the moment, the use of other types is not recommended and may cause further issues in the program.
+            publish_type = 'live'
+
+            # Retrieve/generate message structure.
+            msg = message_structures.publish(
+                rtmp_protocol.DataTypes.COMMAND,
+                self.streams['client_publish'],
+                self.client_id,
+                publish_type)
+
+            self.console_write(COLOR['white'], 'Sending publish message StreamID: %s' % self.streams['client_publish'])
+            self.connection.writer.write(msg)
+            self.connection.writer.flush()
+
+        else:
             self.console_write(COLOR['white'], 'No StreamID available to start publish upon.')
-            return
 
-        # Publish type may vary from live, record or append. Though live is the only supported type at
-        # the moment, the use of other types is not recommended and may cause further issues in the program.
-        publish_type = 'live'
-
-        # Retrieve/generate message structure
-        msg = message_structures.publish(
-            rtmp_protocol.DataTypes.COMMAND,
-            self.streams['client_publish'],
-            self.client_id,
-            publish_type)
-
-        self.console_write(COLOR['white'], 'Sending publish message on StreamID: ' + str(self.streams['client_publish']))
-        self.connection.writer.write(msg)
-        self.connection.writer.flush()
-
-    # TODO: Make sure set chunk size is sent properly in rtmp_protocol.py
-    def _send_set_chunk_size(self, new_chunk_size=None):
+    def send_set_chunk_size(self, new_chunk_size=None):
         """
-        Send set chunk size message. Handles audio chunk size by default by sending 129.
+        Send 'set chunk size' message.
         :param new_chunk_size: int the new chunk size.
         """
-        try:
-            self.streams['client_publish']
-        except KeyError:
-            self.console_write(COLOR['white'], 'No publish StreamID found to set chunk size upon.')
-            return
+        if 'client_publish' in self.streams:
 
-        if new_chunk_size is not None:
-            chunk_size = new_chunk_size
+            if new_chunk_size is not None:
+                chunk_size = new_chunk_size
+            else:
+                self.console_write(COLOR['white'], 'No chunk size was provided.')
+                return
+
+            msg = message_structures.set_chunk_size(
+                rtmp_protocol.DataTypes.SET_CHUNK_SIZE,
+                self.streams['client_publish'],
+                chunk_size)
+
+            self.console_write(COLOR['white'], 'Sending chunk size message.')
+            self.connection.writer.write(msg)
+            self.connection.writer.flush()
+
+            # Set writer to work with new chunk size
+            self.connection.writer.chunk_size = chunk_size
+            self.console_write(COLOR['white'], 'Set chunk size: %s' % self.connection.writer.chunk_size)
+
         else:
-            self.console_write(COLOR['white'], 'No chunk size was provided.')
-            return
+            self.console_write(COLOR['white'], 'No publish StreamID found to set chunk size upon.')
 
-        msg = message_structures.SET_CHUNK_SIZE(
-            rtmp_protocol.DataTypes.SET_CHUNK_SIZE,
-            self.streams['client_publish'],
-            chunk_size)
-
-        self.console_write(COLOR['white'], 'Sending chunk size message.')
-        self.connection.writer.write(msg)
-        self.connection.writer.flush()
-
-        # Set writer to work with new chunk size
-        self.connection.writer.chunk_size = chunk_size
-        self.console_write(COLOR['white'], 'Set chunk size:' + str(self.connection.writer.chunk_size))
-
-    def _send_play(self, stream_id, playID):
+    def send_play(self, stream_id, play_id):
         """
-        Send play message.
-        :param stream_id:
-        :param playID:
+        Send 'play' message.
+        :param stream_id: int the stream ID onto which the message should be sent on.
+        :param play_id: str the ID of the stream to play, in this case this will be uid of a user.
         """
-        try:
-            int(playID)
-        except Exception:
+        if type(play_id) is int:
+
+            # Retrieve/generate message structure.
+            msg = message_structures.play(
+                rtmp_protocol.DataTypes.COMMAND,
+                stream_id,
+                play_id)
+
+            self.console_write(COLOR['white'], 'Starting playback for:%s on StreamID: %s' % (play_id, stream_id))
+            self.connection.writer.write(msg)
+            self.connection.writer.flush()
+
+        else:
             self.console_write(COLOR['white'], 'PlayID format incorrect, integers only allowed.')
-            return
 
-        msg = message_structures.play(
-            rtmp_protocol.DataTypes.COMMAND,
-            stream_id,
-            playID)
-
-        self.console_write(COLOR['white'], 'Starting playback for:' + str(playID) + ' on StreamID:' + str(stream_id))
-        self.connection.writer.write(msg)
-        self.connection.writer.flush()
-
-    def _configure_av_packet(self, av_content):
+    def configure_av_packet(self, av_content):
         """
-        Configures audio/video content for a packet given the frame content and the setttings
-        and send the packet.
-        :param av_content:
+        Configures audio/video content for a packet, given the frame content and the settings, and send the packet.
+        :param av_content: list [type of packet - audio/video, raw data, packet control type, time stamp].
         """
         # Assign timestamp
         if self.force_time_stamp is not None:
@@ -1457,7 +1318,7 @@ class TinychatRTMPClient:
         else:
             time_stamp = av_content[3]
 
-        # Assign control type
+        # Assign control type.
         control_type = av_content[2]
 
         # Setup audio packet
@@ -1467,7 +1328,7 @@ class TinychatRTMPClient:
                 raw_data = b""
             else:
                 raw_data = av_content[1]
-            self._send_audio_packet(raw_data, control_type, time_stamp)
+            self.send_audio_packet(raw_data, control_type, time_stamp)
 
         # Setup video packet
         elif av_content[0] == rtmp_protocol.DataTypes.VIDEO:
@@ -1476,11 +1337,11 @@ class TinychatRTMPClient:
                 raw_data = b""
             else:
                 raw_data = av_content[1]
-            self._send_video_packet(raw_data, control_type, time_stamp)
+            self.send_video_packet(raw_data, control_type, time_stamp)
         else:
-            print("The frame is an invalid audio/video input.")
+            print('This frame is an invalid audio/video input.')
 
-    def _send_audio_packet(self, packet_raw_data, packet_control_type, packet_timestamp=0):
+    def send_audio_packet(self, packet_raw_data, packet_control_type, packet_timestamp=0):
         """
         Send Audio message.
         :param packet_raw_data: bytes the audio data (in the MP3 format) to be sent.
@@ -1489,6 +1350,7 @@ class TinychatRTMPClient:
                                     inter-frame (0x22).
         :param packet_timestamp: int the timestamp for the packet (OPTIONAL)
         """
+        # Retrieve/generate message structure.
         msg = message_structures.audio(
             rtmp_protocol.DataTypes.AUDIO,
             self.streams['client_publish'],
@@ -1496,11 +1358,10 @@ class TinychatRTMPClient:
             packet_control_type,
             packet_timestamp)
 
-        # self.console_write(COLOR['white'], 'Sending audio message.')
         self.connection.writer.write(msg)
         self.connection.writer.flush()
 
-    def _send_video_packet(self, packet_raw_data, packet_control_type, packet_timestamp=0):
+    def send_video_packet(self, packet_raw_data, packet_control_type, packet_timestamp=0):
         """
         Send Video message.
         :param packet_raw_data: bytes the video data (in the FLV1 format) to be sent.
@@ -1509,6 +1370,7 @@ class TinychatRTMPClient:
                                     NOTE: This can produce unexpected results.
         :param packet_timestamp: int the timestamp for the packet (OPTIONAL)
         """
+        # Retrieve/generate message structure.
         msg = message_structures.video(
             rtmp_protocol.DataTypes.VIDEO,
             self.streams['client_publish'],
@@ -1516,73 +1378,68 @@ class TinychatRTMPClient:
             packet_control_type,
             packet_timestamp)
 
-        # self.console_write(COLOR['white'], 'Sending video message.')
         self.connection.writer.write(msg)
         self.connection.writer.flush()
 
-    def _send_close_stream(self, stream_id=None):
+    def send_close_stream(self, stream_id=None):
         """
         Send closeStream message.
-        :param stream_id:
+        :param stream_id: int the stream ID onto which the message should be sent on.
         """
-        try:
-            self.streams['client_closestream']
-        except KeyError:
+        if 'client_close_stream' in self.streams:
+            if stream_id is None:
+                stream_id = self.streams['client_close_stream']
+
+            msg = message_structures.close_stream(
+                rtmp_protocol.DataTypes.COMMAND,
+                stream_id)
+
+            self.console_write(COLOR['white'], 'Sending closeStream message on StreamID: %s' % stream_id)
+            self.connection.writer.write(msg)
+            self.connection.writer.flush()
+
+        else:
             self.console_write(COLOR['white'], 'No closeStream StreamID found to send the closeStream request upon.')
-            return
 
-        if stream_id is None:
-            stream_id = self.streams['client_closestream']
-
-        msg = message_structures.closeStream(
-            rtmp_protocol.DataTypes.COMMAND,
-            stream_id)
-
-        self.console_write(COLOR['white'], 'Sending closeStream message on StreamID:' + str(stream_id))
-        self.connection.writer.write(msg)
-        self.connection.writer.flush()
-
-    def _send_delete_stream(self, stream_id=None):
+    def send_delete_stream(self, stream_id=None):
         """
         Send deleteStream message.
         :param stream_id:
         """
-        try:
-            self.streams['client_deletestream']
-        except KeyError:
+        if 'client_delete_stream' in self.streams:
+            if stream_id is None:
+                stream_id = self.streams['client_delete_stream']
+
+            msg = message_structures.delete_stream(
+                rtmp_protocol.DataTypes.COMMAND,
+                stream_id)
+
+            self.console_write(COLOR['white'], 'Sending deleteStream message on StreamID: %s' % stream_id)
+            self.connection.writer.write(msg)
+            self.connection.writer.flush()
+
+        else:
             self.console_write(COLOR['white'], 'No deleteStream StreamID found to send the deleteStream request upon.')
-            return
-
-        if stream_id is None:
-            stream_id = self.streams['client_deletestream']
-
-        msg = message_structures.deleteStream(
-            rtmp_protocol.DataTypes.COMMAND,
-            stream_id)
-
-        self.console_write(COLOR['white'], 'Sending deleteStream message on StreamID:' + str(stream_id))
-        self.connection.writer.write(msg)
-        self.connection.writer.flush()
 
     # Helper Methods
-    def _send_ping_request(self, manual=False):
+    def send_ping_request(self, manual=False):
         """
         Send a ping request (experimental).
-        NOTE: The client sends an unorthodox message i.e. *ping response* instead of a *ping response* due to
-              the nature of how the servers were setup. Tinychat servers do not automatically request a ping,
-              so we request one instead. We assume the data-types are reversed since an event_type of '7', which
-              is usually only a client response, will also be shown by the server as it responds to your initial
-              ping request.
+        NOTE: The client sends an unorthodox message i.e. *ping request* instead of a *ping response* due to
+              the nature of how the servers were set up. Tinychat servers do not automatically request a ping,
+              so we issue a request instead. We assume the data-types are reversed since an event_type of 7, which
+              is only a client response, will be "accepted" by the server as it responds to your initial
+              ping request with random data.
         :param manual: Boolean True/False if you want to instantly request a 'reverse' ping request.
         """
-        # TODO: Try to send a timestamp instead or try to parse the response in a different manner.
-
-        msg = message_structures.PING(
+        msg = message_structures.ping(
             rtmp_protocol.DataTypes.USER_CONTROL,
             rtmp_protocol.UserControlTypes.PING_REQUEST)
 
         if not manual:
             while not self.is_connected:
+                time.sleep(1)
+            while self.publish_connection:
                 time.sleep(1)
             while self.is_connected and not self.publish_connection:
                 self.connection.writer.write(msg)
@@ -1590,14 +1447,8 @@ class TinychatRTMPClient:
                 time.sleep(120)
         elif manual:
             self.connection.writer.write(msg)
-            # self.connection.handle_simple_message(msg)
             self.connection.writer.flush()
 
-            # Save next ping content by allowing the response to be caught
-            # self.ping_request = True
-
-    # TODO: Turn decode and encode message procedures into static methods.
-    # TODO: Monitor method to check for irregularities.
     @staticmethod
     def _encode_msg(msg):
         """
@@ -1607,7 +1458,6 @@ class TinychatRTMPClient:
         """
         return ','.join(str(ord(char)) for char in msg)
 
-    # TODO: Monitor method to check for irregularities.
     @staticmethod
     def _decode_msg(msg):
         """
@@ -1625,22 +1475,32 @@ class TinychatRTMPClient:
                 pass
         return msg
 
-    # TODO: Set self.video and self.audio to more appropriate names e.g. video_on/audio_on
-    def _set_upstream(self):
-        """ Appropriately sets the necessary options into effect to start 'upstreaming'. """
-
-        # Publish camera sequence:
-        # Send broadcast authorisation message to the server
-        self.send_bauth_msg()
-        # Create a new stream onto which to send A/V packets
-        self._send_create_stream()
-        # Sort out the stream request reply from the server
-        while self.stream_sort:
-            time.sleep(1)
-        # Send publish message to the server
-        self._send_publish()
-        # Acknowledge locally that we are publishing a stream
-        self.publish_connection = True
+    def _set_stream(self, stream=True):
+        """ Appropriately sets the necessary options into effect to start/close client streams. """
+        if stream:
+            # Publish camera sequence:
+            self.console_write(COLOR['white'], 'Opening stream.')
+            # Send broadcast authorisation message to the server.
+            self.send_bauth_msg()
+            # Create a new stream onto which we can send packets e.g. audio/video packets.
+            self.send_create_stream()
+            # Sort out the stream request reply from the server.
+            while self.stream_sort:
+                time.sleep(1)
+            # Send publish message to the server.
+            self.send_publish()
+            # Acknowledge locally that we are publishing a stream.
+            self.publish_connection = True
+        elif not stream:
+            # Close camera sequence:
+            self.console_write(COLOR['white'], 'Closing stream.')
+            # Delete all the stored stream information.
+            self.send_close_stream(self.streams['client_close_stream'])
+            self.send_delete_stream(self.streams['client_delete_stream'])
+            self.tidy_streams(self.streams['client_stream'])
+        else:
+            self.console_write(COLOR['white'], 'No stream argument was passed, True/False should be passed to '
+                                               'initiate/close streams respectively.')
 
     # Timed Auto Methods.
     def auto_job_handler(self):
@@ -1676,7 +1536,7 @@ class TinychatRTMPClient:
                 times = 0
                 continue
 
-            if room['status_code'] != 200:
+            if room['status_code'] is not 200:
                 times = 0
                 continue
 
@@ -1709,16 +1569,17 @@ def main():
         chat_msg = raw_input()
         if chat_msg.lower() == '/q':
             client.disconnect()
-            # Exit to system safely whilst returning exit code 0
+            # Exit to system safely whilst returning exit code 0.
             sys.exit(0)
         else:
-            client.send_bot_msg(chat_msg)
+            client.send_chat_msg(chat_msg)
 
 if __name__ == '__main__':
-    # TODO: Initial logging.
     if CONFIG['debug_to_file']:
-         formater = '%(asctime)s : %(levelname)s : %(filename)s : %(lineno)d : %(funcName)s() : %(name)s : %(message)s'
-         # should there be a check to make sure the debug file name has been set?
-         logging.basicConfig(filename=CONFIG['debug_file_name'], level=logging.DEBUG, format=formater)
-         log.info('Starting pinylib version: %s' % __version__)
+        formatter = '%(asctime)s : %(levelname)s : %(filename)s : %(lineno)d : %(funcName)s() : %(name)s : %(message)s'
+        # Should there be a check to make sure the debug file name has been set?
+        logging.basicConfig(filename=CONFIG['debug_file_name'], level=logging.DEBUG, format=formatter)
+        log.info('Starting pinylib version: %s' % __version__)
+    else:
+        log.addHandler(logging.NullHandler())
     main()

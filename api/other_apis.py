@@ -1,23 +1,22 @@
 # -*- coding: utf-8 -*-
 
 # Provides functions to search/explore various APIs i.e. urbandictionary,
-# worldweatheronline , ip-api and api.icndb & many others
-# Includes BeautifulSoup parsed APIs/websites functions
+# worldweatheronline , ip-api and api.icndb & many others.
+# Includes BeautifulSoup parsed APIs/websites functions.
 
 import web_request
-import requests
 import unicodedata
 import random
 
 try:
     from bs4 import BeautifulSoup
-except:
+except ImportError:
     BeautifulSoup = None
 
-if BeautifulSoup != None:
+if BeautifulSoup is not None:
     try:
-        import wikipedia # Is reliant on BeautifulSoup to be present
-    except:
+        import wikipedia  # Is reliant on BeautifulSoup to be present
+    except ImportError:
         wikipedia = None
 
 # A storage for API keys if required; add to this dictionary if you intend to use
@@ -29,7 +28,7 @@ def urbandictionary_search(search):
     """
     Searches Urban-dictionary's API for a given search term.
     :param search: The search term str to search for.
-    :return: defenition str or None on no match or error.
+    :return: definition str or None on no match or error.
     """
 
     if str(search).strip():
@@ -39,7 +38,7 @@ def urbandictionary_search(search):
         if response:
             try:
                 definition = response['content']['list'][0]['definition']
-                return definition.encode('ascii', 'ignore')
+                return str(definition.encode('ascii', 'ignore'))
             except KeyError:
                 return None
             except IndexError:
@@ -48,6 +47,7 @@ def urbandictionary_search(search):
         return None
 
 
+# TODO: Adjust to a new API for weather retrieval.
 def weather_search(city):
     """
     Searches worldweatheronline's API for weather data for a given city.
@@ -59,7 +59,7 @@ def weather_search(city):
     if str(city).strip():
         api_key = API_KEYS['weather']  # A valid API key.
         if not api_key:
-            return 'Missing api key.'
+            return False
         else:
             weather_api_url = 'http://api.worldweatheronline.com/free/v2/weather.ashx?' \
                               'q=%s&format=json&key=%s' % (city, api_key)
@@ -97,7 +97,7 @@ def whois(ip):
             org = json_data['content']['org']
             region = json_data['content']['regionName']
             zipcode = json_data['content']['zip']
-            info = country + ', ' + city + ', ' + region + ', Zipcode: ' + zipcode + '  Isp: ' + isp + '/' + org
+            info = country + ', ' + city + ', ' + region + ', *Zipcode*: ' + zipcode + '  *ISP*: ' + isp + '/' + org
             return info
         except KeyError:
             return None
@@ -105,9 +105,12 @@ def whois(ip):
         return None
 
 
+# TODO: Implement categories, and character name functionality.
 def chuck_norris():
     """
-    Finds a random Chuck Norris joke/quote.
+    Finds a random Chuck Norris joke/quote from http://www.icndb.com/api/ .
+    The API also has category specifications, i.e. categories are either "nerdy"/"explicit" set via webform "?limtTo".
+    The character names can also be altered via passing the webform "?firstName=[name]" or "?lastName=[name]".
     :return: joke str or None on failure.
     """
 
@@ -135,24 +138,26 @@ def yo_mama_joke():
         return None
 
 
-def onlineadvice():
+def online_advice():
     """
-    Retrieves a random piece of advice from an API.
-    :return: adivce str or None on failure.
+    Retrieves a random string of advice from an API.
+    :return: advice str or None on failure.
     """
 
     url = 'http://api.adviceslip.com/advice'
     json_data = web_request.get_request(url, json=True)
     if json_data['content']:
         advice = json_data['content']['slip']['advice'].decode('string_escape')
-        return advice
+        return str(advice)
     else:
         return None
 
 
+# TODO: Needs a more clearer and succinct output.
 def duckduckgo_search(search):
     """
-    Search DuckDuckGo using their API - https://duckduckgo.com/api
+    Search DuckDuckGo using their API - https://duckduckgo.com/api .
+    NOTE: This is currenly limited to definition as of now.
     :param search: The search term str to search for.
     :return: definition str or None on no match or error.
     """
@@ -163,25 +168,28 @@ def duckduckgo_search(search):
 
         definitions = []
         if response:
-            # Return up to 2 definition results
+            # Return up to 2 definition results.
             for x in range(2):
                 definition = response['content']['RelatedTopics'][x]['Text']
-                definitions.append(definition.encode('ascii', 'ignore'))
+                # The search word is stripped from the definition result by default.
+                definitions.append(definition.encode('ascii', 'ignore').strip(search))
             return definitions
     else:
         return None
 
 
-def wiki_search(search):
+# TODO: The functions use needs to be redefined and needs to be referred to the original library.
+def wiki_search(search=None):
     """
-    Requires wikipedia,  pip install wikipedia
-    :param search: The search term str to search for.
-    :return: wikipedia summary or None if nothing found.
+    Requires Wikipedia module;  pip install wikipedia.
+    :param search: str The search term to search for.
+    :return: Wikipedia summary or None if nothing found.
     """
-    if BeautifulSoup != None:
-        if wikipedia != None:
-            wiki_content = wikipedia.summary(search, sentences=2)
-            return wiki_content
+    if BeautifulSoup is not None:
+        if wikipedia is not None:
+            raise NotImplementedError('Wikipedia functionality is yet to be integrated as a function.')
+            # wiki_content = wikipedia.summary(search, sentences=2)
+            # return wiki_content
         else:
             return False
 
@@ -197,7 +205,6 @@ def omdb_search(search):
         response = web_request.get_request(omdb_url, json=True)
 
         if response:
-            print response
             try:
                 title = response['content']['Title']
                 plot = response['content']['Plot']
@@ -205,9 +212,11 @@ def omdb_search(search):
                 imdbrating = response['content']['imdbRating']
                 if len(plot) >= 160:
                     plot_parts = plot.split('.')
-                    omdb_info ='*Title:* ' + title + '\n' + plot_parts[0] + '\n*Rating:*' + imdbrating + '\n*More Info:*  http://www.imdb.com/title/' + imdbid
+                    omdb_info = '*Title:* ' + title + '\nDetails: ' + plot_parts[0] + '\n*Rating: *' + imdbrating +\
+                                '\n*More Info:*  http://www.imdb.com/title/' + imdbid
                 else:
-                    omdb_info ='*Title:* ' + title + '\n' + plot + '\n*Rating:*' + imdbrating + '\n*More Info:*  http://www.imdb.com/title/' + imdbid
+                    omdb_info = '*Title:* ' + title + '\n' + plot + '\n*Rating:*' + imdbrating +\
+                                '\n*More Info:*  http://www.imdb.com/title/' + imdbid
                 return omdb_info
             except KeyError:
                 return None
@@ -222,8 +231,7 @@ def omdb_search(search):
 # to adapt with the server's pages.
 def time_is(location):
     """
-    Retrieves the time in a location by parsing the time element in the html from http://time.is/
-    NOTE: This uses the normal 'requests' module.
+    Retrieves the time in a location by parsing the time element in the html from Time.is .
     :param location: str location of the place you want to find time (works for small towns as well).
     :return: time str or None on failure.
     """
@@ -235,21 +243,22 @@ def time_is(location):
             'Accept-Language': 'en-GB,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate',
             'Connection': 'keep-alive',
-            'Referer': 'http://time.is/',
+            'Referrer': 'http://time.is/',
         }
 
-        try:
-            post_url = 'http://time.is/' + str(location)
-            time_data = requests.post(url=post_url, headers=header)
-            time_html = time_data.content
-            soup = BeautifulSoup(time_html, "html.parser")
+        post_url = 'http://time.is/' + str(location)
+        time_data = web_request.get_request(post_url, header=header)
+        time_html = time_data['content']
+        soup = BeautifulSoup(time_html, "html.parser")
 
+        time = ''
+        try:
             for hit in soup.findAll(attrs={'id': 'twd'}):
                 time = hit.contents[0].strip()
+        except Exception:
+            pass
 
-            return time
-        except:
-            return None
+        return time
     else:
         return None
 
@@ -261,7 +270,7 @@ def google_time(location):
     :return: time str or None on failure.
     """
 
-    if BeautifulSoup != None:
+    if BeautifulSoup is not None:
         to_send = location.replace(' ', '%20')
         url = 'https://www.google.co.uk/search?q=time%20in%20' + str(to_send)
         raw = web_request.get_request(url)
@@ -273,7 +282,7 @@ def google_time(location):
             try:
                 for hit in soup.findAll(attrs={'class': 'vk_c vk_gy vk_sh card-section _MZc'}):
                     raw_info = hit.contents
-            except:
+            except Exception:
                 pass
 
             if raw_info is None:
@@ -292,7 +301,7 @@ def top40():
     :return: list (nested list) all songs including the song name and artist in the format [[songs name, song artist], etc.]].
     """
 
-    if BeautifulSoup != None:
+    if BeautifulSoup is not None:
         chart_url = "http://www.bbc.co.uk/radio1/chart/singles"
         raw = web_request.get_request(url=chart_url)
         html = raw['content']
@@ -303,18 +312,18 @@ def top40():
         all_titles = []
         all_artists = []
 
-        for x in range(len(raw_titles)):
+        for x in xrange(len(raw_titles)):
             individual_title = unicodedata.normalize('NFKD', raw_titles[x].getText()).encode('ascii', 'ignore')
             all_titles.append(individual_title)
 
-        for x in range(len(raw_artists)):
+        for x in xrange(len(raw_artists)):
             individual_artist = unicodedata.normalize('NFKD', raw_artists[x].getText()).encode('ascii', 'ignore')
             individual_artist = individual_artist.lstrip()
             individual_artist = individual_artist.rstrip()
             all_artists.append(individual_artist)
 
         songs = []
-        for x in range(len(all_titles)):
+        for x in xrange(len(all_titles)):
             songs.append([all_titles[x], all_artists[x]])
 
         if len(songs) > 0:
@@ -325,22 +334,22 @@ def top40():
         return None
 
 
-tags = ['men', 'life', 'kids', 'money', 'mistake', 'sex', 'stupid', 'puns', 'new',
-        'black', 'dirty', 'motivational', 'rude', 'time', 'fat', 'drug', 'blonde',
-        'alcohol', 'ugly', 'communication', 'doctor', 'health', 'political',
-        'IT', 'sarcastic', 'insults', 'racist', "age", 'intelligence', 'friendship',
-        'fighting', 'happiness', 'love']
+tags = ['age', 'alcohol', 'animal', 'attitude', 'beauty', 'black', 'blonde', 'car', 'communication',
+        'dirty', 'doctor', 'drug', 'family', 'fat', 'fighting', 'flirty', 'food', 'friendship', 'happiness',
+        'health', 'insults', 'intelligence', 'IT', 'kids', 'life', 'love', 'marriage', 'men', 'mistake', 'money',
+        'motivational', 'motorcycle', 'new', 'people', 'political', 'puns', 'retirement', 'rude', 'sarcastic',
+        'sex', 'school', 'sport', 'stupid', 'success', 'time', 'travel', 'women', 'work']
 
 
-def oneliners(tag=None):
+def one_liners(tag=None):
     """
     Retrieves a one-liner from http://onelinefun.com/ (by choosing a random category).
-    :param tag (OPTIONAL): str a specific tag name from which you want to choose a
-                               joke from.
+    :param tag: str a specific tag name from which you want to choose a
+                    joke from.
     :return: joke: str a one line joke/statement (depending on category).
     """
 
-    if BeautifulSoup != None:
+    if BeautifulSoup is not None:
         url = "http://onelinefun.com/"
         if tag:
             joke_url = url + str(tag) + "/"
@@ -359,7 +368,7 @@ def oneliners(tag=None):
             if jokes:
                 all_jokes = []
 
-                for x in range(len(jokes)):
+                for x in xrange(len(jokes)):
                     individual_joke = unicodedata.normalize('NFKD', jokes[x].getText()).encode('ascii', 'ignore')
                     all_jokes.append(individual_joke)
 
@@ -379,5 +388,38 @@ def oneliners(tag=None):
             return None
     else:
         return None
+
+
+def etymonline(search):
+    """
+    Searches the etymology of words/phrases using the Etymonline website.
+    :param search: str the word/phrase you want to search for.
+    :return: dict the results from the search.
+    """
+    if BeautifulSoup is not None:
+        url = 'http://etymonline.com/index.php?term=%s&allowed_in_frame=0'
+        search_parts = search.split(' ')
+        search_term = '+'.join(search_parts)
+        post_url = url % search_term
+
+        raw = web_request.get_request(url=post_url)
+        if raw['status_code'] == 200:
+            html = raw['content']
+            soup = BeautifulSoup(html, "html.parser")
+            quotes = soup.findAll("dd", {"class": "highlight"})
+            # There are several quotes/term results returned, we only want
+            # the first one, alternatively a loop can be setup.
+            # Represent the tags as a string, since we do not have specific identification.
+            # Unicode characters in this process will be represented as their respective values.
+            quote = quotes[0].getText()
+            quotes = quote.split('\r\n\r\n')
+            # There are more than one set of quotes parsed, you may iterate over this too in order to return a
+            # greater set of results.
+            return u"" + quotes[0]  # Result is returned in unicode.
+        else:
+            return None
+    else:
+        return None
+
 
 
