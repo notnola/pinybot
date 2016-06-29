@@ -9,8 +9,6 @@ import time
 import threading
 import random
 import traceback
-# TODO: Implement logging.
-# import logging
 
 import os
 import sys
@@ -20,16 +18,16 @@ from api import web_request, tinychat_api
 from files import file_handler as fh
 from urllib import quote_plus
 
-
+# TODO: ALPHA
 # RTMP LIBRARY
 ###################################################
-from rtmp import rtmp_protocol, message_structures
+# from rtmp import rtmp_protocol, message_structures
 ###################################################
 # FLV Handling
 # TODO: New FLV handling implementation.
 ####################################
 # from FLV import ffmpeg as FFMPEG
-from FLV import tag_handler
+# from FLV import tag_handler
 ####################################
 
 # Set console colors as false in the configuration file to prevent colorama from loading in interpreters or consoles
@@ -50,17 +48,9 @@ COLOR = {
     'bright_magenta': Style.BRIGHT + Fore.MAGENTA
 }
 
-# except ImportError:
-#     CONFIG['console_colors'] = False
-#     seq = ('white', 'green', 'bright_green', 'yellow',
-#            'bright_yellow', 'cyan', 'bright_cyan', 'red',
-#            'bright_red', 'magenta', 'bright_magenta')
-#     COLOR = dict.fromkeys(seq, False)
-# ------------------------------------------------------------------------------
 
 # TODO: Reorganise and reduce these initial configuration steps, shorten the link between
 #       pinybot.py and tinychat.py/pinylib.py.
-# ------------------------------------------------------------------------------
 #  Loads CONFIG in the configuration file from the root directory
 # State the name of the '.ini' file here
 CONFIG_FILE_NAME = '/config.ini'
@@ -84,7 +74,6 @@ if CONFIG is None:
 __version__ = 4.0
 if CONFIG['console_colors']:
     init(autoreset=True)
-# log = logging.getLogger(__name__)
 
 
 def create_random_string(min_length, max_length, upper=False):
@@ -158,6 +147,8 @@ class RoomUser:
         self.last_login = None
         self.device_type = ''
         self.reading_only = False
+
+        # TODO: ALPHA
         self.is_playable = False
 
 
@@ -198,6 +189,7 @@ class TinychatRTMPClient:
         self.is_reconnected = False
         self.reconnect_delay = CONFIG['reconnect_delay']
 
+        # TODO: ALPHA
         # Streams settings
         self.streams = {}
         self.stream_sort = False
@@ -237,8 +229,7 @@ class TinychatRTMPClient:
                 msg = '[' + ts + '] ' + message
             try:
                 print(msg)
-            except UnicodeEncodeError as ue:
-                # log.error(ue, exc_info=True)
+            except UnicodeEncodeError:
                 if CONFIG['debug_mode']:
                     traceback.print_exc()
 
@@ -249,13 +240,10 @@ class TinychatRTMPClient:
     def prepare_connect(self):
         """ Gather necessary connection parameters before attempting to connect. """
         if self.account and self.password:
-            # log.info('Deleting old login cookies.')
             web_request.delete_login_cookies()
             if len(self.account) > 3:
-                # log.info('Trying to log in with account: %s' % self.account)
                 login = web_request.post_login(self.account, self.password)
                 if 'pass' in login['cookies']:
-                    # log.info('Logged in as: %s Cookies: %s' % (self.account, login['cookies']))
                     self.console_write(COLOR['green'], 'Logged in as: ' + login['cookies']['user'])
                 else:
                     self.console_write(COLOR['red'], 'Log in Failed')
@@ -310,16 +298,18 @@ class TinychatRTMPClient:
     def connect(self):
         """ Attempts to make a RTMP connection with the given connection parameters. """
         if not self.is_connected:
-            # log.info('Trying to connect to: %s' % self.roomname)
             try:
                 if CONFIG['webserver']:
-                    raise Exception('Webserver implementation not available. Restart with webserver set to false.')
+                    raise NotImplementedError('Webserver implementation not available.' +
+                                              'Restart with webserver set to false.')
                     # TODO: Shorten path and solve issues surrounding loading of webserver captcha
                     # webserver_recaptcha.main(CONFIG['webserver_url'], CONFIG['webserver_path'])
                 else:
                     tinychat_api.recaptcha(proxy=self.proxy)
 
                 cauth_cookie = tinychat_api.get_cauth_cookie(self.roomname, proxy=self.proxy)
+
+                # TODO: ALPHA
                 self.connection = rtmp_protocol.RtmpClient(self.ip, self.port, self.tc_url, self.embed_url,
                                                            self.swf_url, self.app, self.proxy)
                 self.connection.connect(
@@ -339,14 +329,10 @@ class TinychatRTMPClient:
                 window_message = str(self.roomname) + ' @ ' + str(self.ip) + ':' + str(self.port)
                 set_window_title(window_message)
 
-                # Initial NetConnection default communications channel
-                self.streams['NetConnection'] = 0
-
                 # Main command (callbacks) handle.
                 self._callback()
 
-            except Exception as ex:
-                # log.error('Connect error: %s' % ex, exc_info=True)
+            except Exception:
                 self.is_connected = False
                 if CONFIG['debug_mode']:
                     traceback.print_exc()
@@ -354,7 +340,6 @@ class TinychatRTMPClient:
 
     def disconnect(self):
         """ Closes the RTMP connection with the remote server. """
-        # log.info('Disconnecting from server.')
         try:
             self.is_connected = False
             self.is_client_mod = False
@@ -366,15 +351,13 @@ class TinychatRTMPClient:
             self.uptime = 0
 
             self.connection.shutdown()
-        except Exception as ex:
-            # log.error('Disconnect error: %s' % ex, exc_info=True)
+        except Exception:
             if CONFIG['debug_mode']:
                 traceback.print_exc()
 
     def reconnect(self):
         """ Reconnect to a room with the connection parameters already set. """
         reconnect_msg = '============ RECONNECTING IN ' + str(self.reconnect_delay) + ' SECONDS ============'
-        # log.info('Reconnecting: %s' % reconnect_msg)
         self.console_write(COLOR['bright_cyan'], reconnect_msg)
         self.is_reconnected = True
         self.disconnect()
@@ -393,7 +376,7 @@ class TinychatRTMPClient:
     def client_manager(self, amf0_cmd):
         """
         A client stream managing function to set the streams required for the client to publish.
-        :param amf0_cmd: list containg the amf decoded commands.
+        :param amf0_cmd: list containing the AMF decoded commands.
         """
         result_stream_id = int(amf0_cmd[3])
         self.streams['client_stream'] = result_stream_id
@@ -403,6 +386,7 @@ class TinychatRTMPClient:
         self.stream_sort = False
         self.console_write(COLOR['white'], 'Done client manager.')
 
+    # TODO: ALPHA
     '''
     def start_play_connect(self):
         """ Add a new publisher to our local streams. """
@@ -488,9 +472,7 @@ class TinychatRTMPClient:
 
     def _callback(self):
         """ Callback loop that reads from the RTMP stream. """
-        # log.info('Starting the callback loop.')
-        failures = 0
-        amf0_data_type = -1
+        amf0_data_type = -1  # TODO: ALPHA
         amf0_data = None
         while self.is_connected:
             try:
@@ -500,9 +482,8 @@ class TinychatRTMPClient:
                 if CONFIG['amf_reply']:
                     print(amf0_data)
 
-            except Exception as ex:
+            except Exception:
                 failures += 1
-                # log.info('amf data read error count: %s %s' % (failures, ex), exc_info=True)
                 if failures == 2:
                     if CONFIG['debug_mode']:
                         traceback.print_exc()
@@ -519,7 +500,6 @@ class TinychatRTMPClient:
                     handled = self.connection.handle_packet(amf0_data)
                     if handled:
                         msg = 'Handled packet of type: %s Packet data: %s' % (amf0_data_type, amf0_data)
-                        # log.info(msg)
                         if CONFIG['debug_mode']:
                             self.console_write(COLOR['white'], msg)
                         continue
@@ -560,8 +540,7 @@ class TinychatRTMPClient:
                                     'Level': amf0_cmd[3]['level']
                                 }
                                 self.on_result(_result_info)
-                            except Exception as ex:
-                                # log.error('"_result" callback error occured: %s' % amf0_cmd)
+                            except Exception:
                                 self.console_write(COLOR['green'], str(amf0_cmd))
 
                     elif cmd == '_error':
@@ -572,14 +551,14 @@ class TinychatRTMPClient:
                                 'Level': amf0_cmd[3]['level']
                             }
                             self.on_error(_error_info)
-                        except Exception as ex:
-                            # log.error('"_error" callback error occured: %s' % amf0_cmd)
+                        except Exception:
                             self.console_write(COLOR['red'], str(amf0_cmd))
 
                     elif cmd == 'onBWDone':
                         self.on_bwdone()
 
                     elif cmd == 'onStatus':
+                        # TODO: ALPHA
                         # try:
                             # self.stream_manager(amf0_data['stream_id'], amf0_data)
                         # except Exception:
@@ -593,8 +572,7 @@ class TinychatRTMPClient:
                                 'Description': amf0_cmd[3]['description']
                             }
                             self.on_status(_status_info)
-                        except Exception as ex:
-                            # log.error('"onStatus" callback error occured: %s' % amf0_cmd)
+                        except Exception:
                             self.console_write(COLOR['magenta'], str(amf0_cmd))
 
                     elif cmd == 'registered':
@@ -686,6 +664,7 @@ class TinychatRTMPClient:
                         topic = amf0_cmd[3]
                         self.on_topic(topic)
 
+                    # TODO: ALPHA
                     elif cmd == 'gift':
                         self.console_write(COLOR['white'], str(amf0_cmd))
 
@@ -727,8 +706,7 @@ class TinychatRTMPClient:
                     else:
                         self.console_write(COLOR['bright_red'], 'Unknown command:' + cmd)
 
-            except Exception as ex:
-                # log.error('General callback error: %s' % ex, exc_info=True)
+            except Exception:
                 if CONFIG['debug_mode']:
                     traceback.print_exc()
 
@@ -737,7 +715,6 @@ class TinychatRTMPClient:
         if len(result_info) is 4 and type(result_info[3]) is int:
             # TODO: Verify that the stream ID works in this case.
             # self.stream_id = result_info[3]  # stream ID?
-            # log.debug('Stream ID: %s' % self.stream_id)
             pass
         if CONFIG['debug_mode']:
             for list_item in result_info:
@@ -806,6 +783,7 @@ class TinychatRTMPClient:
         user.device_type = str(join_info_dict['btype'])
         user.reading_only = join_info_dict['lf']
 
+        # TODO: ALPHA
         # user.is_playable = join_info_dict['bf']
         # Add user to the play dictionary
         # if user.is_playable:
@@ -842,6 +820,7 @@ class TinychatRTMPClient:
         user.device_type = str(joins_info_dict['btype'])
         user.reading_only = joins_info_dict['lf']
 
+        # TODO: ALPHA
         # user.is_playable = joins_info_dict['bf']
         # Add user to the play dictionary
         # if user.is_playable:
@@ -864,6 +843,7 @@ class TinychatRTMPClient:
 
     def on_joinsdone(self):
         self.console_write(COLOR['cyan'], 'All joins information received.')
+        # TODO: ALPHA
         # Start the playing publishing streams
         # self.console_write(COLOR['cyan'], 'Initiating play connections.')
         # self.play_connection = True
@@ -894,8 +874,6 @@ class TinychatRTMPClient:
         self.console_write(COLOR['cyan'], uid + ' is pro.')
 
     def on_nick(self, old, new, uid):
-        # self.console_write(COLOR['cyan'], 'Received client nick: \''
-        #                   + str(self.client_nick) + '\' With ID: ' + str(uid))
         if uid is not self.client_id:
             old_info = self.find_user_info(old)
             old_info.nick = new
@@ -991,6 +969,10 @@ class TinychatRTMPClient:
                 time_point = int(msg_cmd[2])
                 self.on_media_broadcast_skip(media_type, time_point, msg_sender)
 
+            else:
+                # TODO: ALPHA
+                print msg
+
         else:
             self.message_handler(msg_sender, msg.strip())
 
@@ -1063,7 +1045,7 @@ class TinychatRTMPClient:
     def add_user_info(self, usr_nick):
         """
         Find the user object for a given user name and add to it.
-        We use this methode to add info to our user info object.
+        We use this method to add info to our user info object.
         :param usr_nick: str the user name of the user we want to find info for.
         :return: object a user object containing user info.
         """
@@ -1253,6 +1235,7 @@ class TinychatRTMPClient:
         """
         self._send_command('owner_run', [u'push2talk'])
 
+    # TODO: ALPHA
     def send_broadcast_accept_msg(self, nick):
         """
         Send a message to accept a pending broadcast in a greenroom.
@@ -1378,8 +1361,7 @@ class TinychatRTMPClient:
             if CONFIG['amf_sent']:
                 print(msg)
 
-        except Exception as ex:
-            # log.error('send command error: %s' % ex, exc_info=True)
+        except Exception:
             if CONFIG['debug_mode']:
                 traceback.print_exc()
             self.reconnect()
@@ -1430,6 +1412,7 @@ class TinychatRTMPClient:
         self.connection.writer.write(msg)
         self.connection.writer.flush()
 
+    # TODO: ALPHA
     # TODO: Make sure set chunk size is sent properly in rtmp_protocol.py
     def _send_set_chunk_size(self, new_chunk_size=None):
         """
@@ -1461,6 +1444,7 @@ class TinychatRTMPClient:
         self.connection.writer.chunk_size = chunk_size
         self.console_write(COLOR['white'], 'Set chunk size:' + str(self.connection.writer.chunk_size))
 
+    # TODO: ALPHA
     def _send_play(self, stream_id, playID):
         """
         Send play message.
@@ -1482,6 +1466,7 @@ class TinychatRTMPClient:
         self.connection.writer.write(msg)
         self.connection.writer.flush()
 
+    # TODO: ALPHA
     def _configure_av_packet(self, av_content):
         """
         Configures audio/video content for a packet given the frame content and the setttings
@@ -1655,8 +1640,7 @@ class TinychatRTMPClient:
         for i in chars:
             try:
                 msg += unichr(int(i))
-            except ValueError as ve:
-                # log.error('%s' % ve, exc_info=True)
+            except ValueError:
                 pass
         return msg
 
@@ -1677,9 +1661,11 @@ class TinychatRTMPClient:
         # Acknowledge locally that we are publishing a stream
         self.publish_connection = True
 
+        # TODO: ALPHA
         # if self.play_audio:
         #    self._send_set_chunk_size(1024)
 
+    # TODO: ALPHA
     # TODO: Configure appropriate encoding method
     def _load_media(self, media_path, media_file):
         """
@@ -1723,6 +1709,7 @@ class TinychatRTMPClient:
         else:
             self.console_write(COLOR['white'], 'Error with encoding.')
 
+    # TODO: ALPHA
     def _send_frames(self, frames):
         """
         Send the appropriate packets corresponding to the tag/frames.
@@ -1753,6 +1740,7 @@ class TinychatRTMPClient:
         self.publish_connection = False
 
     # --------------------------------------------------------------------------
+    # TODO: ALPHA
     # TODO: Move to main pinybot.py
     # TODO: Appropriate functions to handle images.
     # def _send_custom_logo(self, logo_flv_file):
@@ -1771,7 +1759,6 @@ class TinychatRTMPClient:
     def auto_job_handler(self):
         """ The event handler for auto_job_timer. """
         if self.is_connected:
-            # log.info('Executing auto_job handler.')
             tinychat_api.get_roomconfig_xml(self.roomname, self.room_pass, proxy=self.proxy)
         self.start_auto_job_timer()
 
@@ -1781,7 +1768,6 @@ class TinychatRTMPClient:
         fetch the room config from Tinychat API every 5 minutes (300 seconds).
         See line 228 at http://tinychat.com/embed/chat.js
         """
-        # log.info('Starting auto_job_timer, with interval: %s' % CONFIG['auto_job_interval'])
         threading.Timer(CONFIG['auto_job_interval'], self.auto_job_handler).start()
 
     def alive(self):
@@ -1801,7 +1787,7 @@ class TinychatRTMPClient:
                 times = 0
                 continue
 
-            if room['status_code'] != 200:
+            if room['status_code'] is not 200:
                 times = 0
                 continue
 
@@ -1840,10 +1826,4 @@ def main():
             client.send_bot_msg(chat_msg)
 
 if __name__ == '__main__':
-    # TODO: Initial logging.
-    # if CONFIG['debug_to_file']:
-    #     formater = '%(asctime)s : %(levelname)s : %(filename)s : %(lineno)d : %(funcName)s() : %(name)s : %(message)s'
-    #     # should there be a check to make sure the debug file name has been set?
-    #     logging.basicConfig(filename=CONFIG['debug_file_name'], level=logging.DEBUG, format=formater)
-    #     log.info('Starting pinylib version: %s' % __version__)
     main()
