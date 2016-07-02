@@ -1,17 +1,21 @@
 
 """ Functions to make GET requests, POST login and find mod/pro hashes. """
+
 import requests
 
 #  A session that all requests will use.
 _request_session = requests.session()
 
 
-def new_session():
+def new_session(ret_session=False):
     """
     Start a new request.session object.
+    :param ret_session: bool True/False if a session object should be returned.
     """
     global _request_session
     _request_session = requests.session()
+    if ret_session:
+        return _request_session
 
 
 def delete_login_cookies():
@@ -44,7 +48,7 @@ def get_request(url, json=False, proxy=None, stream=False):
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate',
             'Connection': 'keep-alive',
-            'Referer': 'http://tinychat.com'
+            'Referrer': 'http://tinychat.com'
         }
 
     if proxy:
@@ -72,8 +76,8 @@ def get_request(url, json=False, proxy=None, stream=False):
 def post_login(account, password):
     """
     Makes a POST to log us in to tinychat.
-    :param account: str the tinychat account name
-    :param password: str the tinychat login password
+    :param account: str the tinychat account name.
+    :param password: str the tinychat login password.
     :return: dict{'content', 'cookies', 'headers', 'status_code'}
     """
     header = {
@@ -82,12 +86,12 @@ def post_login(account, password):
         'Accept-Language': 'en-US,en;q=0.5',
         'Accept-Encoding': 'gzip, deflate',
         'Connection': 'keep-alive',
-        'Referer': 'http://tinychat.com/login'
+        'Referrer': 'http://tinychat.com/login'
     }
 
     form_data = {
         'form_sent': '1',
-        'referer': '',
+        'referrer': '',
         'next': '',
         'username': account,
         'password':  password,
@@ -108,6 +112,7 @@ def find_hashes(url, proxy=None):
     """
     Find the hashes needed to become mod/pro.
     :param url: str the url to the profile page.
+    :param proxy: str use proxy for this request.
     :return: dict {'autoop', 'prohash'} str hashes.
     """
     autoop = u'none'
