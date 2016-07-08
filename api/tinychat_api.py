@@ -5,7 +5,6 @@ import random
 import webbrowser
 import web_request
 import os
-import datetime
 
 from xml.dom.minidom import parseString
 
@@ -212,11 +211,12 @@ def recaptcha(proxy=None):
         return response['cookies']
 
 
-def generate_snapshot(client_name=None, client_room=None, process_file=None):
+def generate_snapshot(process_file=None, client_name=None, client_room=None):
     """
 
     :param client_name:
     :param client_room:
+    :param process_file:
     :return: str the link that was generated with the snapshot on the server.
     """
 
@@ -224,29 +224,33 @@ def generate_snapshot(client_name=None, client_room=None, process_file=None):
         'Accept': '*/*',
         'Accept-Encoding': 'gzip, deflate',
         'Accept-Language': 'en-GB,en-US;q=0.8,en;q=0.6',
-        'DNT': '1',
-        'Content - Type': 'multipart / form - data',
-        'User - Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0' + \
-                        '.2704.103 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) ' +
+                      'Chrome/51.0.2704.103 Safari/537.36',
         'X-Requested-With': 'ShockwaveFlash/22.0.0.19',
+        'DNT': '1',
+        'Content-Type': 'multipart /form-data',
         'Origin': 'https://tinychat.com',
         'Connection': 'keep-alive',
         'Host': 'upload.tinychat.com'
     }
 
-    today_date = datetime.date.today()
-    date_formatted = today_date.strftime('%m-%d-%Y')
+    date_formatted = time.strftime('%m-%d-%Y')
     post_url = 'http://upload.tinychat.com/savess?file=%s%s%s.jpg' % (client_name + '%2B', client_room + '%2B',
                                                                       date_formatted)
+    print "Sending to:", post_url, ' Filename:', process_file
 
     if process_file:
-        form_data_file = open(process_file)
+        form_data_file = open(process_file, 'rb')
         form_data = form_data_file.read()
         print [form_data]
         print int(os.path.getsize(process_file)), 'bytes'
         post_session = web_request.new_session(ret_session=True)
         pr = post_session.request(method='POST', url=post_url, data=form_data, headers=snapshot_header, stream=True,
                                   allow_redirects=False)
-        print(pr.content)
 
+        raw_link = pr.content.strip()
+        embed_link = raw_link.replace('upload.', '')
+        embed_link = embed_link.replace('.jpg', '')
+
+        return raw_link, embed_link
 
