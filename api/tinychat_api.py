@@ -213,11 +213,11 @@ def recaptcha(proxy=None):
 
 def generate_snapshot(process_file=None, client_name=None, client_room=None):
     """
-
-    :param client_name:
-    :param client_room:
-    :param process_file:
-    :return: str the link that was generated with the snapshot on the server.
+    Generate a snapshot given an image file, this will send the image of to Tinychat servers.
+    :param client_name: str the name of the room in which the client is residing.
+    :param client_room: str the name of the client.
+    :param process_file: str the full path and name (with extension) to the file on the server.
+    :return: str the raw image link that was generated with the snapshot on the server and the embed link for the image.
     """
 
     snapshot_header = {
@@ -237,7 +237,7 @@ def generate_snapshot(process_file=None, client_name=None, client_room=None):
     date_formatted = time.strftime('%m-%d-%Y')
     post_url = 'http://upload.tinychat.com/savess?file=%s%s%s.jpg' % (client_name + '%2B', client_room + '%2B',
                                                                       date_formatted)
-    print "Sending to:", post_url, ' Filename:', process_file
+    print("Sending to:", post_url, ' Filename:', process_file)
 
     if process_file:
         form_data_file = open(process_file, 'rb')
@@ -251,6 +251,9 @@ def generate_snapshot(process_file=None, client_name=None, client_room=None):
         raw_link = pr.content.strip()
         embed_link = raw_link.replace('upload.', '')
         embed_link = embed_link.replace('.jpg', '')
-
         return raw_link, embed_link
+
+    else:
+        print("Please provide an image file.")
+        return None
 

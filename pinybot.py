@@ -2526,6 +2526,8 @@ class TinychatBot(tinychat.TinychatRTMPClient):  # pinylib
         Shows a random "one-liner" joke.
         :param tag: str a specific category to pick a random joke from OR state '?' to list categories.
         """
+        one_liner = None
+
         if tag:
             if tag == '?':
                 all_tags = ', '.join(other_apis.tags) + '.'
