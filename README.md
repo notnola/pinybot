@@ -1,18 +1,18 @@
 # pinybot
 > "The true base for your Tinychat bot needs."
 
-![Github code](https://img.shields.io/badge/Code-Python-green.svg) [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/TechWhizZ199/pinybot/master/LICENSE) [![GitHub issues](https://img.shields.io/github/issues/TechWhizZ199/pinybot.svg)](https://github.com/TechWhizZ199/pinybot/issues) [![GitHub stars](https://img.shields.io/github/stars/TechWhizZ199/pinybot.svg)](https://github.com/TechWhizZ199/pinybot/stargazers) [![GitHub forks](https://img.shields.io/github/forks/TechWhizZ199/pinybot.svg)](https://github.com/TechWhizZ199/pinybot/network) ![Github downloads](https://img.shields.io/github/downloads/TechWhizZ199/pinybot/total.svg)
+![Github code](https://img.shields.io/badge/Code-Python-green.svg) [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/GoelBiju/pinybot/master/LICENSE) [![GitHub issues](https://img.shields.io/github/issues/GoelBiju/pinybot.svg)](https://github.com/GoelBiju/pinybot/issues) [![GitHub stars](https://img.shields.io/github/stars/GoelBiju/pinybot.svg)](https://github.com/GoelBiju/pinybot/stargazers) [![GitHub forks](https://img.shields.io/github/forks/GoelBiju/pinybot.svg)](https://github.com/GoelBiju/pinybot/network) ![Github downloads](https://img.shields.io/github/downloads/GoelBiju/pinybot/total.svg)
 
 
 A Tinychat room helper forked and extended from [nortxort's pinylib](https://github.com/nortxort/pinylib), featuring all the essential features to help kickstart a room on [Tinychat](https://tinychat.com/).
 
 If you like or found this useful i.e. practically or contextually, please do star the repository. We also happily accept any new features or interesting pull requests you would like to be included in the project.
 
-If there is a bug you want to highlight or if you are plagued by any other aspect of the project, be sure to post an issue in the [issues section](https://github.com/TechWhizZ199/pinybot/issues).
+If there is a bug you want to highlight or if you are plagued by any other aspect of the project, be sure to post an issue in the [issues section](https://github.com/GoelBiju/pinybot/issues).
 
-Visit our **[homepage](https://techwhizz199.github.io/pinybot/)** for general information.
+Visit our **[homepage](https://GoelBiju.github.io/pinybot/)** for general information.
 
-All our releases can be found in the [release section](https://github.com/TechWhizZ199/pinybot/releases) with the source code. Release information/order is within the release procedures file, found in the project folder.
+All our releases can be found in the [release section](https://github.com/GoelBiju/pinybot/releases) with the source code. Release information/order is within the release procedures file, found in the project folder.
 
 *Windows users also can optionally download an executable version of the program.*
 
@@ -67,7 +67,7 @@ C:\Python27\Scripts\pip2 install wikipedia
 
 ### Automatic dependencies via update script
 
-An alternative to installing all the dependencies one by one or downloading the latest version of the bot from GitHub, is to simply start pinybot.py . Upon starting the file, the update script will commence and determine if you have the latest version of the bot and/or if you have the latest versions of the modules needed to run it. 
+An alternative to installing all the dependencies one by one or downloading the latest version of the bot from GitHub, is to simply start pinybot.py. Upon starting the file, the update script will commence and determine if you have the latest version of the bot and/or if you have the latest versions of the modules needed to run it. 
 
 If there were any modifications made to a new version of the bot, then the latest version will be downloaded to a new directory which will be placed in the project folder, where you can easily extract it and overwrite your local copy.
 
@@ -91,13 +91,13 @@ You can always disable this feature in the **config.ini** in the project folder.
 	* CREDITS (*file*) - The acknowledgements and credits to all those who helped with the bot.
 	* CONTRIBUTING (*file*) - Simple introduction to contributing to this project in any shape or form.
 	* RELEASE-PROCEDURE (*file*) - Outline as to how releases/updates to the repository will work.
-	*  LICENSE (*file*) - The MIT license for the project.
+	* LICENSE (*file*) - The MIT license for the project.
 	* README.md (*file*) - This file.
 
 
 ### Detailed information
 
-All further information in regards to the functions/features of the bot can be found in the GitHub repository [Wiki](https://github.com/TechWhizZ199/pinybot/Wiki).
+All further information in regards to the functions/features of the bot can be found in the GitHub repository [Wiki](https://github.com/GoelBiju/pinybot/Wiki).
 
 ---
 
@@ -131,7 +131,7 @@ You can easily leave a comment or an issue regarding help to fix a bug, sort a p
 
 ## Interested running it remotely?
 
-If you are interested in running the bot online (instead of locally), why not try the OpenShift dedicated [pinybot repository](https://github.com/oddballz/pinybot-OpenShift).
+If you are interested in running the bot online (instead of locally), why not try the OpenShift dedicated [pinybot repository](https://github.com/GoelBiju/pinybot-OpenShift).
 
 It's almost configured to a 'click to setup and run' standard to save you time and effort in setting up the bot. 
 
