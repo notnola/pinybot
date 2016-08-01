@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-
 """ Handles operation related to files. """
 
 import os
+
+# Additional modules to handle configurations & unicode.
 import codecs
 import ConfigParser
 import ast
@@ -36,16 +37,8 @@ def file_writer(file_path, file_name, write_this):
     if not os.path.exists(file_path):
         os.makedirs(file_path)
     with open(file_path + file_name, mode='a') as f:
-        f.write(write_this + '\n')
-
-
-def delete_file_content(file_path, file_name):
-    """
-    Deletes all content from a file.
-    :param file_path: str the path to the file.
-    :param file_name: str the name of the file.
-    """
-    open(file_path + file_name, mode='w').close()
+        f.writelines(write_this + '\n')
+        return True
 
 
 def remove_from_file(file_path, file_name, remove):
@@ -68,6 +61,15 @@ def remove_from_file(file_path, file_name, remove):
     return False
 
 
+def delete_file_content(file_path, file_name):
+    """
+    Deletes all content from a file.
+    :param file_path: str the path to the file.
+    :param file_name: str the name of the file.
+    """
+    open(file_path + file_name, mode='w').close()
+
+
 def configuration_loader(file_location):
     """
     Loads the necessary settings required for the bot to run from the given path with a '.ini' file.
@@ -75,76 +77,80 @@ def configuration_loader(file_location):
     :param file_location: str The location including the name and extension of the file.
     :return: CONFIG: dict configurations given in the '.ini' file.
     """
-    if not os.path.exists(file_location):
-        return None
+    try:
+        # Setup Configuration module and read the configuration
+        config_file = ConfigParser.ConfigParser()
+        config_file.read(file_location)
 
-    # Setup Configuration module and read the configuration
-    config = ConfigParser.ConfigParser()
-    config.read(file_location)
+        # This is the dict. where all our options parsed from the configuration file will be stored.
+        config_options = {}
 
-    CONFIG = {}
+        # Iterate over the sections to parse the options present.
+        for section in config_file.sections():
+            options = config_file.options(section)
+            for option in options:
+                value = config_file.get(section, option).strip()
 
-    for section in config.sections():
-        options = config.options(section)
-        for option in options:
+                # Handle Boolean/Null values/types.
+                if value == 'true':
+                    value = True
+                elif value == 'false':
+                    value = False
+                elif value == 'none':
+                    value = None
 
-            value = config.get(section, option).strip()
-
-            # Handle Boolean/Null values/types
-            if value == 'true':
-                value = True
-            elif value == 'false':
-                value = False
-            elif value == 'none':
-                value = None
-
-            # Handle integers/floats
-            try:
-                int(value)
-                value = int(value)
-            except Exception:
+                # Handle integers/floats.
                 try:
-                    float(value)
-                    value = float(value)
-                except Exception:
+                    value = int(value)
+                except ValueError:  # Exception
+                    try:
+                        value = float(value)
+                    except ValueError:  # Exception
+                        pass
+
+                # Handle lists.
+                try:
+                    value = value[:]
+                except TypeError:  # Exception
                     pass
 
-            # Handle lists
-            try:
-                value = value[:]
-            except Exception:
-                pass
+                # Handle dictionaries
+                try:
+                    value = ast.literal_eval(value)
+                except (SyntaxError, ValueError):  # Exception
+                    pass
 
-            # Handle dictionaries
-            try:
-                value = ast.literal_eval(value)
-            except Exception:
-                pass
-
-            CONFIG[option.strip()] = value
-    return CONFIG
+                # Strip the option values to remove any whitespace characters.
+                config_options[option.strip()] = value
+        return config_options
+    except IOError:
+        # If the configuration file doesn't exist in the path given, then return the null type.
+        return None
 
 
 # TODO: Possibly use configuration parser instead?
-def ascii_loader(file_location):
+def unicode_loader(file_location):
     """
-    Loads (one line) ASCII objects into a dictionary, provided a file is stated.
+    Loads (one line) unicode objects into a dictionary, provided a file is stated.
     :param file_location: str the path to the file and the file (with extension).
-    :return: ASCII_dict: dict of all the formatted ascii objects.
-    NOTE: ASCII in specified file must be in the format: [name of ascii] [ASCII object],
-          the name must be one word followed by a space and then the ASCII object.
+    :return: unicode_data: dict of all the formatted unicode objects.
+    NOTE: Unicode in the specified file must be in the format: [name of unicode object] [unicode object body],
+          the name must be one word followed by a space and then the unicode object body.
     """
-    if os.path.exists(file_location):
-        ascii_file = codecs.open(file_location, encoding='utf-8')
-        ascii_raw_data = ascii_file.readlines()
+    # if os.path.exists(file_location):
+    try:
+        # Open the file with the appropriate codec.
+        unicode_file = codecs.open(file_location, encoding='utf-8')
+        unicode_raw_data = unicode_file.readlines()
 
-        ascii_data = {}
-        for x in xrange(len(ascii_raw_data)):
-            ascii_object = ascii_raw_data[x].split(' ')
-            ascii_id = u'' + ascii_object[0]
-            ascii_byte_data = u'' + ' '.join(ascii_object[1:])
-            ascii_data[ascii_id] = ascii_byte_data
-
-        return ascii_data
-    else:
+        # Add the parsed unicode data to the dictionary.
+        unicode_data = {}
+        for x in xrange(len(unicode_raw_data)):
+            unicode_object = unicode_raw_data[x].split(' ')
+            unicode_id = u'' + unicode_object[0]
+            unicode_byte_data = u'' + ' '.join(unicode_object[1:])
+            unicode_data[unicode_id] = unicode_byte_data
+        return unicode_data
+    except IOError:
         return None
+
