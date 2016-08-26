@@ -22,6 +22,9 @@ from colorama import init, Fore, Style
 # FLV parser(s)
 from FLV import tag_handler
 
+# VideoCapture
+from VideoCapture import Device
+
 __version__ = '4.2.0'
 
 #  Console colors.
@@ -169,7 +172,7 @@ class TinychatRTMPClient:
         self.stream_sort = False
         self.publish_connection = False
         self.force_time_stamp = 0
-        self.play_audio = True
+        self.play_audio = False
         self.play_video = True
 
     # TODO: New method of decoding unicode characters passed into the console_write procedures.
@@ -1500,8 +1503,9 @@ class TinychatRTMPClient:
                 # If there was a request to load the default FLV image onto the broadcast stream, then start it.
                 if video:
                     time.sleep(10)
-                    self.console_write(COLOR['white'], 'Starting FLV Image.')
-                    self.load_flv_image()
+                    # self.console_write(COLOR['white'], 'Starting FLV playback.')
+                    # self.load_flv()
+                    self.load_webcam()
             else:
                 self.console_write(COLOR['bright_red'], 'No need to start stream, client broadcast already present.')
         elif not stream:
@@ -1549,11 +1553,9 @@ class TinychatRTMPClient:
             self.console_write(COLOR['white'], 'No frames were received, returning.')
 
     # Image (FLV) loading.
-    def load_flv_image(self):
-        """
-        Load an image which was converted to FLV and publish it to
-        :return:
-        """
+    def load_flv(self):
+        """ Load FLV and publish it's content to the room. """
+        # The FLV file stored at '/files/defaults/'.
         temp_file = 'bunny.flv'
         with open(CONFIG['media_defaults'] + temp_file, 'rb') as file_object:
             # Load the tag within the FLV given the opened file.
@@ -1565,6 +1567,19 @@ class TinychatRTMPClient:
             threading.Thread(target=self._send_frames, args=(tags_list, )).start()
         else:
             self.console_write(COLOR['white'], 'No tags were found in the file.')
+
+    def load_webcam(self):
+        cam = Device(devnum=1)
+        print('Initialised webcam on device: %s' % cam.getDisplayName())
+        frame_num = 0
+        while self.publish_connection:
+            frame_num += 1
+            cam_buffer = cam.getBuffer()
+            raw_data = cam_buffer[0]
+            control_type = 0x18
+            timestamp = 0
+            self.send_video_packet(raw_data, control_type, timestamp)
+            print('Sent frame #%s' % frame_num)
 
     # Timed Auto Methods.
     def auto_job_handler(self):
