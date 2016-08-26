@@ -17,10 +17,10 @@ def get_roomconfig_xml(room, roompass=None, proxy=None):
     :return: dict {'tcurl', 'ip', 'port', 'app', 'roomtype', 'greenroom=bool', 'room_broadcast_pass'}
     """
     if roompass:
-        xmlurl = 'http://api.tinychat.com/api/find.room/%s?site=tinychat&password=%s&url=tinychat.com' % \
+        xmlurl = 'https://api.tinychat.com/api/find.room/%s?site=tinychat&password=%s&url=tinychat.com' % \
                  (room, roompass)
     else:
-        xmlurl = 'http://api.tinychat.com/api/find.room/%s?site=tinychat&url=tinychat.com' % room
+        xmlurl = 'https://api.tinychat.com/api/find.room/%s?site=tinychat&url=tinychat.com' % room
 
     web_content = web_request.get_request(xmlurl, proxy=proxy)
     if web_content is not None:
@@ -57,7 +57,7 @@ def tinychat_user_info(tc_account):
     :param tc_account: str the account name.
     :return: dict {'username', 'tinychat_id', 'last_active', 'name', 'location'}.
     """
-    url = 'http://tinychat.com/api/tcinfo?username=%s' % tc_account
+    url = 'https://tinychat.com/api/tcinfo?username=%s' % tc_account
     json_data = web_request.get_request(url=url, json=True)
     if json_data is not None:
         try:
@@ -82,7 +82,7 @@ def spy_info(room):
     :return: dict{'mod_count', 'broadcaster_count', 'total_count', list('users')} or PW on password protected room.,
     or None on failure or empty room.
     """
-    url = 'http://api.tinychat.com/%s.json' % room
+    url = 'https://api.tinychat.com/%s.json' % room
     check = get_roomconfig_xml(room)
     if check == 'PW':
         return check

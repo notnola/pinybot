@@ -23,7 +23,7 @@ from colorama import init, Fore, Style
 from FLV import tag_handler
 
 # VideoCapture
-from VideoCapture import Device
+# from VideoCapture import Device
 
 __version__ = '4.2.0'
 
@@ -172,7 +172,7 @@ class TinychatRTMPClient:
         self.stream_sort = False
         self.publish_connection = False
         self.force_time_stamp = 0
-        self.play_audio = False
+        self.play_audio = True
         self.play_video = True
 
     # TODO: New method of decoding unicode characters passed into the console_write procedures.
@@ -1504,8 +1504,8 @@ class TinychatRTMPClient:
                 if video:
                     time.sleep(10)
                     # self.console_write(COLOR['white'], 'Starting FLV playback.')
-                    # self.load_flv()
-                    self.load_webcam()
+                    self.load_flv()
+                    # self.load_webcam()
             else:
                 self.console_write(COLOR['bright_red'], 'No need to start stream, client broadcast already present.')
         elif not stream:
@@ -1568,18 +1568,18 @@ class TinychatRTMPClient:
         else:
             self.console_write(COLOR['white'], 'No tags were found in the file.')
 
-    def load_webcam(self):
-        cam = Device(devnum=1)
-        print('Initialised webcam on device: %s' % cam.getDisplayName())
-        frame_num = 0
-        while self.publish_connection:
-            frame_num += 1
-            cam_buffer = cam.getBuffer()
-            raw_data = cam_buffer[0]
-            control_type = 0x18
-            timestamp = 0
-            self.send_video_packet(raw_data, control_type, timestamp)
-            print('Sent frame #%s' % frame_num)
+    # def load_webcam(self):
+    #     cam = Device(devnum=1)
+    #     print('Initialised webcam on device: %s' % cam.getDisplayName())
+    #     frame_num = 0
+    #     while self.publish_connection:
+    #         frame_num += 1
+    #         cam_buffer = cam.getBuffer()
+    #         raw_data = cam_buffer[0]
+    #         control_type = 0x18
+    #         timestamp = 0
+    #         self.send_video_packet(raw_data, control_type, timestamp)
+    #         print('Sent frame #%s' % frame_num)
 
     # Timed Auto Methods.
     def auto_job_handler(self):
