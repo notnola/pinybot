@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+
+<!--
+Originally created by Aida (Autotonic) - https://github.com/Autotonic/
+Now maintained by GoelBiju - https://github.com/GoelBiju/
+
+TODO: JavaScript function to put together a GitHub link to the right lines in the appropriate files; returns
+      a "href" given the file name and line number.
+-->
+
+<html>
+  <head>
+      <title>pinybot Changelog</title>
+      <!-- UTF-8 character set, set as metadata. -->
+      <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+  	<!-- JavaScript function to allow the display of elements of the version changes. -->
+  	<script type="text/javascript">
+  		function show_hide(element_id){
+  			var element = document.getElementById(element_id);
+  			element.style.display = (element.style.display == "block") ? "none" : "block";
+  		}
+  	</script>
+  </head>
+
+  <body>
+      <h1 style="text-align:center;">pinybot ChangeLog</h1>
+      <h3 style="text-align:center;"><a href="https://goelbiju.github.io/pinybot/" target="_blank">Git Pages</a></h3>
+
+      <!-- =============== TEMPLATE ================
+      Tags inline in main blocks of changelog to conserve space.
+          <dl>
+              <dt><i>NAME + DATE(DD/MM/YYYY)</i></dt>
+              <dd>FILENAME - LINE NUMBER(s) - changes</dd>
+              <dd> </dd>
+              <dd> </dd>
+              <dd> </dd>
+          </dl>
+            ======================================== -->
+
+      <!-- ============ BEGIN CHANGELOG =========== -->
+
+      <h3><a href="https://github.com/GoelBiju/pinybot/" target="_blank"><i>View Repository</i></a></h3>
+
+      <h4>
+          <strong>Overview:</strong>
+      </h4>
+      <p>
+          This is a cut down changelog of what was put into and removed from the various versions of pinybot. I have tried to include all
+          that was done to the program, though some may have slipped off my mind. The latest versions changes are shown by default, however if you
+          may view the older versions by scrolling and showing the respective versions.
+
+          <p>The default format for reading this log is as follows: <strong>File - Line Number(s) - Changes</strong></p>
+      </p>
+
+      <p>~<a href="javascript:show_hide('v1.4.2')")><i><strong> Version 1.4.2</strong></i></a></p>
+      <div id="v1.4.2" style="display:block;">
+          <dl><dt><t>GoelBiju 17/07/2016</t></dt>
+              <dd><i>api --> apis</i> - <strong>NAME</strong> - In accordance with the new base.</dd>
+              <dd>auto_url.py - 55 - Prevented the overwrite of data by allowing the stripping of whitespaces.</dd>
+              <dd>other_apis.py - <strong>VARIOUS</strong>:
+                  <ul>
+                      <li>Parse the response from Urban-Dictionary properly to remove whitespaces/newlines (L26).</li>
+                      <li>The <a href="http://time.is/" target="_blank">time.is</a> functions request location has been
+                          capitalised to ensure the "301 MOVED Permanently" is not encountered. Overall speed improvement as a result,
+                          since a redirect is not necessary.
+                      </li>
+                      <li>The weather API has been exposed further to allow more content to be returned (L53).</li>
+                  </ul>
+              </dd>
+              <dd>clever_client_bot.py - <strong>ADDED</strong> - A new library has been used to handle CleverBot requests, this was removed in 1.4.1, it is now added back in.</dd>
+              <dd>soundcloud.py - <strong>VARIOUS</strong>:
+                  <ul>
+                      <li>Standard fixes include the refining of code and general layout improvements.</li>
+                      <li>Several fixes for the code include refining it generally and as well as that it also includes the
+                          the track info fix (no need for an index in the list) (L51 - L53).
+                      </li>
+                  </ul>
+              </dd>
+              <dd>youtube.py - <strong>VARIOUS</strong>:
+                  <ul>
+                      <li>Added the "status" to the "PART" YouTube API (V3) call (L137) to the initial playlist search.</li>
+                      <li><strong>PageToken</strong> error has been fixed to allow the setting of a page token in the page if it
+                          exists rather than just plainly assuming it does and trying to set one (L148).
+                      </li>
+                      <li>YouTube unicode (quote_plus) added to allow URL encoding (L33).</li>
+                  </ul>
+              </dd>
+              <dd>file_handler.py - <strong>VARIOUS</strong>:
+                  <ul>
+                      <li><i>"write" --> "writelines"</i> to allow the new content to be placed on a new lines, rather than it being added to
+                          the same line if content was already within the file (L40).
+                      </li>
+                      <li>The try/except have been replaced with specific errors (and IOError on no configuration file found in the directory) (L60/127).</li>
+                      <li>The correct exception types for the value have been included to make sure.</li>
+                      <li>Updated unicode_loader - known as ascii loader (L133).</li>
+                  </ul>
+              </dd>
+              <dd>rtmp_protocol_base.py - <strong>VARIOUS</strong>:
+                  <ul>
+                      <li>Refined the header decode section if the bits are equal to 3 - made a parent header for this - (L93-107).</li>
+                      <li>Refine the header decode section if the bits are smaller 3 - made a parent header for this - (L113-122).</li>
+                      <li>Simplified setting the previous headers stream ID (L127-129).</li>
+                      <li>Aligned the <strong>__slots__</strong> variable's fields (L218).</li>
+                  </ul>
+              </dd>
+              <dd>pinybot.py - <strong>VARIOUS</strong>:
+                  <ul>
+                      <li>Remove passing the configuration dict. to the updater, instead only pass required variables i.e. boolean values (L60/63).</li>
+                      <li>Added a larger amount of unicode symbols to the special_unicode dictionary (L85).</li>
+                      <li>Implemented media requests (L156) and the appropriate toggles (L1930/2173).</li>
+                      <li>Implemented public media switch (L161) and the appropriate toggles (L1169).</li>
+                      <li>Moved to using new variables/pointers for room events e.g. newuser banning/guest banning;
+                          changed to use the newer is_broadcasting/is_guest format with respective changes to configuration (L190).
+                      </li>
+                      <li>Allowed verified botters, botteracounts, whose account names are already in the permanent list to be set as a botter;
+                          added botteraccounts power set on join via this (L246).
+                      </li>
+                      <li>Added in baforgive (L239).</li>
+                      <li>Added in bnforgive (L358).</li>
+                      <li>Made device detection more efficient by replacing with essential variables and reducing the lines generally (L279).</li>
+                      <li>Logic issue with using 'is not', switch to != in this case as this covers every exception.
+                          We would otherwise get automatic PM's from ourselves when auto_pm is on (L320).
+                      </li>
+                      <li>Small edit to welcome message on user account message and general string formatting edit (L365/368).</li>
+                      <li><i>'is not' --> '!='</i> due to coverage and would still represent better logic, <i>probably...</i> (L387).</li>
+                      <li>Time point error when resuming media fixed by using floats instead of integer (L484).</li>
+                      <li>Prevent spam now from returning and continuing - spam potential (L559).</li>
+                      <li>The check_msg_for_bad_string function call has been moved into the prevent_spam function (L565).</li>
+                      <li>Several variables have been made to replace direct key/pair value requests i.e. CONFIG['spam_prevention'] (Throughout prevent_spam procedure).</li>
+                      <li>New variables to configuration, option is now available in config.ini - in prevent_spam method.</li>
+                      <li>Removed settings the power of users if they are in the botters/botteraccounts list at the beginning of the message handler.
+                          This would otherwise contradict with the removal of botters when they exit and any permanent botters are stored persistently (L620).
+                      </li>
+                      <li>Ignore commands (only !pmme is accepted otherwise) when the !sleep command has been triggered, we will need to PM with !wakeup to
+                          wake up the bot again (L663/694/1088/2929/3073).
+                      </li>
+                      <li>Implemented the raw media request commands (L899/902).</li>
+                      <li><i>etymo --> ety</i> command change (L949).</li>
+                      <li>Non-configuration variables for the following:
+                          <ul>
+                              <li><i>do_spam</i> - <strong>self.spam_prevention</strong> (L1092),</li>
+                              <li><i>do_snapshot</i> - <strong>self.snapshot_spam</strong> (L1198),</li>
+                              <li><i>do_autoclose</i> - <strong>self.auto_close</strong> (L1104),</li>
+                              <li><i>do_ban_mobiles</i> - <strong>self.ban_mobiles</strong> (L1110),</li>
+                              <li><i>do_auto_pm</i> - <strong>self.auto_pm</strong> (L1189).</li>
+                          </ul>
+                      </li>
+                      <li>Set has_power in do_botter, as opposed to than just plainly adding to the appropriate list and waiting to
+                          set the user later (L1209).
+                      </li>
+                      <li>Allow exception to ban mods and super users if the request was issued discretely in do_kick (L1390).</li>
+                      <li>New retrieval of information if it was not already present in the user information request - allows us to
+                          manage our request rates to the server (L1664).
+                      </li>
+                      <li>Not printing out user account type or account gift points has been fixed (L1669/1671).</li>
+                      <li>Playlist mode replies to whether a playlist can be played or not, depending on whether playlist mode is on or not (L2198).</li>
+                      <li>Remove "pmall" command from the private message handler (L2890).</li>
+                      <li>The conversion to new settings to incorporate the is_broadcasting_allowed and is_guest_allowed have been edited in the private message
+                          handler (L3200/3233).</li>
+                      <li>New replace_content function to handle replacing %user% and %room% variables in both normal text and unicode content (L3533).
+                          The replace_content support for do_ascii function (L2868).</li>
+                      <li>Media delay is a customisable variable in the source (default set to self.media_delay =  2.5) (L161). </li>
+                  </ul>
+              </dd>
+              <dd>pinylib.py - <strong>VARIOUS</strong>:
+                  <ul>
+                      <li><i>'is not' --> '!='</i> for coverage, there were some logic issues regarding this before-hand (L749).</li>
+                      <li><i>AMF0</i> data type variable starts at -1, in comparison to 0 (L355).</li>
+                      <li>Time point on resume is sent as a raw float, so we parse it as a float now (L842).</li>
+                      <li>The send_owner_msg method has been slightly edited with new variable names and just slightly reorganised (L961).</li>
+                      <li>Safety checks have been implemented before starting/closing any stream. This is to make sure we do not create any
+                          unnecessary streams (1487).</li>
+                  </ul>
+              </dd>
+              <dd>update.py - 29/48/74/108 - Re-organised some of the function in the update script to make it less lengthy/chunky.</dd>
+          </dl>
+      </div>
+
+      <p>~<a href="javascript:show_hide('v1.4.1')")><i><strong> Version 1.4.1</strong></i></a></p>
+      <div id="v1.4.1" style="display:none;">
+          <dl><dt><i>TechWhizZ199 22/06/2016</i></dt>
+              <dd>.gitignore - <strong>ADDED</strong> - remove .pyc's</dd>
+              <dd>auto_url.py - <strong>OVERALL</strong> - Tidied the file up slightly.</dd>
+              <dd>cleverbot.py - <strong>REMOVED</strong> - as it produced an invalid connection.</dd>
+              <dd>other_apis.py - 182 - Wikipedia module disabled until further debugging.</dd>
+              <dd>other_apis.py - 337 - New sets of tags/topics added to the one_liners function.</dd>
+              <dd>other_apis.py - 393 - <a href="http://etymonline.com/" target="_blank">Etymonline</a> function added to handle requests.</dd>
+              <dd>privacy_settings.py - <strong>OVERALL</strong> - New module (created by Nortxort) to handle extra owner commands, e.g. add new
+                  room moderators, clear all bans, set room to "push2talk", set "greenroom" etc.
+              </dd>
+              <dd>tinychat_api.py - 136, 171, 208 - get_captcha_key, get_cauth_cookie and get_recaptcha methods simplified.</dd>
+              <dd>tinychat_api.py - 19 - "api" to "apl" to conform to Tinychat protocol.</dd>
+              <dd>web_request.py - <strong>OVERALL</strong> - Added new functions to match Nortxort's base.</dd>
+              <dd>youtube.py - 12 - Logging/exception handling to match pinylib base.</dd>
+              <dd>pinybot.py - <strong>VARIOUS</strong>:
+                  <ul>
+                      <li>Small bug fixes, etymonline function added, line/indentation corrections, playlist true/false (boolean option) in <i>config.ini</i> and toggle in bot.</li>
+                      <li>New toggle for auto_url mode, links made to privacy_settings.py (Line 217), splitting lines character for auto_pm replaced from "¬" to "|" for easier use (L275). </li>
+                      <li>New tidy_exit function when receiving <strong>"on_quit"</strong> from a clients exit to handle sorting related lists (L368), fixed double on_quit error with tidy_exit - double run
+                          of the function which resulted in the user being non-existent in the room_users dictionary (L362/363).
+                      </li>
+                      <li>Bot listening has been improved - still needs to be checked (L573).</li>
+                      <li>Fixed old mobile parsing issues, in correspondence with pinylib, new parsing method (L230).</li>
+                      <li><strong>"privateroom"</strong> command has been kept, as it is still active, despite not knowing what its actual use is (L677).</li>
+                      <li>Bugs for <i>do_kick</i> - "kick"/"ban" have been fixed. Start-point (L704/708) and end-point for both (L348).</li>
+                      <li>Private stop_media method has been cleared of tries and is now using hasattr function (L1928).</li>
+                      <li>Added Super Mod and super mod related do_* functions (L909).</li>
+                      <li>Auto-PM replies now if there is no message preset in <i>config.ini</i> (L1102).</li>
+                      <li>The sync_media bug has been fixed, "!syncall" replied with no media in playlist when there was media playing.
+                          Rather than checking for if the playlist was greater than zero, we check for an active timer thread instead (L1946).
+                      </li>
+                      <li>Logic check in do_kick function seems to work. (L1285)</li>
+                      <li>Text spam prevention entry point fix; moderators would be checked, logic gate issue. (L580)</li>
+                      <li><i>send_private_bot_msg</i> function removed and send_private_msg method is in use (L2788).</li>
+                  </ul>
+              </dd>
+              <dd>pinylib.py - <strong>VARIOUS</strong>:
+                  <ul>
+                      <li>Smaller fixes including that of line/indentation corrections as well variables renames.</li>
+                      <li><strong>RTMPE</strong> connection, set in <i>config.ini</i> as a boolean True/False and set to connect via 'tc_url' in RTMP (L256).</li>
+                      <li>Slight edit to key function names from the command functions and onwards (L1219).</li>
+                      <li>Mutability error in <i>_send_command</i> method with passing params list has been resolved, with the construction of the parameters
+                          as a list within the function (L1196).
+                      </li>
+                      <li><i>encode_msg</i>/<i>decode_msg</i> methods are static now (L1455/1464).</li>
+                      <li>Native methods such as <i>_send_create_stream()</i> have been appropriately adapted to the new base and converted simply to
+                          e.g. <i>send_create_stream()</i> etc. (L1216).
+                      </li>
+                  </ul>
+              </dd>
+              <dd>message_structures.py - <strong>OVERALL</strong> - Smaller edits to function names and variables.</dd>
+              <dd>rtmp_protocol.py - <strong>OVERALL</strong> - Inclusion of <i>handle_packet()</i> method, variable name alterations, similar to pinylib base and various tidy ups.</dd>
+              <dd>rtmp_protocol_base.py - <strong>MINOR</strong> - Variable modifications and remove extra whitespaces/newlines.</dd>
+              <dd>ADDITIONAL FILES: Addition of CREDITS, CONTRIBUTING, RELEASE-PROCEDURE, ChangeLog.html (this file) and various edits to README.md</dd>
+              <dd>Timestamp: 01:04-24/06/2016</dd>
+          </dl>
+      </div>
+
+      <strong><i>NOTE:</i> I am only maintaining the changes above version 1.4.1 (1.4.0 is a preview build).</strong>
+
+      <p>~<a href="javascript:show_hide('v1.3.8')"><i><strong> Version 1.3.8</strong></i></a></p>
+  	<div id="v1.3.8" style="display:none;">
+          <dl>
+              <dt><i>Aida 15/02/2016</i></dt>
+              <dd>other_apis.py - 331 - Added IMDB search.</dd>
+              <dd>pinybot.py - 751 - Add 'imdb' command to message_handler.</dd>
+              <dd>pinybot.py - 2021 - Add IMDB do_* function.</dd>
+          </dl>
+  	 </div>
+      <!-- ============== END CHANGELOG ============ -->
+
+  </body>
+
+  <footer>
+      <p style="text-align:center"><a href="https://github.com/GoelBiju/" target="_blank">@GoelBiju</a></p>
+  </footer>
+</html>
