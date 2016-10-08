@@ -91,7 +91,7 @@ def get_request(url, json=False, proxy=None, header=None, stream=False, timeout=
         return None
 
 
-def post_request(post_url, post_data, header=None, json=False, proxy=None, timeout=20):
+def post_request(post_url, post_data, header=None, stream=True, json=False, allow_redirects=False, proxy=None, timeout=20):
     """
     Makes POST request to a web page.
     :param post_url: str the url to the web page.

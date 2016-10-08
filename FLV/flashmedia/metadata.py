@@ -1,14 +1,15 @@
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python
 
 from struct import unpack
 from datetime import datetime
 
+
 class FLVReader(dict):
     """
-    Reads metadata from FLV files
+    Reads metadata from FLV files.
     """
 
-    # Tag types
+    # Tag types.
     AUDIO = 8
     VIDEO = 9
     META = 18
@@ -16,10 +17,9 @@ class FLVReader(dict):
 
     def __init__(self, filename):
         """
-        Pass the filename of an flv file and it will return a dictionary of meta
-        data.
+        Pass the filename of an flv file and it will return a dictionary of metadata.
         """
-        # Lock on to the file
+        # Open the file.
         self.file = open(filename, 'rb')
         self.signature = self.file.read(3)
         assert self.signature == 'FLV', 'Not an flv file'
@@ -37,9 +37,9 @@ class FLVReader(dict):
         timeStamp = self.read24bit()
         unknown = self.readint()
         if tagType == self.AUDIO:
-            print "Can't handle audio tags yet"
+            print "Can't handle audio tags yet."
         elif tagType == self.VIDEO:
-            print "Can't handle video tags yet"
+            print "Can't handle video tags yet."
         elif tagType == self.META:
             endpos = self.file.tell() + dataSize
             event = self.readAMFData()
@@ -49,7 +49,7 @@ class FLVReader(dict):
             # We are complete
             self.update(metaData)
         elif tagType == self.UNDEFINED:
-            print "Can't handle undefined tags yet"
+            print "Can't handle undefined tags yet."
 
     def readint(self):
       data = self.file.read(4)
@@ -128,6 +128,7 @@ def main(file_location):
         # print 'Where filename is a .flv file'
         # print 'eg. %s myfile.flv' % sys.argv[0]
     # for fn in sys.argv[1:]:
-    metaData = FLVReader(file_location)
-    return metaData['framerate']
+
+    meta_data = FLVReader(file_location)
+    return meta_data['framerate']
     # return metaData

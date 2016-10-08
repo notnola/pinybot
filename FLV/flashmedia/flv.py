@@ -3,6 +3,7 @@
 from .tag import Header, Tag
 from .compat import is_py2
 
+
 class FLV(object):
     def __init__(self, fd=None, strict=False):
         self.fd = fd

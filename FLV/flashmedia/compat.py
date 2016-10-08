@@ -12,7 +12,7 @@ if is_py2:
     string_types = (_str, unicode)
     integer_types = (int, long)
 
-    def bytes(b=None, enc="ascii"):
+    def bytes(b=None):  # enc="ascii"
         if b is None:
             return ""
         elif isinstance(b, list) or isinstance(b, tuple):

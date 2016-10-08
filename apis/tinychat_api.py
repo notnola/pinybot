@@ -7,6 +7,8 @@ from xml.dom.minidom import parseString
 import web_request
 import os
 
+import requests
+
 
 def get_roomconfig_xml(room, roompass=None, proxy=None):
     """
@@ -210,6 +212,54 @@ def recaptcha(proxy=None):
                 raw_input('Solve the captcha and hit enter to continue (OR hit enter to join anonymously).')
 
         return response['cookies']
+
+
+def generate_snapshot(process_file=None, client_name=None, client_room=None):
+    """
+    Generate a snapshot given an image file, this will send the image of to Tinychat servers.
+    :param client_name: str the name of the room in which the client is residing.
+    :param client_room: str the name of the client.
+    :param process_file: str the full path and name (with extension) to the file on the server.
+    :return: str the raw image link that was generated with the snapshot on the server and the embed link for the image.
+    """
+
+    snapshot_header = {
+        'Accept': '*/*',
+        'Accept-Encoding': 'gzip, deflate',
+        'Accept-Language': 'en-GB,en-US;q=0.8,en;q=0.6',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) ' +
+                      'Chrome/51.0.2704.103 Safari/537.36',
+        'X-Requested-With': 'ShockwaveFlash/22.0.0.19',
+        'DNT': '1',
+        'Content-Type': 'multipart /form-data',
+        'Origin': 'https://tinychat.com',
+        'Connection': 'keep-alive',
+        'Host': 'upload.tinychat.com'
+    }
+
+    date_formatted = time.strftime('%m-%d-%Y')
+    post_url = 'https://upload.tinychat.com/savess?file=%s%s%s.jpg' % \
+               (client_name + '%2B', client_room + '%2B', date_formatted)
+    print("Sending to:", post_url, ' Filename:', process_file)
+
+    if process_file:
+        form_data_file = open(process_file, 'rb')
+        form_data = form_data_file.read()
+        # print [form_data]
+        print int(os.path.getsize(process_file)), 'bytes'
+        # post_session = web_request.new_session(ret_session=True)
+        web_request.new_session()
+        pr = web_request.post_request(post_url, post_data=form_data, header=snapshot_header,
+                                      stream=True, allow_redirects=False)
+
+        raw_link = pr['content'].strip()
+        embed_link = raw_link.replace('upload.', '')
+        embed_link = embed_link.replace('.jpg', '')
+        return raw_link, embed_link
+
+    else:
+        print("Please provide an image file.")
+        return None
 
 
 

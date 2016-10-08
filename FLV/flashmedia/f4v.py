@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-from .box import Box, RawPayload
+from .box import Box
 from .compat import is_py2
+
 
 class F4V(object):
     def __init__(self, fd, strict=False, raw_payload=False):

@@ -3,7 +3,7 @@
 from ctypes import BigEndianStructure, Union, c_uint8
 from io import BytesIO
 
-from .compat import *
+# from .compat import *
 from .error import *
 from .packet import *
 from .types import *
@@ -151,7 +151,7 @@ class Header(Packet):
 
         offset += 10
 
-        return (rval, offset)
+        return rval, offset
 
     def _serialize(self, packet):
         packet += b"FLV"
@@ -190,10 +190,9 @@ class Tag(Packet):
         self.padding = padding
 
     def __repr__(self):
-        reprformat = "<Tag type={type} timestamp={timestamp} streamid={streamid} filter={filter} data={data}>"
-        return reprformat.format(type=self.type, timestamp=self.timestamp,
-                                 streamid=self.streamid, filter=self.filter,
-                                 data=repr(self.data))
+        repr_format = "<Tag type={type} timestamp={timestamp} streamid={streamid} filter={filter} data={data}>"
+        return repr_format.format(type=self.type, timestamp=self.timestamp, streamid=self.streamid,
+                                  filter=self.filter, data=repr(self.data))
 
     type = flagproperty("flags", "type")
     filter = flagproperty("flags", "filter", True)
@@ -215,18 +214,18 @@ class Tag(Packet):
         header = io.read(11)
 
         if len(header) < 11:
-            #raise FLVError("Insufficient tag header")
-            #print "Insufficient tag header (possibly end of FLV content)"
+            # raise FLVError("Insufficient tag header")
+            # print "Insufficient tag header (possibly end of FLV content)"
             return
 
-        (flagb, data_size, timestamp, timestamp_ext,
-         streamid) = unpack_many_from(header, 0, (U8, U24BE, U24BE, U8, U24BE))
+        (flagb, data_size, timestamp, timestamp_ext, streamid) = \
+            unpack_many_from(header, 0, (U8, U24BE, U24BE, U8, U24BE))
 
         flags = TagFlags()
         flags.byte = flagb
         timestamp |= timestamp_ext << 24
 
-        # Don't parse encrypted data
+        # Don't parse encrypted data.
         if flags.bit.filter == 1:
             raw_data = True
 
@@ -267,7 +266,7 @@ class Tag(Packet):
         flags.byte = flagb
         timestamp |= timestamp_ext << 24
 
-        # Don't parse encrypted data
+        # Don't parse encrypted data.
         if flags.bit.filter == 1:
             raw_data = True
 
@@ -294,7 +293,7 @@ class Tag(Packet):
         if strict and tag.tag_size != tag_size:
             raise FLVError("Data size mismatch when deserialising tag")
 
-        return (tag, offset)
+        return tag, offset
 
     def _serialize(self, packet, strict=True):
         packet += U8(self.flags.byte)
@@ -336,12 +335,12 @@ class FrameData(TagData):
 
     def __repr__(self):
         if not isinstance(self.data, Packet):
-            data = ("<{0}>").format(type(self.data).__name__)
+            data = "<{0}>".format(type(self.data).__name__)
         else:
             data = repr(self.data)
 
-        reprformat = "<{cls} type={type} data={data}>"
-        return reprformat.format(cls=type(self).__name__, type=self.type, data=data)
+        repr_format = "<{cls} type={type} data={data}>"
+        return repr_format.format(cls=type(self).__name__, type=self.type, data=data)
 
     @property
     def size(self):
@@ -366,7 +365,7 @@ class FrameData(TagData):
         data = buf[offset:offset + buf_size]
         offset += buf_size
 
-        return (cls(typ, data), offset)
+        return cls(typ, data), offset
 
     def _serialize(self, packet):
         packet += U8(self.type)
@@ -396,14 +395,14 @@ class RawData(TagData):
 
     @classmethod
     def _deserialize_from(cls, buf, offset, buf_size=None):
-        if not data_size:
+        if not buf_size:
             buf_size = len(buf)
 
         data = buf[offset:offset + buf_size]
         rval = cls(data)
         offset += len(data)
 
-        return (rval, offset)
+        return rval, offset
 
     def _serialize(self, packet):
         packet += self.data
@@ -432,9 +431,9 @@ class AudioData(TagData):
         else:
             data = repr(self.data)
 
-        reprformat = "<AudioData type={type} codec={codec} rate={rate} bits={bits} data={data}>"
-        return reprformat.format(type=self.type, codec=self.codec, rate=self.rate,
-                                 bits=self.bits, data=data)
+        repr_format = "<AudioData type={type} codec={codec} rate={rate} bits={bits} data={data}>"
+        return repr_format.format(type=self.type, codec=self.codec, rate=self.rate,
+                                  bits=self.bits, data=data)
 
     @property
     def size(self):
@@ -464,16 +463,15 @@ class AudioData(TagData):
         buf_size -= U8.size
 
         if flags.bit.codec == 10:
-            data, offset = AACAudioData.deserialize_from(buf, offset,
-                                                         buf_size=buf_size)
+            data, offset = AACAudioData.deserialize_from(buf, offset, buf_size=buf_size)
         else:
-            data = buf[offset:offset + data_size]
-            offset += data_size
+            data = buf[offset:offset + buf_size]
+            offset += buf_size
 
         obj = cls(flags.bit.codec, flags.bit.rate, flags.bit.bits,
                   flags.bit.type, data)
 
-        return (obj, offset)
+        return obj, offset
 
     def _serialize(self, packet):
         packet += U8(self.flags.byte)
@@ -512,12 +510,12 @@ class VideoData(TagData):
 
     def __repr__(self):
         if not isinstance(self.data, Packet):
-            data = ("<{0}>").format(type(self.data).__name__)
+            data = "<{0}>".format(type(self.data).__name__)
         else:
             data = repr(self.data)
 
-        reprformat = "<VideoData type={type} codec={codec} data={data}>"
-        return reprformat.format(type=self.type, codec=self.codec, data=data)
+        repr_format = "<VideoData type={type} codec={codec} data={data}>"
+        return repr_format.format(type=self.type, codec=self.codec, data=data)
 
     type = flagproperty("flags", "type")
     codec = flagproperty("flags", "codec")
@@ -564,7 +562,7 @@ class VideoData(TagData):
 
         obj = cls(flags.bit.type, flags.bit.codec, data)
 
-        return (obj, offset)
+        return obj, offset
 
     def _serialize(self, packet):
         packet += U8(self.flags.byte)
@@ -602,12 +600,12 @@ class AVCVideoData(TagData):
 
     def __repr__(self):
         if not isinstance(self.data, Packet):
-            data = ("<{0}>").format(type(self.data).__name__)
+            data = "<{0}>".format(type(self.data).__name__)
         else:
             data = repr(self.data)
 
-        reprformat = "<AVCVideoData type={type} composition_time={composition_time} data={data}>"
-        return reprformat.format(type=self.type, composition_time=self.composition_time,
+        repr_format = "<AVCVideoData type={type} composition_time={composition_time} data={data}>"
+        return repr_format.format(type=self.type, composition_time=self.composition_time,
                                  data=data)
 
     @property
@@ -639,7 +637,7 @@ class AVCVideoData(TagData):
 
         obj = cls(typ, composition_time, data)
 
-        return (obj, offset)
+        return obj, offset
 
     def _serialize(self, packet):
         packet += U8(self.type)
@@ -656,15 +654,14 @@ class AVCVideoData(TagData):
         return offset
 
 
-
 class ScriptData(TagData):
     def __init__(self, name=None, value=None):
         self.name = name
         self.value = value
 
     def __repr__(self):
-        reprformat = "<ScriptData name={name} value={value}>"
-        return reprformat.format(name=self.name, value=self.value)
+        repr_format = "<ScriptData name={name} value={value}>"
+        return repr_format.format(name=self.name, value=self.value)
 
     @property
     def size(self):
@@ -675,7 +672,7 @@ class ScriptData(TagData):
 
     @classmethod
     def _deserialize(cls, io):
-        name  = ScriptDataValue.read(io)
+        name = ScriptDataValue.read(io)
         value = ScriptDataValue.read(io)
 
         return ScriptData(name, value)
@@ -685,7 +682,7 @@ class ScriptData(TagData):
         name, offset = ScriptDataValue.unpack_from(buf, offset)
         value, offset = ScriptDataValue.unpack_from(buf, offset)
 
-        return (ScriptData(name, value), offset)
+        return ScriptData(name, value), offset
 
     def _serialize(self, packet):
         packet += ScriptDataValue.pack(self.name)
@@ -703,7 +700,6 @@ TagDataTypes = {
     TAG_TYPE_VIDEO: VideoData,
     TAG_TYPE_SCRIPT: ScriptData
 }
-
 
 
 __all__ = ["Header", "Tag", "FrameData", "AudioData", "AACAudioData",

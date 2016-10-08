@@ -89,10 +89,10 @@ def process_encode_options(command, output_name):
         # PROMPT: '-vcodec', VIDEO_CODEC, '-r', FPS, '-s', SIZE,
         video_codec = 'flv1'  # Sorenson FLV1 codec.
         command.extend([ff_video_codec, video_codec])
-        fps = '10'
-        command.extend([ff_video_frame_rate, fps])
-        size = '320x240'  # 1024x768
-        command.extend([ff_video_size, size])
+        # fps = '10'
+        # command.extend([ff_video_frame_rate, fps])
+        # size = '320x240'  # 1024x768
+        # command.extend([ff_video_size, size])
 
     # Set audio/video output.
     if VIDEO_NO_AUDIO:
@@ -193,7 +193,7 @@ def main(file_process, file_location, output_name=None):
 
 # Standard conversion settings:
 # - Video conversion:
-main(1, 'bunny.flv', 'bunny_converted.flv')
+main(1, 'sample.flv', 'sample_converted.flv')
 
 # - Image conversion:
 # main(2, 'bunny.flv', 'bunny_converted.flv')

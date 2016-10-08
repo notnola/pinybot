@@ -27,7 +27,7 @@ class AMFHeader(Packet):
     def _deserialize(cls, io):
         name = AMF0String.read(io)
         must_understand = bool(U8.read(io))
-        length = U32BE.read(io)
+        # length = U32BE.read(io)
         value = AMF0Value.read(io)
 
         return cls(name, value, must_understand)
@@ -58,7 +58,7 @@ class AMFMessage(Packet):
     def _deserialize(cls, io):
         target_uri = AMF0String.read(io)
         response_uri = AMF0String.read(io)
-        length = U32BE.read(io)
+        # length = U32BE.read(io)
         value = AMF0Value.read(io)
 
         return cls(target_uri, response_uri, value)
@@ -103,8 +103,8 @@ class AMFPacket(Packet):
     def _deserialize(cls, io):
         version = U16BE.read(io)
 
-        if not version in (0, 3):
-            raise AMFError("AMF version must be 0 or 3")
+        if version not in (0, 3):
+            raise AMFError("AMF version must be 0 or 3.")
 
         headers = []
         header_count = U16BE.read(io)

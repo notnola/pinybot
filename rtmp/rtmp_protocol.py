@@ -591,7 +591,7 @@ class RtmpClient:
         self.stream = FileDataTypeMixIn(self.file)
 
         # Turn on TCP keep-alive.
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        # self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
 
         # Perform the handshake with the server and set the read and write classes to the stream.
         # Start the connection afterwards.

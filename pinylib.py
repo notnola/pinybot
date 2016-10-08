@@ -1364,7 +1364,7 @@ class TinychatRTMPClient:
             packet_timestamp)
 
         self.connection.writer.write(msg)
-        self.connection.writer.flush()
+        # self.connection.writer.flush()
 
     def send_video_packet(self, packet_raw_data, packet_control_type, packet_timestamp=0):
         """
@@ -1384,7 +1384,7 @@ class TinychatRTMPClient:
             packet_timestamp)
 
         self.connection.writer.write(msg)
-        self.connection.writer.flush()
+        # self.connection.writer.flush()
 
     def send_close_stream(self, stream_id=None):
         """
@@ -1535,7 +1535,8 @@ class TinychatRTMPClient:
             self.console_write(COLOR['white'], 'Received tag/frame data. Starting stream.')
 
             # Set an initial start frame delay which is smaller than the continuous delay.
-            frame_delay = 0.0125
+            # frame_delay = 0.0125
+            frame_delay = 0
             self.console_write(COLOR['white'], 'Initial frame delay: %s' % frame_delay)
 
             for individual_frame in xrange(len(frames)):
@@ -1549,6 +1550,9 @@ class TinychatRTMPClient:
                 else:
                     self.console_write(COLOR['red'], 'The publish stream was closed.')
                     break
+
+            # Flush the writer finally.
+            self.connection.writer.flush()
         else:
             self.console_write(COLOR['white'], 'No frames were received, returning.')
 
@@ -1556,7 +1560,7 @@ class TinychatRTMPClient:
     def load_flv(self):
         """ Load FLV and publish it's content to the room. """
         # The FLV file stored at '/files/defaults/'.
-        temp_file = 'bunny.flv'
+        temp_file = 'sample.flv'
         with open(CONFIG['media_defaults'] + temp_file, 'rb') as file_object:
             # Load the tag within the FLV given the opened file.
             tags_list = tag_handler.iterate_frames(file_object)
@@ -1564,7 +1568,8 @@ class TinychatRTMPClient:
         # Start the send frames thread to send the tags we have loaded.
         if len(tags_list) is not 0:
             self.console_write(COLOR['white'], 'Read tags and ready for broadcast.')
-            threading.Thread(target=self._send_frames, args=(tags_list, )).start()
+            # threading.Thread(target=self._send_frames, args=(tags_list, )).start()
+            self._send_frames(tags_list)
         else:
             self.console_write(COLOR['white'], 'No tags were found in the file.')
 

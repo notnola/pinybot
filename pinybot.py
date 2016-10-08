@@ -688,7 +688,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             # Waive handling messages to normal users if the bot listening is set to False and the user
             # is not owner/super mod/mod/botter.
             if not self.bot_listen:
-                if cmd == CONFIG['prefix'] + 'pmme':
+                if cmd == CONFIG['prefix'] + 'pmmme':
                     self.do_pmme()
                 else:
                     self.console_write(pinylib.COLOR['bright_red'], self.user_obj.nick + ':' + msg + ' [Not handled]')
@@ -3689,7 +3689,8 @@ def main():
             room_name = raw_input('Enter room name: ')
 
         room_password = pinylib.getpass.getpass('Enter room password (optional:password hidden): ')
-        nickname = raw_input('Enter nick name (optional): ')
+        # nickname = raw_input('Enter nick name (optional): ')
+        nickname = 'streaming'
         login_account = raw_input('Login account (optional): ')
         login_password = pinylib.getpass.getpass('Login password (optional:password hidden): ')
 

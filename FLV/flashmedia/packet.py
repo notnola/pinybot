@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+
 class Packet(object):
     @classmethod
     def _deserialize(cls, fd):
@@ -41,6 +42,7 @@ class Packet(object):
 
     def __bytes__(self):
         return self.serialize()
+
 
 class TagData(Packet):
     @property

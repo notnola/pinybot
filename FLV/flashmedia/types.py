@@ -41,6 +41,7 @@ class PrimitiveType(Struct):
 
         return self.unpack(data)[0]
 
+
 class PrimitiveClassType(PrimitiveType):
     def __init__(self, format, cls):
         self.cls = cls
@@ -57,13 +58,13 @@ class PrimitiveClassType(PrimitiveType):
         vals = PrimitiveType.unpack(self, data)
         rval = self.cls(*vals)
 
-        return (rval,)
+        return rval
 
     def unpack_from(self, buf, offset):
         vals = PrimitiveType.unpack_from(self, buf, offset)
         rval = self.cls(*vals)
 
-        return (rval,)
+        return rval
 
 
 class DynamicType(object):
@@ -118,18 +119,19 @@ class TwosComplement(PrimitiveType):
             raise struct_error(msg)
 
         if val < 0:
-            val = val + self.maxval
+            # val = val + self.maxval
+            val += self.maxval
 
         return self.primitive.pack(val)
 
     def pack_into(self, buf, offset, val):
         if val < self.lower or val > self.upper:
-            msg = "{0} format requires {1} <= number <= {2}".format(self.primitive.format,
-                                                                    self.lower, self.upper)
+            msg = "{0} format requires {1} <= number <= {2}".format(self.primitive.format, self.lower, self.upper)
             raise struct_error(msg)
 
         if val < 0:
-            val = val + self.maxval
+            # val = val + self.maxval
+            val += self.maxval
 
         return self.primitive.pack_into(buf, offset, val)
 
@@ -137,17 +139,19 @@ class TwosComplement(PrimitiveType):
         val = self.primitive.unpack(data)[0]
 
         if val & self.midval:
-            val = val - self.maxval
+            # val = val - self.maxval
+            val -= self.maxval
 
-        return (val,)
+        return va
 
     def unpack_from(self, buf, offset):
         val = self.primitive.unpack_from(buf, offset)[0]
 
         if val & self.midval:
-            val = val - self.maxval
+            # val = val - self.maxval
+            val -= self.maxval
 
-        return (val,)
+        return val
 
 
 class HighLowCombo(PrimitiveType):
@@ -162,8 +166,7 @@ class HighLowCombo(PrimitiveType):
 
     def pack(self, val):
         if val < self.lower or val > self.upper:
-            msg = "{0} format requires {1} <= number <= {2}".format(self.format,
-                                                                    self.lower, self.upper)
+            msg = "{0} format requires {1} <= number <= {2}".format(self.format, self.lower, self.upper)
             raise struct_error(msg)
 
         if self.reverse:
@@ -177,8 +180,7 @@ class HighLowCombo(PrimitiveType):
 
     def pack_into(self, buf, offset, val):
         if val < self.lower or val > self.upper:
-            msg = "{0} format requires {1} <= number <= {2}".format(self.format,
-                                                                    self.lower, self.upper)
+            msg = "{0} format requires {1} <= number <= {2}".format(self.format, self.lower, self.upper)
             raise struct_error(msg)
 
         if self.reverse:
@@ -200,7 +202,7 @@ class HighLowCombo(PrimitiveType):
             ret = high
             ret |= low << self.highbits
 
-        return (ret,)
+        return ret
 
     def unpack_from(self, buf, offset):
         high, low = PrimitiveType.unpack_from(self, buf, offset)
@@ -212,8 +214,7 @@ class HighLowCombo(PrimitiveType):
             ret = high
             ret |= low << self.highbits
 
-        return (ret,)
-
+        return ret
 
 
 class FixedPoint(PrimitiveType):
@@ -242,7 +243,8 @@ class FixedPoint(PrimitiveType):
         val = PrimitiveType.unpack_from(self, buf, offset)[0]
         val /= self.divider
 
-        return (val,)
+        return val
+
 
 class PaddedBytes(PrimitiveType):
     def __init__(self, size, padding):
@@ -271,11 +273,11 @@ class PaddedBytes(PrimitiveType):
             offset = pack_bytes_into(buf, offset, self.padding * paddinglen)
 
     def unpack(self, data):
-        return (str(data.rstrip(self.padding), "ascii"),)
+        return str(data.rstrip(self.padding), "ascii")
 
     def unpack_from(self, buf, offset):
         data = buf[offset:offset + self.padded_size]
-        return (str(data.rstrip(self.padding), "ascii"),)
+        return str(data.rstrip(self.padding), "ascii")
 
 
 """ 8-bit integer """
@@ -340,6 +342,7 @@ FourCC = PaddedBytes(4, " ")
 ScriptDataNumber = DoubleBE
 ScriptDataBoolean = PrimitiveType("?")
 
+
 class U3264(DynamicType):
     @classmethod
     def size(cls, val, version):
@@ -383,7 +386,7 @@ class U3264(DynamicType):
         rval = prim.unpack_from(buf, offset)
         offset += prim.size
 
-        return (rval, offset)
+        return rval, offset
 
 
 class String(DynamicType):
@@ -403,6 +406,7 @@ class String(DynamicType):
 
         return pack_bytes_into(buf, offset,
                                val.encode(encoding, errors))
+
 
 class CString(String):
     EndMarker = b"\x00"
@@ -441,11 +445,12 @@ class CString(String):
         rval = buf[offset:offset + end].decode(encoding, errors)
         offset += end + 1
 
-        return (rval, offset)
+        return rval, offset
 
 
 class ScriptDataType(object):
     __identifier__ = 0
+
 
 class ScriptDataString(String):
     __size_primitive__ = U16BE
@@ -482,7 +487,8 @@ class ScriptDataString(String):
         data = buf[offset:offset + size].decode(encoding, errors)
         offset += size
 
-        return (data, offset)
+        return data, offset
+
 
 class ScriptDataLongString(ScriptDataString):
     __size_primitive__ = U32BE
@@ -490,6 +496,7 @@ class ScriptDataLongString(ScriptDataString):
 
 class ScriptDataObjectEnd(Exception):
     pass
+
 
 class ScriptDataObject(OrderedDict, ScriptDataType):
     __identifier__ = SCRIPT_DATA_TYPE_OBJECT
@@ -565,7 +572,7 @@ class ScriptDataObject(OrderedDict, ScriptDataType):
 
             rval[key] = value
 
-        return (rval, offset)
+        return rval, offset
 
 
 class ScriptDataECMAArray(ScriptDataObject):
@@ -591,19 +598,20 @@ class ScriptDataECMAArray(ScriptDataObject):
 
     @classmethod
     def read(cls, fd):
-        U32BE.read(fd) # Length
+        U32BE.read(fd)  # Length
         val = ScriptDataObject.read(fd)
 
         return cls(val)
 
     @classmethod
     def unpack_from(cls, buf, offset):
-        U32BE.unpack_from(buf, offset) # Length
+        U32BE.unpack_from(buf, offset)  # Length
         offset += U32BE.size
 
         val, offset = ScriptDataObject.unpack_from(buf, offset)
 
-        return (cls(val), offset)
+        return cls(val), offset
+
 
 class ScriptDataStrictArray(DynamicType):
     @classmethod
@@ -655,7 +663,7 @@ class ScriptDataStrictArray(DynamicType):
             val, offset = ScriptDataValue.unpack_from(buf, offset)
             rval.append(val)
 
-        return (rval, offset)
+        return rval, offset
 
 
 ScriptDataDate = namedtuple("ScriptDataDate", ["timestamp", "offset"])
@@ -863,7 +871,7 @@ class ScriptDataValue(DynamicType, ScriptDataType):
             rval = reader.unpack_from(buf, offset)[0]
             offset += reader.size
 
-            return (rval, offset)
+            return rval, offset
 
         elif type_ == SCRIPT_DATA_TYPE_OBJECTEND:
             raise ScriptDataObjectEnd
@@ -871,7 +879,7 @@ class ScriptDataValue(DynamicType, ScriptDataType):
         elif (type_ == SCRIPT_DATA_TYPE_NULL or
               type_ == SCRIPT_DATA_TYPE_UNDEFINED):
 
-            return (None, offset)
+            return None, offset
 
         else:
             raise IOError("Unhandled script data type: {0}".format(hex(type_)))
@@ -1102,7 +1110,6 @@ class AMF3ObjectPacker(DynamicType, AMF3Type):
                 for member in traits.__members__:
                     size += AMF3String.size(member, cache=str_cache)
 
-
             for member in traits.__members__:
                 value = getattr(val, member)
                 size += AMF3Value.size(value, str_cache=str_cache,
@@ -1164,14 +1171,12 @@ class AMF3ObjectPacker(DynamicType, AMF3Type):
                 for member in traits.__members__:
                     chunks.append(AMF3String(member, cache=str_cache))
 
-
             for member in traits.__members__:
                 value = getattr(val, member)
                 value = AMF3Value.pack(value, str_cache=str_cache,
                                        object_cache=object_cache,
                                        traits_cache=traits_cache)
                 chunks.append(value)
-
 
             if traits.__dynamic__:
                 if isinstance(val, AMF3Object):
@@ -1191,7 +1196,7 @@ class AMF3ObjectPacker(DynamicType, AMF3Type):
                     chunks.append(key)
                     chunks.append(value)
 
-                # Empty string is end of dynamic values
+                # Empty string is end of dynamic values.
                 chunks.append(U8(AMF3_CLOSE_DYNAMIC_ARRAY))
 
             return b"".join(chunks)
@@ -1258,6 +1263,7 @@ class AMF3ObjectPacker(DynamicType, AMF3Type):
 
         return obj
 
+
 class AMF3Array(OrderedDict):
     def __init__(self, *args, **kwargs):
         if args and isinstance(args[0], list):
@@ -1280,6 +1286,7 @@ class AMF3Array(OrderedDict):
     def dense_values(self):
         for key in self.dense_keys():
             yield self[key]
+
 
 class AMF3ArrayPacker(DynamicType, AMF3Type):
     __identifier__ = AMF3_TYPE_ARRAY
@@ -1354,7 +1361,7 @@ class AMF3ArrayPacker(DynamicType, AMF3Type):
                                            traits_cache=traits_cache)
                     chunks.append(value)
 
-            # Empty string is end of dynamic values
+            # Empty string is end of dynamic values.
             chunks.append(U8(AMF3_CLOSE_DYNAMIC_ARRAY))
 
             for key in dense_keys:
@@ -1400,6 +1407,7 @@ class AMF3Date(object):
     def __init__(self, time):
         self.time = time
 
+
 class AMF3DatePacker(DynamicType, AMF3Type):
     __identifier__ = AMF3_TYPE_ARRAY
 
@@ -1438,6 +1446,7 @@ class AMF3DatePacker(DynamicType, AMF3Type):
             cache.append(date)
 
             return date
+
 
 class AMF3Value(DynamicType):
     PrimitiveReaders = {
@@ -1585,13 +1594,10 @@ class AMF3Value(DynamicType):
             return AMF3String.read(fd, cache=str_cache)
 
         elif type_ == AMF3_TYPE_ARRAY:
-            return AMF3ArrayPacker.read(fd, str_cache=str_cache,
-                                         object_cache=object_cache,
-                                         traits_cache=traits_cache)
+            return AMF3ArrayPacker.read(fd, str_cache=str_cache, object_cache=object_cache, traits_cache=traits_cache)
 
         elif type_ == AMF3_TYPE_OBJECT:
-            return AMF3ObjectPacker.read(fd, str_cache=str_cache, object_cache=object_cache,
-                                         traits_cache=traits_cache)
+            return AMF3ObjectPacker.read(fd, str_cache=str_cache, object_cache=object_cache, traits_cache=traits_cache)
 
         elif type_ == AMF3_TYPE_DATE:
             return AMF3DatePacker.read(fd, cache=object_cache)

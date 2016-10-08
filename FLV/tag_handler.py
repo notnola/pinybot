@@ -47,10 +47,11 @@ def iterate_frames(file_object):
         return False
 
     # Set essential local variables.
-    alternate_control = True  # Alternate between control types.
+    # - alternate between control types:
+    # alternate_control = True
 
-    # Start with a key-frame.
-    control = key_frame
+    # - start with a key-frame.
+    # control = key_frame
 
     print('%s Iterating over FLV content.' % tag_message)
     # Iterate over tags.
@@ -63,19 +64,31 @@ def iterate_frames(file_object):
 
             # Load video tag.
             if tag.type == video:
-                if control != key_frame:
-                    if alternate_control:
-                        control = inter_frame  # Inter-frame - Sorenson H.263.
-                    else:
-                        control = disposable_frame  # Disposable-frame - Sorenson H.263.
+                control = key_frame
+
+                # if control != key_frame:
+                #     if alternate_control:
+                #         Inter-frame - Sorenson H.263.
+                #         control = disposable_frame
+                #     else:
+                #         Disposable-frame - Sorenson H.263.
+                #         control = inter_frame
+
+                # Record tag/frame information.
+                saved_frames.append([tag.type, tag.data.data, control, tag.timestamp])
+
             # Load audio tag.
             elif tag.type == audio:
-                control = inter_frame
+                control = 0x22
+                # control = inter_frame
 
-            # Save either the loaded video/audio tag.
-            saved_frames.append([tag.type, tag.data.data, control, tag.timestamp])  # Record tag/frame information.
-            alternate_control = not alternate_control  # Switch to the other control type.
-            control = None
+                # Record tag/frame information.
+                saved_frames.append([tag.type, tag.data.data, control, tag.timestamp])
+
+            # Save either the loaded video/audio tag:
+            # - switch to the other control type:
+            # alternate_control = not alternate_control
+            # control = None
         else:
             break
 
