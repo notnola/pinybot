@@ -1,14 +1,15 @@
-# CONTRIBUTING
+CONTRIBUTING
+____________
 
-As this is an open-source project, I happily accept any type of feedback or improvements to be made on
-the initial project/releases. If you found the software useful in any shape or form, be sure to press
-the star, or share it. Be sure to fork the repository if you want to make pull requests.
+The issues section is specifically for those who want to contribute by posting any common/unique issues they or others
+may face, and/or would like to suggest new features to the project. In addition to this, the wiki pages contain
+essential information pertinent to the workings of the program be sure to consult that first. The wiki pages
+can also be used to troubleshoot/clarify any problems/queries.
 
-The issues section is widely available for those who want to post a unique issue they face or 
-would like to suggest any new features to the project. In addition to this, the Wiki pages 
-contains essential information pertinent to the workings of the program, if you ever get stuck, 
-be sure to consult that first.
+In general, as this is an open-source project, I happily accept any type of improvements/feedback made on
+the project and/or releases. If you found this piece of software useful in any shape or form, be sure to share it (with
+the inclusion to modifying it to your requirements). Please "fork" the repository if you want to make "pull requests".
 
-Repository: https://github.com/TechWhizZ199/pinybot/
-Issues section: https://github.com/TechWhizZ199/pinybot/issues/
-Wiki pages: https://github.com/TechWhizZ199/pinybot/Wiki/
+Issues section: https://github.com/GoelBiju/pinybot/issues/
+Wiki pages: https://github.com/GoelBiju/pinybot/Wiki/
+Repository: https://github.com/GoelBiju/pinybot/

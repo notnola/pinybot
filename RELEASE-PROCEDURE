@@ -1,19 +1,22 @@
-# Release procedure
+Release procedures
+__________________
 
 This is just a brief outline as to how releases and project updates will work.
 
-In terms of releases alone, pinybot's releases will be based on its MAJOR versions revisions i.e.
-when it hits version 2, 3 etc. In all these releases there will an executable released alongside it
+In terms of releases alone, the main pinybot releases will be based on its "MAJOR" version revisions e.g.
+2.0.0 or 3.0.0 etc. In all these releases there will an executable released alongside it
 as it is an official release and can be used without fear of particular bugs/issues.
 
-The MINOR revisions will still be comitted to the project and this will feature new modules/addons
-and essential fixes to larger bugs which cannot simply be fixed via a PATCH.
+The "MINOR" revisions will still be committed to the project and this will feature new modules/add-ons
+and essential fixes to larger bugs which cannot simply be fixed via a "PATCH".
 
-The PATCHES themselves will be released on a maintenance basis, whenever there are protocol changes or 
+The patches themselves will be released on a maintenance basis.Whenever there are protocol changes or
 if there are smaller code revisions or simple fixes we have to change a patch will be pushed to the
 repository appropriately.
 
-TechWhizZ199
-Repository: https://github.com/TechWhizZ199/pinybot
+In addition to all of these details, the project is usually updated after a major update to the base
+(pinylib project).
 
- 
+Goel
+
+Repository: https://github.com/GoelBiju/pinybot/
