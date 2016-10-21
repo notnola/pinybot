@@ -20,21 +20,20 @@ max_bytes = 655360
 # Default chunk size is 512 but can be modified to 1024 for higher speeds if you have a higher download rate.
 def auto_url(url, restrict_domain=None, chunk_size=512, decode_unicode=True):
     """
-    Auto Url method to request the title of a web-page.
+    Automatic URL method to request the title of a web-page.
 
     :param url: str the URL of the web-page to request the title for.
     :param restrict_domain: str the web domain to check for in the url, if the domain is not present then
                             auto URL will not process the URL e.g. "www.google.com" or simply a keyword "google".
     :param chunk_size: int the chunk size to read the stream in.
     :param decode_unicode: bool True/False if unicode decoding should be performed.
-    :return: str the title of the web-page that was requested.
+    :return title: str the title of the web-page that was requested or None if no title was found.
     """
-
     # Try checking if a restriction on the URL domain is applied or not.
     if restrict_domain is not None:
         if restrict_domain not in url:
             return None
-    
+
     header = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:44.0) Gecko/20100101 Firefox/44.0',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -47,9 +46,10 @@ def auto_url(url, restrict_domain=None, chunk_size=512, decode_unicode=True):
 
     content = u''
     try:
-        # With decode_unicode=True the unicode output will be given as a whole
-        # e.g. [u'\u2605']. Whilst without this each character in the unicode would be saved as an individual unicode
-        # character e.g. [u'\xe2'][u'\x98'][u'\x85']. True is default.
+        # TODO: Remove part of this since it isn't actually helpful.
+        # With decode_unicode=True the unicode output will be given as a whole e.g. [u'\u2605'].
+        # Whilst without this, each character in the unicode would be saved as an individual character
+        # as an example: [u'\xe2'][u'\x98'][u'\x85'].
         for byte in response.iter_content(chunk_size, decode_unicode):
             byte = byte.strip()
             for char in byte:
@@ -82,7 +82,3 @@ def auto_url(url, restrict_domain=None, chunk_size=512, decode_unicode=True):
 
     title = ' '.join(title.split())
     return title or None
-
-
-
-

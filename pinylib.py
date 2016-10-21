@@ -16,8 +16,6 @@ from urllib import quote_plus
 from colorama import init, Fore, Style
 
 import about
-# import rtmp_protocol
-# from rtmp import rtmp
 from qrtmp import rtmp
 from apis import tinychat
 from files import file_handler as fh
@@ -169,15 +167,12 @@ class TinychatRTMPClient:
         self._reconnect_delay = CONFIG['reconnect_delay']
         self._init_time = time.time()
 
-        # TODO: This could be moved into the rtmp library or should it stay here?
-        # self._swf_version = 'WIN 21,0,0,216'
+        # TODO: Flash dummy version moved into the rtmp library.
 
         # Stream settings:
-        # TODO: Streams should be handled in the rtmp library.
+        # TODO: All of these should be handled in the rtmp library.
         self._streams = {}
-        # TODO: Transaction id's should all be handled in the rtmp library.
-        # self._create_stream_id = 1
-        # self._transaction_id = 0
+        self._selected_stream_name = None
         self._stream_sort = False
         self._publish_connection = False
         # self._manual_time_stamp = 0
@@ -186,14 +181,11 @@ class TinychatRTMPClient:
         self.logo_stream = False
 
         # External settings:
-        # TODO: Remove RTMPE connection configuration option from the configuration file.
-        # self._rtmpe_connection = CONFIG['rtmpe_connection']
+        # TODO: Removed RTMPE connection configuration option from the configuration file.
 
         self._private_room = False
         self._room_banlist = {}
         self._topic_msg = None
-
-        # self._nickname_color = CONFIG['nickname_color']
 
     def console_write(self, color, message):
         """
@@ -210,7 +202,8 @@ class TinychatRTMPClient:
         else:
             msg = '[' + ts + '] ' + message
         try:
-            print(msg)
+            # print(msg)
+            print(msg.encode(encoding='UTF-8', errors='ignore'))
         except UnicodeEncodeError as ue:
             log.error(ue, exc_info=True)
             if CONFIG['debug_mode']:
@@ -284,11 +277,6 @@ class TinychatRTMPClient:
         self._greenroom = config['greenroom']
         self._b_password = config['bpassword']
 
-        # Allow an RTMPE connection to be made to the server.
-        # if self._rtmpe_connection:
-        #     self._tc_url = self._tc_url.replace('rtmp', 'rtmpe')
-        #     self.console_write(COLOR['white'], 'Connecting via RTMPE (as set in configuration file).')
-
         self.console_write(COLOR['white'], '============ CONNECTING ============\n\n')
         self.connect()
 
@@ -305,12 +293,6 @@ class TinychatRTMPClient:
                 # Initialise our RTMP library to communicate with the RTMP server:
                 self.connection = rtmp.RtmpClient(self._ip, self._port, app=self._app, tc_url=self._tc_url,
                                                   page_url=self._embed_url, swf_url=self._swf_url, proxy=self._proxy)
-
-                # Setup our custom client options:
-                # self.connection.audio_codecs = 0
-                # self.connection.video_codecs = 0
-                # self.connection.video_function = 0
-                # self.connection.capabilities = 0
 
                 # Setup our custom connection object:
                 self.connection.custom_connect_params(
@@ -359,7 +341,8 @@ class TinychatRTMPClient:
             # Reset custom variables.
             self._room_banlist.clear()
 
-            self.connection.shutdown()
+            # self.connection.shutdown()
+            self.connection.disconnect()
         except Exception as ex:
             log.error('Disconnect error: %s' % ex, exc_info=True)
             if CONFIG['debug_mode']:
@@ -390,22 +373,20 @@ class TinychatRTMPClient:
         failures = 0
         # TODO: We may not need this, since the header automatically initialises it as -1.
         # amf0_data_type = -1
-        amf_data_type = -1
+        # amf_data_type = -1
         # amf0_data = None
         packet = None
         while self.is_connected:
             try:
                 # amf0_data = self.connection.reader.next()
-                packet = self.connection.reader.read_packet()
+                # packet = self.connection.reader.read_packet()
+                packet = self.connection.read_packet()
 
-                print(packet.body)
+                if CONFIG['debug_mode']:
+                    print(packet.body)
 
                 # amf0_data_type = amf0_data['type'] # msg -> amf_data_type = packet.header.data_type
-                amf_data_type = packet.header.data_type
-
-                if CONFIG['message_display']:
-                    # self.console_write(COLOR['white'], str(amf0_data))
-                    self.console_write(COLOR['white'], str(packet.body))
+                # amf_data_type = packet.header.data_type
 
             except Exception as ex:
                 failures += 1
@@ -419,14 +400,15 @@ class TinychatRTMPClient:
             else:
                 failures = 0
             try:
-                handled = self.connection.handle_packet(packet)  # amf0_data
-                if handled:
+                # TODO: Moved handled by default into the rtmp library.
+                # handled = self.connection.handle_packet(packet)  # amf0_data
+                # if handled:
                     # amf0_data_type, amf0_data
-                    msg = 'Handled packet of type: %s Packet data: %s' % (amf_data_type, packet.body)
-                    log.info(msg)
-                    if CONFIG['debug_mode']:
-                        self.console_write(COLOR['white'], msg)
-                    continue
+                    # msg = 'Handled packet of type: %s Packet data: %s' % (amf_data_type, packet.body)
+                    # log.info(msg)
+                    # if CONFIG['debug_mode']:
+                    #     self.console_write(COLOR['white'], msg)
+                    # continue
 
                 # TODO: We may not require the try anymore, since everything goes through the handle_packet
 
@@ -438,6 +420,8 @@ class TinychatRTMPClient:
                 # amf_cmd = packet.body['command']
                 # cmd = amf_cmd[0]
 
+                # TODO: Should we have iparam and have read packet return a full list of parsed AMF data,
+                #       as opposed to the dictionary.
                 # TODO: Retrieve based on whether the body is AMF formatted or not.
                 if packet.body_is_amf:
                     # cmd = packet.body['command_name']
@@ -455,7 +439,7 @@ class TinychatRTMPClient:
                     if cmd == '_result':
                         if self._stream_sort:
                             # Set streams for the client.
-                            self._client_manager(packet_response)  # amf0_cmd->amf_cmd
+                            self._stream_manager(self._selected_stream_name, packet_response)  # amf0_cmd->amf_cmd
                         else:
                             self.on_result(packet_response)  # amf0_cmd->amf_cmd
 
@@ -500,6 +484,7 @@ class TinychatRTMPClient:
                         # amf_response = packet.body['response']
                         # current_room_users_info_list = amf_response[0]  # amf0_cmd->amf_cmd
                         # current_room_users_info = amf_response[0]
+
                         current_room_users_info = packet_response
                         if len(current_room_users_info) is not 0:
                             # while iparam0 < len(current_room_users_info_list):
@@ -539,6 +524,7 @@ class TinychatRTMPClient:
                             # while iparam0 < len(avons_id_name):
                             #     avons_id = avons_id_name[iparam0]
                             #     avons_name = avons_id_name[iparam0 + 1]
+
                             for avons_user in avons_id_name:
                                 avons_id = avons_user[0]
                                 avons_name = avons_user[1]
@@ -575,6 +561,7 @@ class TinychatRTMPClient:
                     elif cmd == 'banlist':
                         # amf_response = packet.body['response']
                         # banlist_id_nick = amf_response[0]  # amf0_cmd->amf_cmd
+
                         banlist_id_nick = packet_response
                         if len(banlist_id_nick) is not 0:
                             # while iparam0 < len(banlist_id_nick):
@@ -845,7 +832,7 @@ class TinychatRTMPClient:
                     if len(msg_cmd) is 3:
                         media_type = msg_cmd[1]
                         media_id = msg_cmd[2]
-                        # TODO: int --> float, issues when handling SoundCloud media.
+                        # TODO: int -> float, issues when handling SoundCloud media.
                         # time_point = float(msg_cmd[3])
                         threading.Thread(target=self.on_media_broadcast_start,
                                          args=(media_type, media_id, msg_sender, )).start()
@@ -978,15 +965,11 @@ class TinychatRTMPClient:
     def send_bauth_msg(self):
         """ Get and send the bauth key needed before we can start a broadcast. """
         if self._bauth_key is not None:
-            # self._send_command('bauth', [u'' + self._bauth_key])
-
             self.connection.call('bauth', [u'' + self._bauth_key])
         else:
             _token = tinychat.get_bauth_token(self._roomname, self.client_nick, self._client_id,
                                               self._greenroom, proxy=self._proxy)
             if _token != 'PW':
-                # self._send_command('bauth', [u'' + _token])
-
                 self.connection.call('bauth', [u'' + _token])
                 self._bauth_key = _token
 
@@ -995,10 +978,9 @@ class TinychatRTMPClient:
         Send the cauth key message with a working cauth key, we need to send this before we can chat.
         :param cauthkey: str a working cauth key.
         """
-        # self._send_command('cauth', [u'' + cauthkey])
-
         self.connection.call('cauth', [u'' + cauthkey])
 
+    # TODO: Trim this method into something more simpler.
     def send_owner_run_msg(self, msg):
         """
         Send owner run message.
@@ -1009,7 +991,6 @@ class TinychatRTMPClient:
 
             for x in xrange(len(msg)):
                 try:
-
                     letter_number = ord(msg[x])
                     if letter_number < 32 or letter_number > 126:
                         msg_url_encoded += quote_plus(msg[x])
@@ -1021,11 +1002,9 @@ class TinychatRTMPClient:
                         msg_url_encoded += msg[x]
                 except (Exception, UnicodeEncodeError):
                     try:
-                        msg_url_encoded += quote_plus(msg[x].encode('utf8'), safe='/')
+                        msg_url_encoded += quote_plus(msg[x].encode('utf-8'), safe='/')
                     except (Exception, UnicodeEncodeError):
                         pass
-
-            # self._send_command('owner_run', [u'notice' + msg_url_encoded])
 
             self.connection.call('owner_run', [u'notice' + msg_url_encoded])
 
@@ -1041,15 +1020,10 @@ class TinychatRTMPClient:
             if uid is None:
                 user = self.find_user_info(nick)
                 if user is not None:
-                    # self._send_command('privmsg', [u'' + self._encode_msg(msg), '#0,en',
-                    #                                u'n' + str(user.id) + '-' + nick])
-
                     self.connection.call('privmsg', [u'' + self._encode_msg(msg), '#0,en',
                                                      u'n' + str(user.id) + '-' + nick])
 
             else:
-                # self._send_command('privmsg', [u'' + self._encode_msg(msg), u'#0,en', u'n' + str(uid) + '-' + nick])
-
                 self.connection.call('privmsg', [u'' + self._encode_msg(msg), u'#0,en',
                                                  u'n' + str(uid) + '-' + nick])
 
@@ -1058,8 +1032,6 @@ class TinychatRTMPClient:
         Send a chat room message.
         :param msg: str the message to send.
         """
-        # self._send_command('privmsg', [u'' + self._encode_msg(msg), u'#262626,en'])
-
         self.connection.call('privmsg', [u'' + self._encode_msg(msg), u'#262626,en'])
 
     def send_private_msg(self, msg, nick):
@@ -1070,11 +1042,6 @@ class TinychatRTMPClient:
         """
         user = self.find_user_info(nick)
         if user is not None:
-            # self._send_command('privmsg', [u'' + self._encode_msg('/msg ' + nick + ' ' + msg),
-            #                                u'#262626,en', u'n' + str(user.id) + '-' + nick])
-            # self._send_command('privmsg', [u'' + self._encode_msg('/msg ' + nick + ' ' + msg),
-            #                                u'#262626,en', u'b' + str(user.id) + '-' + nick])
-
             self.connection.call('privmsg', [u'' + self._encode_msg('/msg ' + nick + ' ' + msg),
                                              u'#262626,en', u'n' + str(user.id) + '-' + nick])
             self.connection.call('privmsg', [u'' + self._encode_msg('/msg ' + nick + ' ' + msg),
@@ -1090,9 +1057,6 @@ class TinychatRTMPClient:
         """
         user = self.find_user_info(nick)
         if user is not None:
-            # self._send_command('privmsg', [u'' + self._encode_msg(msg), '#0,en', u'b' + str(user.id) + '-' + nick])
-            # self._send_command('privmsg', [u'' + self._encode_msg(msg), '#0,en', u'n' + str(user.id) + '-' + nick])
-
             self.connection.call('privmsg', [u'' + self._encode_msg(msg), '#0,en', u'b' + str(user.id) + '-' + nick])
             self.connection.call('privmsg', [u'' + self._encode_msg(msg), '#0,en', u'n' + str(user.id) + '-' + nick])
 
@@ -1101,8 +1065,6 @@ class TinychatRTMPClient:
         if not self.client_nick:
             self.client_nick = string_utili.create_random_string(5, 25)
         self.console_write(COLOR['white'], 'Setting nick: %s' % self.client_nick)
-        # self._send_command('nick', [u'' + self.client_nick])
-
         self.connection.call('nick', [u'' + self.client_nick])
 
     def send_ban_msg(self, nick, uid=None):
@@ -1115,14 +1077,10 @@ class TinychatRTMPClient:
             if uid is None:
                 user = self.find_user_info(nick)
                 if user is not None:
-                    # self._send_command('kick', [u'' + nick, str(user.id)])
-
                     self.connection.call('kick', [u'' + nick, str(user.id)])
                     # Request updated ban list.
                     self.send_banlist_msg()
             else:
-                # self._send_command('kick', [u'' + nick, str(uid)])
-
                 self.connection.call('kick', [u'' + nick, str(uid)])
                 # Request updated ban list.
                 self.send_banlist_msg()
@@ -1133,8 +1091,6 @@ class TinychatRTMPClient:
         :param uid: int the ID of the user we want to forgive.
         """
         if self._is_client_mod:
-            # self._send_command('forgive', [u'' + str(uid)])
-
             self.connection.call('forgive', [u'' + str(uid)])
             # Request updated ban list.
             self.send_banlist_msg()
@@ -1142,8 +1098,6 @@ class TinychatRTMPClient:
     def send_banlist_msg(self):
         """ Send banlist message. """
         if self._is_client_mod:
-            # self._send_command('banlist')
-
             self.connection.call('banlist')
 
     def send_topic_msg(self, topic):
@@ -1152,8 +1106,6 @@ class TinychatRTMPClient:
         :param topic: str the new room topic.
         """
         if self._is_client_mod:
-            # self._send_command('topic', [u'' + topic])
-
             self.connection.call('topic', [u'' + topic])
 
     def send_close_user_msg(self, nick):
@@ -1162,22 +1114,16 @@ class TinychatRTMPClient:
         :param nick: str the nickname of the user we want to close.
         """
         if self._is_client_mod:
-            # self._send_command('owner_run', [u'_close' + nick])
-
             self.connection.call('owner_run', [u'_close' + nick])
 
     def send_mute_msg(self):
         """ Send mute message to mute all broadcasting users in the room. """
         if self._is_client_mod:
-            # self._send_command('owner_run', [u'mute'])
-
             self.connection.call('owner_run', [u'mute'])
 
     def send_push2talk_msg(self):
         """ Send 'push2talk' room message to force push to talk for all users. """
         if self._is_client_mod:
-            # self._send_command('owner_run', [u'push2talk'])
-
             self.connection.call('owner_run', [u'push2talk'])
 
     # TODO: Simplify this procedure - remove any unnecessary variables.
@@ -1201,69 +1147,67 @@ class TinychatRTMPClient:
                 elif self._private_room:
                     value = 'no'
 
-            # self._send_command('private_room', [u'' + value])
-
             self.connection.call('private_room', [u'' + value])
 
     # Stream functions.
     # TODO: Convert to call standard.
-    def send_create_stream(self):
-        """ Send createStream message. """
-        # :param play: bool default False, True/False depending on whether the create stream
-        #              is used for playing a stream.
-
-        # TODO: Handle the transaction id more effectively here, maybe abstract this into the rtmp library?
-        # TODO: Transaction Id is only used for commands where we expect a response, maybe it was intended for
-        #       us to easily sort out the responses received from the server.
-        # if play:
-        #     transaction_id = self._create_stream_id
-        # else:
-        #     transaction_id = 0
-
-        # TODO: Rename 'command'.
-        # msg = {
-        #     'data_type': rtmp.types.DT_COMMAND,
-        #     'command': [u'createStream', 0, None]
-        # }
-
-        self.connection.call('createStream')
-
-        # self.console_write(COLOR['white'], 'Sending createStream message (transaction id: %s)' % self._transaction_id)
-        self.console_write(COLOR['white'], 'Sending createStream message.')
-        # self.connection.writer.write(msg)
-        # self.connection.writer.flush()
-
-        # Set to sort the stream information appropriately upon the arrival of a "_result" packet from the server.
-        self._stream_sort = True
+    # def send_create_stream(self):
+    #     """ Send createStream message. """
+    #     # :param play: bool default False, True/False depending on whether the create stream
+    #     #              is used for playing a stream.
+    #
+    #     # TODO: Handle the transaction id more effectively here, maybe abstract this into the rtmp library?
+    #     # TODO: Transaction Id is only used for commands where we expect a response, maybe it was intended for
+    #     #       us to easily sort out the responses received from the server.
+    #     # if play:
+    #     #     transaction_id = self._create_stream_id
+    #     # else:
+    #     #     transaction_id = 0
+    #
+    #     # TODO: Rename 'command'.
+    #     # msg = {
+    #     #     'data_type': rtmp.types.DT_COMMAND,
+    #     #     'command': [u'createStream', 0, None]
+    #     # }
+    #
+    #     self.connection.call('createStream')
+    #
+    #     # self.console_write(COLOR['white'], 'Sending createStream message (transaction id: %s)' % self._transaction_id)
+    #     self.console_write(COLOR['white'], 'Sending createStream message.')
+    #     # self.connection.writer.write(msg)
+    #     # self.connection.writer.flush()
+    #
+    #     # Set to sort the stream information appropriately upon the arrival of a "_result" packet from the server.
+    #     self._stream_sort = True
 
     # TODO: Convert to call standard.
-    def send_publish(self):
-        """ Send publish message. """
-        if 'client_publish' in self._streams:
-
-            # Publish type may vary from live, record or append. The use of other types is not recommended and may cause
-            # further issues in the program.
-            publish_type = 'live'
-
-            # TODO: Rename 'command'.
-            # msg = {
-            #     'data_type': rtmp.types.DT_COMMAND,
-            #     'stream_id': self._streams['client_publish'],
-            #     'command': [u'publish', 0, None, u'' + str(self._client_id), u'' + publish_type]
-            # }
-
-            publish_stream_id = self._streams['client_publish']
-
-            self.connection.call(u'publish', [str(self._client_id), publish_type], stream_id=publish_stream_id,
-                                 override_csid=rtmp.types.RTMP_STREAM_CHANNEL)
-
-            self.console_write(COLOR['white'], 'Sending publish message StreamId: %s' % publish_stream_id)
-
-            # self.connection.writer.write(msg)
-            # self.connection.writer.flush()
-
-        else:
-            self.console_write(COLOR['white'], 'No StreamID available to start publish upon.')
+    # def send_publish(self):
+    #     """ Send publish message. """
+    #     if 'client_publish' in self._streams:
+    #
+    #         # Publish type may vary from live, record or append. The use of other types is not recommended and may cause
+    #         # further issues in the program.
+    #         publish_type = 'live'
+    #
+    #         # TODO: Rename 'command'.
+    #         # msg = {
+    #         #     'data_type': rtmp.types.DT_COMMAND,
+    #         #     'stream_id': self._streams['client_publish'],
+    #         #     'command': [u'publish', 0, None, u'' + str(self._client_id), u'' + publish_type]
+    #         # }
+    #
+    #         publish_stream_id = self._streams['client_publish']
+    #
+    #         self.connection.call(u'publish', [str(self._client_id), publish_type], stream_id=publish_stream_id,
+    #                              override_csid=rtmp.types.RTMP_STREAM_CHANNEL)
+    #
+    #         self.console_write(COLOR['white'], 'Sending publish message StreamId: %s' % publish_stream_id)
+    #
+    #         # self.connection.writer.write(msg)
+    #         # self.connection.writer.flush()
+    #
+    #     else:
+    #         self.console_write(COLOR['white'], 'No StreamID available to start publish upon.')
 
     # TODO: Move to RTMP library - NetConnection.
     # TODO: Convert to RtmpPacket.
@@ -1304,156 +1248,157 @@ class TinychatRTMPClient:
 
     # TODO: May need an RtmpPacket to implement stream id.
     # TODO: Convert to call standard.
-    def send_play(self, stream_id, play_id):
-        """
-        Send 'play' message.
-        :param stream_id: int the stream ID onto which the message should be sent on.
-        :param play_id: str the ID of the stream to play, in this case this will be uid of a user.
-        """
-        if type(play_id) is int:
-
-            # TODO: Rename 'command'.
-            # msg = {
-            #     'data_type': rtmp.types.DT_COMMAND,
-            #     'stream_id': stream_id,
-            #     'command': [u'play', 0, None, u'' + str(play_id)]
-            # }
-
-            self.connection.call(u'play', [str(play_id)])
-
-            self.console_write(COLOR['white'], 'Starting playback for:%s on StreamID: %s' % (play_id, stream_id))
-            # self.connection.writer.write(msg)
-            # self.connection.writer.flush()
-        else:
-            self.console_write(COLOR['white'], 'PlayID format incorrect, integers only allowed.')
-
-    # TODO: Move to RTMP library - NetStream.
-    # TODO: Convert to RtmpPacket.
-    def send_audio_packet(self, frame_raw_data, frame_control_type):  # frame_timestamp=0
-        """
-        Send Audio message.
-        :param frame_raw_data: bytes the audio data (in the MP3 format) to be sent.
-        :param frame_control_type: hexadecimal value of the control type (originally 0x66,
-                                    though due to a lack of adequate audio encoding it is sent with an
-                                    inter-frame (0x22) control type.
-        """
-        # :param frame_timestamp: (optional) int the timestamp for the packet.
-
-        # msg = {
-        #     'data_type': rtmp.types.DT_AUDIO_MESSAGE,
-        #     'stream_id': self._streams['client_publish'],
-        #     'timestamp': frame_timestamp,
-        #     'body': {
-        #         'control': frame_control_type,
-        #         'data': frame_raw_data
-        #     }
-        # }
-
-        audio_packet = self.connection.writer.new_packet()
-
-        audio_packet.set_type(rtmp.types.DT_AUDIO_MESSAGE)
-        audio_packet.header.stream_id = self._streams['client_publish']
-        # TODO: Internal time stamp should over-ride this.
-        # audio_packet.header.timestamp = frame_timestamp
-        audio_packet.body = {
-            'control': frame_control_type,
-            'audio_data': frame_raw_data
-        }
-
-        # self.connection.writer.write(msg)
-        # self.connection.writer.flush()
-
-        self.connection.writer.setup_packet(audio_packet)
+    # def send_play(self, stream_id, play_id):
+    #     """
+    #     Send 'play' message.
+    #     :param stream_id: int the stream ID onto which the message should be sent on.
+    #     :param play_id: str the ID of the stream to play, in this case this will be uid of a user.
+    #     """
+    #     if type(play_id) is int:
+    #
+    #         # TODO: Rename 'command'.
+    #         # msg = {
+    #         #     'data_type': rtmp.types.DT_COMMAND,
+    #         #     'stream_id': stream_id,
+    #         #     'command': [u'play', 0, None, u'' + str(play_id)]
+    #         # }
+    #
+    #         self.connection.call(u'play', [str(play_id)])
+    #
+    #         self.console_write(COLOR['white'], 'Starting playback for:%s on StreamID: %s' % (play_id, stream_id))
+    #         # self.connection.writer.write(msg)
+    #         # self.connection.writer.flush()
+    #     else:
+    #         self.console_write(COLOR['white'], 'PlayID format incorrect, integers only allowed.')
 
     # TODO: Move to RTMP library - NetStream.
     # TODO: Convert to RtmpPacket.
-    def send_video_packet(self, frame_raw_data, frame_control_type):  # frame_timestamp=0
-        """
-        Send Video message.
-        :param frame_raw_data: bytes the video data (in the FLV1 format) to be sent.
-        :param frame_control_type: hexadecimal value of the control type, between 0x12 (key-frame), 0x22 (inter-frame),
-                                    0x32 (disposable-frame) and 0x42 (generated-frame).
-                                    NOTE: Altering the control type may produce unexpected results.
-        """
-        # :param frame_timestamp: (optional) int the timestamp for the packet.
-
-        # msg = {
-        #     'data_type': rtmp.types.DT_VIDEO_MESSAGE,
-        #     'stream_id': self._streams['client_publish'],
-        #     'timestamp': frame_timestamp,
-        #     'body': {
-        #         'control': frame_control_type,
-        #         'data': frame_raw_data
-        #     }
-        # }
-
-        video_packet = self.connection.writer.new_packet()
-
-        video_packet.set_type(rtmp.types.DT_VIDEO_MESSAGE)
-        video_packet.header.stream_id = self._streams['client_publish']
-        # video_packet.header.timestamp = frame_timestamp
-        video_packet.body = {
-            'control': frame_control_type,
-            'video_data': frame_raw_data
-        }
-
-        # self.connection.writer.write(msg)
-        # self.connection.writer.flush()
-
-        self.connection.writer.setup_packet(video_packet)
+    # def send_audio_packet(self, frame_raw_data, frame_control_type):  # frame_timestamp=0
+    #     """
+    #     Send Audio message.
+    #     :param frame_raw_data: bytes the audio data (in the MP3 format) to be sent.
+    #     :param frame_control_type: hexadecimal value of the control type (originally 0x66,
+    #                                 though due to a lack of adequate audio encoding it is sent with an
+    #                                 inter-frame (0x22) control type.
+    #     """
+    #     # :param frame_timestamp: (optional) int the timestamp for the packet.
+    #
+    #     # msg = {
+    #     #     'data_type': rtmp.types.DT_AUDIO_MESSAGE,
+    #     #     'stream_id': self._streams['client_publish'],
+    #     #     'timestamp': frame_timestamp,
+    #     #     'body': {
+    #     #         'control': frame_control_type,
+    #     #         'data': frame_raw_data
+    #     #     }
+    #     # }
+    #
+    #     audio_packet = self.connection.writer.new_packet()
+    #
+    #     audio_packet.set_type(rtmp.types.DT_AUDIO_MESSAGE)
+    #     audio_packet.header.stream_id = self._streams['client_publish']
+    #     # TODO: Internal time stamp should over-ride this.
+    #     # audio_packet.header.timestamp = frame_timestamp
+    #     audio_packet.body = {
+    #         'control': frame_control_type,
+    #         'audio_data': frame_raw_data
+    #     }
+    #
+    #     # self.connection.writer.write(msg)
+    #     # self.connection.writer.flush()
+    #
+    #     self.connection.writer.setup_packet(audio_packet)
+    #
+    # # TODO: Move to RTMP library - NetStream.
+    # # TODO: Convert to RtmpPacket.
+    # def send_video_packet(self, frame_raw_data, frame_control_type):  # frame_timestamp=0
+    #     """
+    #     Send Video message.
+    #     :param frame_raw_data: bytes the video data (in the FLV1 format) to be sent.
+    #     :param frame_control_type: hexadecimal value of the control type, between 0x12 (key-frame), 0x22 (inter-frame),
+    #                                 0x32 (disposable-frame) and 0x42 (generated-frame).
+    #                                 NOTE: Altering the control type may produce unexpected results.
+    #     """
+    #     # :param frame_timestamp: (optional) int the timestamp for the packet.
+    #
+    #     # msg = {
+    #     #     'data_type': rtmp.types.DT_VIDEO_MESSAGE,
+    #     #     'stream_id': self._streams['client_publish'],
+    #     #     'timestamp': frame_timestamp,
+    #     #     'body': {
+    #     #         'control': frame_control_type,
+    #     #         'data': frame_raw_data
+    #     #     }
+    #     # }
+    #
+    #     video_packet = self.connection.writer.new_packet()
+    #
+    #     video_packet.set_type(rtmp.types.DT_VIDEO_MESSAGE)
+    #     video_packet.header.stream_id = self._streams['client_publish']
+    #     # video_packet.header.timestamp = frame_timestamp
+    #     video_packet.body = {
+    #         'control': frame_control_type,
+    #         'video_data': frame_raw_data
+    #     }
+    #
+    #     # self.connection.writer.write(msg)
+    #     # self.connection.writer.flush()
+    #
+    #     self.connection.writer.setup_packet(video_packet)
 
     # TODO: Convert to RtmpPacket - we need to send streamId as well.
     # TODO: Do we need to send the streamId?
-    def send_close_stream(self):
-        """ Send closeStream message. """
-        if 'client_close_stream' in self._streams:
-
-            # stream_id = self._streams['client_close_stream']
-
-            # TODO: Rename 'command'.
-            # msg = {
-            #     'data_type': rtmp.types.DT_COMMAND,
-            #     'stream_id': stream_id,
-            #     'command': [u'closeStream', 0, None]
-            # }
-
-            close_stream = self.connection.writer.new_packet()
-            close_stream.set_type(rtmp.types.DT_COMMAND)
-
-            close_stream.body = {
-                'command': [u'closeStream', 0, None]
-            }
-
-            # self.console_write(COLOR['white'], 'Sending closeStream message on StreamID: %s' % stream_id)
-            self.console_write(COLOR['white'], 'Sending closeStream message.')
-            # self.connection.writer.write(msg)
-            # self.connection.writer.flush()
-
-            self.connection.writer.setup_packet(close_stream)
-
-        else:
-            self.console_write(COLOR['white'], 'No closeStream StreamID found to send the closeStream request upon.')
+    # def send_close_stream(self):
+    #     """ Send closeStream message. """
+    #     if 'client_close_stream' in self._streams:
+    #
+    #         # stream_id = self._streams['client_close_stream']
+    #
+    #         # TODO: Rename 'command'.
+    #         # msg = {
+    #         #     'data_type': rtmp.types.DT_COMMAND,
+    #         #     'stream_id': stream_id,
+    #         #     'command': [u'closeStream', 0, None]
+    #         # }
+    #
+    #
+    #         close_stream = self.connection.writer.new_packet()
+    #         close_stream.set_type(rtmp.types.DT_COMMAND)
+    #
+    #         close_stream.body = {
+    #             'command': [u'closeStream', 0, None]
+    #         }
+    #
+    #         # self.console_write(COLOR['white'], 'Sending closeStream message on StreamID: %s' % stream_id)
+    #         self.console_write(COLOR['white'], 'Sending closeStream message.')
+    #         # self.connection.writer.write(msg)
+    #         # self.connection.writer.flush()
+    #
+    #         self.connection.writer.setup_packet(close_stream)
+    #
+    #     else:
+    #         self.console_write(COLOR['white'], 'No closeStream StreamID found to send the closeStream request upon.')
 
     # TODO: Convert to call standard.
-    def send_delete_stream(self):
-        """ Send deleteStream message. """
-        if 'client_delete_stream' in self._streams:
-
-            stream_id = self._streams['client_delete_stream']
-
-            # TODO: Rename 'command'.
-            # msg = {
-            #     'data_type': rtmp.types.DT_COMMAND,
-            #     'command': [u'deleteStream', 0, None, stream_id]
-            # }
-
-            self.connection.call(u'deleteStream', [stream_id])
-
-            self.console_write(COLOR['white'], 'Sending deleteStream message on StreamID: %s' % stream_id)
-            # self.connection.writer.write(msg)
-            # self.connection.writer.flush()
-        else:
-            self.console_write(COLOR['white'], 'No deleteStream StreamID found to send the deleteStream request upon.')
+    # def send_delete_stream(self):
+    #     """ Send deleteStream message. """
+    #     if 'client_delete_stream' in self._streams:
+    #
+    #         stream_id = self._streams['client_delete_stream']
+    #
+    #         # TODO: Rename 'command'.
+    #         # msg = {
+    #         #     'data_type': rtmp.types.DT_COMMAND,
+    #         #     'command': [u'deleteStream', 0, None, stream_id]
+    #         # }
+    #
+    #         self.connection.call(u'deleteStream', [stream_id])
+    #
+    #         self.console_write(COLOR['white'], 'Sending deleteStream message on StreamID: %s' % stream_id)
+    #         # self.connection.writer.write(msg)
+    #         # self.connection.writer.flush()
+    #     else:
+    #         self.console_write(COLOR['white'], 'No deleteStream StreamID found to send the deleteStream request upon.')
 
     # Media Message Functions
     def send_media_broadcast_start(self, media_type, video_id, time_point=0, private_nick=None):
@@ -1524,38 +1469,6 @@ class TinychatRTMPClient:
     # TODO: We need to implement the try/except and reconnect if we cannot send the call.
     # TODO: The use of _send_command has depreciated and we now use the call function in RtmpClient class
     #       within the rtmp library.
-    # Message Construction.
-    # def _send_command(self, cmd, params=None, trans_id=0):
-    #     """
-    #     Sends command messages to the server.
-    #     NOTE: Calls remote procedure calls (RPC) at the receiving end. We are unsure about the effect of the
-    #           transaction ID in these messages, if it indeed acts as the transaction ID.
-    #
-    #     :param cmd: str command name.
-    #     :param params: list command parameters.
-    #     :param trans_id: int the transaction ID.
-    #     """
-    #     msg_format = [u'' + cmd, trans_id, None]
-    #     if params and type(params) is list:
-    #         msg_format.extend(params)
-    #
-    #     # TODO: Rename 'command'.
-    #     msg = {
-    #         'data_type': rtmp.types.DT_COMMAND,
-    #         'command': msg_format
-    #     }
-    #
-    #     try:
-    #         self.connection.writer.write(msg)
-    #         self.connection.writer.flush()
-    #
-    #         if CONFIG['message_display']:
-    #             self.console_write(COLOR['white'], str(msg))
-    #     except Exception as ex:
-    #         log.error('send command error: %s' % ex, exc_info=True)
-    #         if CONFIG['debug_mode']:
-    #             traceback.print_exc()
-    #         self.reconnect()
 
     # Helper Methods:
     def get_runtime(self, milliseconds=True):
@@ -1619,75 +1532,82 @@ class TinychatRTMPClient:
                 time.sleep(120)
 
     # TODO: Move to CameraManager class.
-    def configure_av_packet(self, av_content):
-        """
-        Configures audio/video content for a packet, given the frame content and the settings, and send the packet.
-        :param av_content: list [type of packet - audio/video, raw data, packet control type, time stamp].
-        """
-        # Assign timestamp.
-        # if self._manual_time_stamp is not None:
-        #     time_stamp = self._manual_time_stamp
-        # else:
-        #     time_stamp = av_content[3]
+    # def configure_av_packet(self, av_content):
+    #     """
+    #     Configures audio/video content for a packet, given the frame content and the settings, and send the packet.
+    #     :param av_content: list [type of packet - audio/video, raw data, packet control type, time stamp].
+    #     """
+    #     # Assign timestamp.
+    #     # if self._manual_time_stamp is not None:
+    #     #     time_stamp = self._manual_time_stamp
+    #     # else:
+    #     #     time_stamp = av_content[3]
+    #
+    #     # Assign control type.
+    #     control_type = av_content[2]
+    #
+    #     # Setup audio packet.
+    #     if av_content[0] == rtmp.types.DT_AUDIO_MESSAGE:
+    #         if not self.allow_audio:
+    #             # Send no audio data if it has been disabled.
+    #             raw_data = b''
+    #         else:
+    #             raw_data = av_content[1]
+    #         self.send_audio_packet(raw_data, control_type)  # time_stamp
+    #
+    #     # Setup video packet.
+    #     elif av_content[0] == rtmp.types.DT_VIDEO_MESSAGE:
+    #         if not self.allow_video:
+    #             # Send no video data if it has been disabled.
+    #             raw_data = b''
+    #         else:
+    #             raw_data = av_content[1]
+    #         self.send_video_packet(raw_data, control_type)  # time_stamp
+    #     else:
+    #         print('This frame is an invalid audio/video input.')
+    #
+    # def image_stream(self, logo_data):
+    #     """
+    #     Sends provided flv1 data to the server every 5 seconds to display single frame
+    #     videos in the room.
+    #     :param logo_data: bytes encoded flv1 - Sorenson spark (variant of H.263) data.
+    #     """
+    #     while self._publish_connection and self.logo_stream is True:
+    #         # Send an inter-frame video packet with our data.
+    #         self.configure_av_packet([rtmp.types.DT_VIDEO_MESSAGE, logo_data, 0x22, 0])
+    #         time.sleep(1)
+    #
+    #     # Send a keyframe video packet with no data.
+    #     # self.configure_av_packet([rtmp.types.DT_VIDEO_MESSAGE, b'', 0x12, 0])
 
-        # Assign control type.
-        control_type = av_content[2]
-
-        # Setup audio packet.
-        if av_content[0] == rtmp.types.DT_AUDIO_MESSAGE:
-            if not self.allow_audio:
-                # Send no audio data if it has been disabled.
-                raw_data = b''
-            else:
-                raw_data = av_content[1]
-            self.send_audio_packet(raw_data, control_type)  # time_stamp
-
-        # Setup video packet.
-        elif av_content[0] == rtmp.types.DT_VIDEO_MESSAGE:
-            if not self.allow_video:
-                # Send no video data if it has been disabled.
-                raw_data = b''
-            else:
-                raw_data = av_content[1]
-            self.send_video_packet(raw_data, control_type)  # time_stamp
-        else:
-            print('This frame is an invalid audio/video input.')
-
-    def image_stream(self, logo_data):
-        """
-        Sends provided flv1 data to the server every 5 seconds to display single frame
-        videos in the room.
-        :param logo_data: bytes encoded flv1 - Sorenson spark (variant of H.263) data.
-        """
-        while self._publish_connection and self.logo_stream is True:
-            # Send an inter-frame video packet with our data.
-            self.configure_av_packet([rtmp.types.DT_VIDEO_MESSAGE, logo_data, 0x22, 0])
-            time.sleep(1)
-
-        # Send a keyframe video packet with no data.
-        # self.configure_av_packet([rtmp.types.DT_VIDEO_MESSAGE, b'', 0x12, 0])
-
+    # TODO: Alter name and the variable names used throughout.
     def set_stream(self, stream=True):
         """
         Appropriately sets the necessary options into effect to start/close client streams.
-        :param stream:
+        :param stream: bool True/False (default True) to state whether a broadcasting session should be
+                       initiated or not.
         """
         if stream:
-            if not self._publish_connection:
+            if not self._publish_connection and self._selected_stream_name is None:
                 # Publish camera sequence:
-                self.console_write(COLOR['white'], 'Opening stream.')
+                self.console_write(COLOR['green'], 'Opening stream.')
                 # Send broadcast authorisation message to the server.
                 self.send_bauth_msg()
                 # Create a new stream onto which we can send packets e.g. audio/video packets.
-                self.send_create_stream()
+                self.connection.send_create_stream()
+
+                self._selected_stream_name = self._client_id
+                self._stream_sort = True
                 # Sort out the stream request reply from the server.
                 while self._stream_sort:
                     time.sleep(1)
-                # Send publish message to the server.
-                self.send_publish()
 
-                # TODO: Should be replaced with transaction id method in the rtmp library, to allow us
-                #       to notice if a stream is active and present.
+                # Send publish message to the server.
+                self.connection.send_publish(self._streams[str(self._client_id)]['publish'], self._client_id,
+                                             self.connection.publish_live)
+
+                # TODO: Should be replaced with transaction id method in the rtmp library,
+                #       to allow us to notice if a stream is active and present.
                 # Allow several seconds to establish a working stream.
                 time.sleep(5)
 
@@ -1695,50 +1615,47 @@ class TinychatRTMPClient:
                 self._publish_connection = True
             else:
                 self.console_write(COLOR['bright_red'], 'No need to start stream, client broadcast already present.')
+
         elif not stream:
-            if self._publish_connection:
+            if self._publish_connection and self._selected_stream_name is None:
+                self._publish_connection = False
+
                 # Close camera sequence:
-                self.console_write(COLOR['white'], 'Closing stream.')
+                self.console_write(COLOR['green'], 'Closing stream.')
+                self.connection.send_close_stream(self._streams[str(self._client_id)]['close'])
+                self.connection.send_delete_stream(self._streams[str(self._client_id)]['delete'])
 
                 # Delete all the stored stream information and turn off the publishing.
-                # self.send_close_stream(self._streams['client_close_stream'])
-                # self.send_delete_stream(self._streams['client_delete_stream'])
-
-                self.send_close_stream()
-                self.send_delete_stream()
-
-                self._publish_connection = False
-                self._tidy_streams(self._streams['client_stream'])
+                self._tidy_streams(str(self._client_id))
             else:
                 self.console_write(COLOR['bright_red'], 'No need to stop stream, client was not broadcasting.')
         else:
             self.console_write(COLOR['white'], 'No stream argument was passed, True/False should be passed to '
                                                'initiate/close streams respectively.')
 
-    # TODO: Move to CameraManager class.
-    def _client_manager(self, amf_response):
+    # TODO: This should be handled in the rtmp library.
+    def _stream_manager(self, stream_name, result_response):
         """
-        A client stream managing function to set the streams required for the client to publish.
-        :param amf_response: list containing the amf decoded commands.
+        A client stream managing function to set up streams.
+        :param result_response: list containing the amf decoded result.
         """
-        result_stream_id = int(amf_response[3])
-        self._streams['client_stream'] = result_stream_id
-        self._streams['client_publish'] = result_stream_id
-        self._streams['client_close_stream'] = result_stream_id
-        self._streams['client_delete_stream'] = result_stream_id
+        result_stream_id = int(result_response[0])
+        self._streams[str(stream_name)] = {}
+        self._streams[str(stream_name)]['publish'] = result_stream_id
+        self._streams[str(stream_name)]['close'] = result_stream_id
+        self._streams[str(stream_name)]['delete'] = result_stream_id
         self._stream_sort = False
-        self.console_write(COLOR['white'], 'Done client manager.')
+        self._selected_stream_name = None
 
-    def _tidy_streams(self, stream_id):
+    def _tidy_streams(self, stream_name):
         """
         Tidy up stream key/pair value in the streams dictionary by providing the StreamID.
-        :param stream_id: int StreamID which should be found and all keys matching it
+        :param stream_name: str the stream name which should be found and all keys matching it
                           should be deleted from the streams dictionary.
         """
-        self.console_write(COLOR['white'], 'Deleting all stream information residing on StreamID %s.' % stream_id)
-        for stream_item in self._streams.keys():
-            if self._streams[stream_item] == stream_id:
-                del self._streams[stream_item]
+        # self.console_write(COLOR['white'], 'Deleting stream information for stream name: %s' % stream_name)
+        if stream_name in self._streams:
+            del self._streams[stream_name]
 
     # Timed Auto Methods.
     def auto_job_handler(self):

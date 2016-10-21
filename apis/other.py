@@ -229,6 +229,23 @@ def omdb_search(search):
         return None
 
 
+def longman_dictionary(lookup_term):
+    """
+    Looks up a particular headword on the Pearson Longman Dictionary API -
+    http://http://developer.pearson.com/apis/dictionaries and returns an appropriate definition response.
+
+    NOTE: The API is free for up to 4,000,000 calls per month.
+    :param lookup_term: str the term to search for a dictionary reference.
+    :return
+    """
+    # http://api.pearson.com/v2/dictionaries/entries?headword=key
+    dictionary_url = 'http://api.pearson.com/v2/dictionaries/entries?headword=%s' % lookup_term
+    response = web.http_get(dictionary_url, json=True)
+
+    if response['json'] is not None:
+        return response['json']['results']
+
+
 # These APIs require the use of Requests, BeautifulSoup, urllib2 and unicodedata. As a result of using HTML parsers,
 # the code maybe subject to change over time to adapt with the server's pages.
 def time_is(location):

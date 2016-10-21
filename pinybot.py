@@ -52,7 +52,7 @@ if CONFIG is None:
 log = logging.getLogger(__name__)
 __version__ = '1.5.0'
 build_name = '"Quantum"'
-author_info = '*Goel* (https://github.com/GoelBiju/pinybot ) ' + \
+author_info = 'https://github.com/GoelBiju/pinybot ) ' + \
               '*NOTE:* Acknowledgements/general information can be found in the repository.'
 
 # TODO: Clear console (console_utili.py) procedure moved to utilities.
@@ -88,7 +88,6 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     # Loads the 'ascii.txt' file with ASCII/unicode text into a dictionary.
     if CONFIG['ascii_chars']:
         ascii_dict = pinylib.fh.unicode_loader(CONFIG['path'] + CONFIG['ascii_file'])
-        print ascii_dict
         ascii_chars = True
         if ascii_dict is None:
             ascii_chars = False
@@ -2162,7 +2161,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         """ Replies with relevant version information concerning the bot. """
         self.send_undercover_msg(self.user.nick, '*pinybot* %s, *code name:* %s, *pinylib version*: %s' %
                                  (__version__, build_name, pinylib.about.__version__))
-        self.send_undercover_msg(self.user.nick, '*Author/Repository:* ' + author_info)
+        self.send_undercover_msg(self.user.nick, '*Repository/Editor:* ' + author_info)
         self.send_undercover_msg(self.user.nick, '*Platform:* %s *Runner:* %s' % (sys.platform, sys.version_info[0:4]))
 
     def do_help(self):

@@ -2,16 +2,15 @@
 <!-- Page header - originally in Markdown, replaced with HTML for convenience. -->
 
 <h1>
-	<center>
-		<strong><i>pinybot</i></strong>
-	</center>
+<p align="center">
+	<strong><i>pinybot</i></strong>
+</p>
 </h1>
 
-<center>
-[![GitHub code](https://img.shields.io/badge/Code-Python-green.svg)](https://www.python.org/) [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/GoelBiju/pinybot/master/LICENSE) [![GitHub issues](https://img.shields.io/github/issues/GoelBiju/pinybot.svg)](https://github.com/GoelBiju/pinybot/issues) [![GitHub stars](https://img.shields.io/github/stars/GoelBiju/pinybot.svg)](https://github.com/GoelBiju/pinybot/stargazers) [![GitHub forks](https://img.shields.io/github/forks/GoelBiju/pinybot.svg)](https://github.com/GoelBiju/pinybot/network) [![GitHub downloads](https://img.shields.io/github/downloads/GoelBiju/pinybot/total.svg)](https://github.com/GoelBiju/pinybot/releases) [![GitHub IRC](https://img.shields.io/badge/IRC-%23pinybot-green.svg)](http://webchat.freenode.net/?channels=pinybot) 
-</center>
+<p align="center">[![GitHub code](https://img.shields.io/badge/Code-Python-green.svg)](https://www.python.org/ "Setup Python") [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/GoelBiju/pinybot/master/LICENSE "View the respository license") [![GitHub issues](https://img.shields.io/github/issues/GoelBiju/pinybot.svg)](https://github.com/GoelBiju/pinybot/issues "These are the current issues on the repository") [![GitHub stars](https://img.shields.io/github/stars/GoelBiju/pinybot.svg)](https://github.com/GoelBiju/pinybot/stargazers "See who starred the repository...")  [![GitHub forks](https://img.shields.io/github/forks/GoelBiju/pinybot.svg)](https://github.com/GoelBiju/pinybot/network "See users who have forked the repository...") [![GitHub downloads](https://img.shields.io/github/downloads/GoelBiju/pinybot/total.svg)](https://github.com/GoelBiju/pinybot/releases "View the latest releases")  [![GitHub IRC](https://img.shields.io/badge/IRC-%23pinybot-green.svg)](http://webchat.freenode.net/?channels=pinybot "Join #pinybot") </p><br></br>
 
----
+
+<!-- I am unsure as to why I need a break tag in order to load the shields or any other hyperlink or reference (without it turning into plain text) despite them aligning centering correctly. -->
 
 A Tinychat room helper forked and extended from [nortxort's pinylib](https://github.com/nortxort/pinylib), featuring all the essential features to help kickstart a room on [Tinychat](https://tinychat.com/).
 
@@ -25,7 +24,6 @@ All the releases can be found in the [releases section](https://github.com/GoelB
 
 Visit our **[homepage](https://goelbiju.github.io/pinybot/)** for general information.
 
----
 
 ## Requirements
 
@@ -51,7 +49,7 @@ OR
 pip2 install requests pyamf colorama bs4
 ```
 
-**optionally**, to install pysocks locally (despite being provided):
+**optionally**, to install *pysocks* locally (despite being provided):
 ```sh
 pip2 install pysocks
 ```
@@ -69,7 +67,6 @@ C:\Python27\Scripts\pip.exe install bs4 requests pysocks colorama pyamf
 C:\Python27\Scripts\pip2.exe install bs4 requests pysocks colorama pyamf
 ```
 
----
 
 ## File information
 
@@ -100,7 +97,6 @@ Listed below are the files within this project and notes regarding their purpose
 
 All further information in regards to the background of the project and the functions/features of the program can be found in the GitHub repository [Wiki](https://github.com/GoelBiju/pinybot/wiki).
 
----
 
 ## Run the bot!
 
@@ -138,7 +134,7 @@ In the event that you do **not** feel **satisfied with the configuration** and y
 In the case that there is an aspect of the bot that should be worth adding as a confiigurable option, then feel free to flag an issue and we can easily deploy a patch to rectify this.
 
 
-## *"How can **I** help?"*
+## "How can **I** help?"
 
 You can easily leave a comment or an issue regarding help to fix a bug, with the assurance that someone will repond and help sort out your issue. It can even be a suggestion or simply asking to join in to develop a bigger and better application.
 
@@ -156,7 +152,6 @@ If there are any personal suggestions or queries you would like to ask us, pleas
 
 You can visit the irc directly by clicking on the link above or on the GitHub shield at the top of the README.
 
----
 
 ## License
 
@@ -171,9 +166,7 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
----
-
 <!-- Page footer -->
-<footer>
-	<center><a href="http://goelbiju.github.io/pinybot/" target="_blank">Visit Git Pages</a></center>
+<footer align="center">
+	<p align="center"><a href="http://goelbiju.github.io/pinybot/">Repository git-pages</a></p><br></br>
 </footer>

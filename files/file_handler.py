@@ -182,5 +182,3 @@ def unicode_loader(file_location):
         return unicode_data
     except IOError:
         return None
-
-print(unicode_loader('ascii.txt'))

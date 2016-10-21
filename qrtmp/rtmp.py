@@ -1,6 +1,6 @@
 """
 Qrtmp Library
-Version: 0.0.3
+Version: 0.0.4
 """
 
 import logging
@@ -31,6 +31,10 @@ log = logging.getLogger(__name__)
 # TODO: RtmpReader and RtmpWriter RPC command message read/write methods are not similar.
 
 
+# class NetStreamPlay(object):
+#     """ A class for holding a NetStream play stream information. """
+
+
 # TODO: Make sure the main message sending methods only work with a valid connection, otherwise we pause
 #       the use of the library until a valid connection is established.
 # TODO: RtmpClient should inherit functions from a NetConnection and NetStream class.
@@ -39,19 +43,26 @@ log = logging.getLogger(__name__)
 class RtmpClient:
     """ Represents an RTMP client. """
 
-    # The class variables for carrying the connection.
+    # The class variables for carrying the connection:
     socket = None
     stream = None
-    file = None
+    socket_file = None
     reader = None
     writer = None
 
+    # Client defaults:
     valid_connection = False
+    handle_default_messages = True
 
     # Default flash versions for various operating systems:
     windows_flash_version = 'WIN 23,0,0,162'
     mac_flash_version = 'MAC 23,0,0,162'
     linux_flash_version = 'LNX 11,2,202,635'
+
+    # Default publish types:
+    publish_live = 'live'
+    publish_record = 'record'
+    publish_append = 'append'
 
     # TODO: Ability to setup an option after initialisation - maybe convenience methods for all (otherwise datatype
     #       issue when coercing a NoneType to unicode?
@@ -95,9 +106,9 @@ class RtmpClient:
         # NOTE: These can be freely changed before calling connect().
         self.flash_ver = kwargs.get('flash_ver', u'None')
         self.capabilities = kwargs.get('capabilities', 239)
-        self.audio_codecs = kwargs.get('audio_codecs', 3575)  # 3575
-        self.video_codecs = kwargs.get('video_codecs', 252)  # 252
-        self.video_function = kwargs.get('video_function', 1)  # 1
+        self.audio_codecs = kwargs.get('audio_codecs', 3575)
+        self.video_codecs = kwargs.get('video_codecs', 252)
+        self.video_function = kwargs.get('video_function', 1)
         self.object_encoding = kwargs.get('object_encoding', 0)
 
         #   - custom connection parameters:
@@ -116,17 +127,19 @@ class RtmpClient:
         #       on the transaction id.
         self._transaction_id = 0
 
-    @staticmethod
-    def create_random_bytes(length):
+    def custom_connect_params(self, *args):
         """
-        Creates random bytes for the handshake.
-        :param length:
+        Allow the custom connection parameters to be setup and placed into the list
+        to be set into the connection packet.
+
+        NOTE: The parameters must always be passed in as a list to allow various data to be present,
+              e.g. RTMP objects, RTMP strings/numbers etc.
+
+        :param args: *args the arguments that needs to be placed into the custom connection parameters list
+                      to help build the final connection packet.
         """
-        ran_bytes = ''
-        i, j = 0, 0xff
-        for x in xrange(0, length):
-            ran_bytes += chr(random.randint(i, j))
-        return ran_bytes
+        for conn_arg in args:
+            self._custom_connection_parameters.append(conn_arg)
 
     def connect(self):  # connect_params
         """ Connect to the server with the given connect parameters. """
@@ -147,8 +160,8 @@ class RtmpClient:
 
         # TODO: Make file object optional and by default read from the socket and use the
         #       buffered byte stream (this inherits the functions from the StringIOProxy & FileDataTypeMixIn).
-        self.file = self.socket.makefile()
-        self.stream = FileDataTypeMixIn(self.file)
+        self.socket_file = self.socket.makefile()
+        self.stream = FileDataTypeMixIn(self.socket_file)
 
         # Initialise empty buffered byte stream.
         # self.stream = pyamf.util.BufferedByteStream('')
@@ -175,7 +188,7 @@ class RtmpClient:
         #     print(data)
 
         # TODO: Need a status handler, this should only be true and returned after
-        #       receiving NetConnection.Connection.Sucess with the status or False with the status.
+        #       receiving NetConnection.Connection. Success with the status or False with the status.
         return self.valid_connection
 
     def set_socket_options(self):
@@ -205,6 +218,14 @@ class RtmpClient:
         # An alternative method can also be used if you're using the Windows operating system
         # and the client is timing out, the next line can be uncommented to enable this method.
         self.socket.ioctl(socket.SIO_KEEPALIVE_VALS, (1, 10000, 25000))
+
+    def set_handle_default_messages(self, new_option):
+        """
+
+        :param new_option: bool True/False
+        :return: bool
+        """
+        self.handle_default_messages = bool(new_option)
 
     def handshake(self):
         """ Perform the handshake sequence with the server. """
@@ -236,19 +257,17 @@ class RtmpClient:
         # Handle the S2 chunk.
         s2.decode(self.stream)
 
-    def custom_connect_params(self, *args):
+    @staticmethod
+    def create_random_bytes(length):
         """
-        Allow the custom connection parameters to be setup and placed into the list
-        to be set into the connection packet.
-
-        NOTE: The parameters must always be passed in as a list to allow various data to be present,
-              e.g. RTMP objects, RTMP strings/numbers etc.
-
-        :param args: *args the arguments that needs to be placed into the custom connection parameters list
-                      to help build the final connection packet.
+        Creates random bytes for the handshake.
+        :param length:
         """
-        for conn_arg in args:
-            self._custom_connection_parameters.append(conn_arg)
+        ran_bytes = ''
+        i, j = 0, 0xff
+        for x in xrange(0, length):
+            ran_bytes += chr(random.randint(i, j))
+        return ran_bytes
 
     # TODO: Convert to RTMPPacket.
     def rtmp_connect(self):
@@ -308,7 +327,39 @@ class RtmpClient:
 
         self.writer.setup_packet(connection_packet)
 
+    # TODO: Not properly decoding headers may result in the loop decoding here until a restart.
+    # TODO: Read packet and the actual decoding of the packet should be in two different sections.
+    def read_packet(self):
+        """
+        Abstracts the process of decoding the data and then generating an RtmpPacket using the decoded header and body.
+        :return: RtmpPacket (with header and body).
+        """
+        if not self.stream.at_eof():
+            decoded_header, decoded_body = self.reader.decode_stream()
+            # print('--> Decoding new header and body...')
+            # print(decoded_header, decoded_body)
+            # print('--> Generating new RtmpPacket...')
+            received_packet = self.reader.generate_packet(decoded_header, decoded_body)
+
+            # Handle default packet messages.
+            if self.handle_default_messages:
+                handled_status = self.handle_packet(received_packet)
+                if handled_status is True:
+                    received_packet.handled = True
+                # print(received_packet)
+            return received_packet
+        else:
+            # TODO: Is this the right raise error to call?
+            raise StopIteration
+
     # TODO: Should handle packet be automatically called or manually from the loop.
+    # Handle the packet by the internal parser:
+    # Some typical RTMP messages we may need to handle include that of:
+    #   - 'Window Acknowledgement Size'
+    #   - 'Set Peer Bandwidth'
+    #   - 'Stream Begin'
+    #   - 'Set Chunk Size'
+    #   - '_result' (NetConnection.Connect.Success)
     def handle_packet(self, received_packet):
         """
         Handle packets based on data type.
@@ -317,7 +368,7 @@ class RtmpClient:
         if received_packet.header.data_type == types.DT_USER_CONTROL and received_packet.body['event_type'] == \
                 types.UC_STREAM_BEGIN:
             # TODO: There should a 'safe' connection established in the event we get a NetConnection.Connection.Sucess.
-            assert received_packet.body['event_type'] == types.UC_STREAM_BEGIN, received_packet.body
+            # assert received_packet.body['event_type'] == types.UC_STREAM_BEGIN, received_packet.body
             # TODO: We can assert the fact that there is a 4-byte empty binary data after the event type,
             #       this will not be labelled as 'event_data' in the RTMP body however it is present anyway.
             # TODO: Assertion issue when we receive anything else, e.g. '\x00\x00\x00\x01';
@@ -378,8 +429,11 @@ class RtmpClient:
     #       this most likely refers to the latest used - FMS might not recognise it if we send on 0 as it is for
     #       NetConnection, NetStream is separate? Anything other than 0 could be if a expect a response from the server.
     # TODO: Tokenize these calls so that if we expect a reply, then we know the reply to get.
-    def call(self, procedure_name, parameters=None, transaction_id=None, command_object=None,
-             stream_id=0, override_csid=None):
+    # TODO: Establish a token system for this as well, so we know which onStatus, _result or _error message.
+    #       matches to which message sent.
+    # TODO: StreamId should not also be a parameter for this method as well, should be handled by
+    #       the inheriting class.
+    def call(self, procedure_name, parameters=None, transaction_id=None, command_object=None, stream_id=0):
         """
         Runs a remote procedure call (RPC) on the receiving end.
         :param procedure_name: str
@@ -387,7 +441,6 @@ class RtmpClient:
         :param transaction_id: int
         :param command_object: list
         :param stream_id: int
-        :param override_csid: int
         """
         # TODO: Allow various forms of parameters to be provided e.g. within parameters maybe a list?
         #       Is this possible?
@@ -419,8 +472,8 @@ class RtmpClient:
 
         log.debug('Sending Remote Procedure Call: %s with content:', remote_call.body)
 
-        print('Command Name: ', procedure_name)
-        print('Stream Id of RPC:', remote_call.header.stream_id)
+        # print('Command Name: ', procedure_name)
+        # print('Stream Id of RPC:', remote_call.header.stream_id)
         self.writer.setup_packet(remote_call)
 
     def shared_object_use(self, shared_object):
@@ -432,24 +485,7 @@ class RtmpClient:
             shared_object.use(self.reader, self.writer)
             self._shared_objects.append(shared_object)
 
-    # Default essential messages:
-    # TODO: Convert to RtmpPacket.
-    def send_window_ack_size(self, amf_data):
-        """
-        Send a WINDOW_ACK_SIZE message.
-        :param amf_data: list the AMF data that was received from the server (including the window ack size).
-        """
-        ack = self.writer.new_packet()
-
-        ack.set_type(types.DT_WINDOW_ACKNOWLEDGEMENT_SIZE)
-        ack.body = {
-            'window_acknowledgement_size': amf_data['window_acknowledgement_size']
-        }
-
-        log.debug('Sending WINDOW_ACKNOWLEDGEMENT_SIZE to server:', ack)
-
-        self.writer.setup_packet(ack)
-
+    # User Control Message - default:
     def send_set_buffer_length(self, stream_id, buffer_length):
         """
         Send a SET_BUFFER_LENGTH User Control Message.
@@ -457,7 +493,7 @@ class RtmpClient:
         NOTE: This USER_CONTROL_MESSAGE relies on the packing of two bits of binary data,
               the stream id of the stream joined with the buffer length.
 
-        EXAMPLE: struct.pack('>I', 0) will give us our final packed stream id - in this case \x00\x00\x00\x00(4-byte),
+        EXAMPLE: struct.pack('>I', 0) will give us our final packed stream id - in this case \x00\x00\x00\x00 (4-byte),
                  struct.pack('>I', buffer_length) will give us our final buffer length (4-byte),
                  Joining these together will result in our final 8-byte packed event data (body).
 
@@ -497,7 +533,7 @@ class RtmpClient:
             'event_data': struct.pack('>I', int(time.time()))
         }
 
-        log.debug('Sending PING_REQUEST to server: ', ping_request)
+        log.debug('Sending PING_REQUEST (USER_CONTROL_MESSAGE) to server: ', ping_request)
 
         self.writer.setup_packet(ping_request)
 
@@ -515,13 +551,229 @@ class RtmpClient:
             'event_data': amf_data['event_data']
         }
 
-        log.debug('Sending PING_RESPONSE to server: ', ping_response)
+        log.debug('Sending PING_RESPONSE (USER_CONTROL_MESSAGE) to server: ', ping_response)
 
         self.writer.setup_packet(ping_response)
 
-    def shutdown(self):
-        """ Closes the socket connection. """
+    # Standard default messages:
+    # TODO: Convert to RtmpPacket.
+    def send_window_ack_size(self, amf_data):
+        """
+        Send a WINDOW_ACK_SIZE message.
+        :param amf_data: list the AMF data that was received from the server (including the window ack size).
+        """
+        ack = self.writer.new_packet()
+
+        ack.set_type(types.DT_WINDOW_ACKNOWLEDGEMENT_SIZE)
+        ack.body = {
+            'window_acknowledgement_size': amf_data['window_acknowledgement_size']
+        }
+
+        log.debug('Sending WINDOW_ACKNOWLEDGEMENT_SIZE to server:', ack)
+
+        self.writer.setup_packet(ack)
+
+    # TODO: Move to NetStream class - these four methods are specifically sent on the RTMP STREAM CHANNEL.
+    # TODO: Establish a token system for this as well, so we know which onStatus, _result or _error message.
+    #       matches to which message sent.
+    # TODO: Keep a record of the latest stream id in use and the transaction id.
+    def send_create_stream(self, command_object=None):
+        """
+        Send a 'createStream' request on the RTMP stream channel.
+        :param command_object: dict (default None) if there is any command information to be sent.
+        """
+        create_stream = self.writer.new_packet()
+
+        create_stream.set_chunk_stream_id(types.RTMP_STREAM_CHANNEL)
+        create_stream.set_type(types.DT_COMMAND)
+        create_stream.body = {
+            'command_name': 'createStream',
+            'transaction_id': self._transaction_id + 2,
+            'command_object': command_object,
+            'options': []
+        }
+
+        log.debug('Sending createStream to server:', create_stream)
+
+        self.writer.setup_packet(create_stream)
+
+    # def send_receive_audio(self, receive):
+    #     """
+    #     Send a 'receiveAudio' request on the RTMP stream channel.
+    #     :param receive: bool True/False
+    #     """
+    #     receive_audio = self.writer.new_packet()
+    #
+    #     receive_audio.set_chunk_stream_id(types.RTMP_STREAM_CHANNEL)
+    #     receive_audio.set_type(types.DT_COMMAND)
+    #     receive_audio.body = {
+    #         'command_name': 'receiveAudio',
+    #         'transaction_id': self._transaction_id,
+    #         'command_object': None,
+    #         'options': [receive]
+    #     }
+    #
+    #     log.debug('Sending receiveAudio request:', receive_audio)
+    #
+    #     self.writer.setup_packet(receive_audio)
+    #
+    # def send_receive_video(self, receive):
+    #     """
+    #     Send a 'receiveVideo' request on the RTMP stream channel.
+    #     :param receive: bool True/False
+    #     """
+    #     receive_video = self.writer.new_packet()
+    #
+    #     receive_video.set_chunk_stream_id(types.RTMP_STREAM_CHANNEL)
+    #     receive_video.set_type(types.DT_COMMAND)
+    #     receive_video.body = {
+    #         'command_name': 'receiveVideo',
+    #         'transaction_id': self._transaction_id,
+    #         'command_object': None,
+    #         'options': [receive]
+    #     }
+
+        # log.debug('Sending receiveVideo request:', receive_video)
+
+        # self.writer.setup_packet(receive_video)
+
+    def send_play(self, stream_id, stream_name):  # , start=-2, duration=-1, reset=False
+        """
+        Send a 'play' request on the RTMP stream channel.
+
+        NOTE: When passing the stream name into the function, make sure the appropriate file-type
+              precedes the stream name (unless it is an FLV file) and the file extension. E.g. the
+              playback of 'sample.m4v' on the server is issued with a stream name of 'mp4:sample.m4v'
+              in the 'play' request.
+
+              Like wise:
+                    'BigBuckBunny_115k.mov' -> 'mp4:BigBuckBunny_115k.mov'
+                    MP3 or ID3 tags do not need the file extension: 'sample.mp3' -> 'mp3:sample'
+                    FLV files can be played back without file-type or file extension:
+                        'stream_123.flv' -> 'stream_123'
+
+        :param stream_id: int
+        :param stream_name: str the stream name of the file you want to request playback for (READ ABOVE)
+        """
+        # :param start: int (default -2)
+        # :param duration: int (default -1)
+        # :param reset: bool (default False)
+
+        play_stream = self.writer.new_packet()
+
+        play_stream.set_chunk_stream_id(types.RTMP_STREAM_CHANNEL)
+        play_stream.set_type(types.DT_COMMAND)
+        play_stream.set_stream_id(stream_id)
+        play_stream.body = {
+            'command_name': 'play',
+            'transaction_id': self._transaction_id,
+            'command_object': None,
+            # TODO: There seems to be no support for: start, duration, reset in the latest FMS.
+            'options': [stream_name]
+        }
+
+        log.debug('Sending play to the server:', play_stream)
+
+        self.writer.setup_packet(play_stream)
+
+    # def send_play2(self):
+    #     """
+    #     Send a 'play2' request on the RTMP stream channel.
+    #
+    #     Properties include: len(number) - duration of playback in seconds.
+    #                         offset(number) - absolute stream time at which server switches between streams of
+    #                                          different bitrates for Flash Media Server dynamic streaming
+    #                         oldStreamName(string) - name of the old stream or the stream to transition from
+    #                         start(number) - start time in seconds
+    #                         streamName(string) - name of the new stream to transition to or to play
+    #                         transition(string) - mode in which the stream name is played or transitioned to.
+    #
+    #     NOTE: These are all AMF3 encoded values in AS3 object.
+    #     """
+
+    # def send_seek(self):
+    #     """
+    #     Send a 'seek' request on the RTMP stream channel.
+    #     """
+    #     seek = self.writer.new_packet()
+
+    # def send_pause(self):
+    #     """
+    #     Send a 'pause' request on the RTMP stream channel.
+    #     """
+    #     pause = self.writer.new_packet()
+
+    def send_publish(self, stream_id, publish_name, publish_type):
+        """
+        Send a 'publish' request on the RTMP stream channel.
+        :param stream_id: int
+        :param publish_name:
+        :param publish_type:
+        """
+        publish_stream = self.writer.new_packet()
+
+        publish_stream.set_chunk_stream_id(types.RTMP_STREAM_CHANNEL)
+        publish_stream.set_type(types.DT_COMMAND)
+        publish_stream.set_stream_id(stream_id)
+        publish_stream.body = {
+            'command_name': 'publish',
+            'transaction_id': self._transaction_id,
+            'command_object': None,
+            'options': [str(publish_name), publish_type]
+        }
+
+        log.debug('Sending publish request:', publish_stream)
+
+        self.writer.setup_packet(publish_stream)
+
+    def send_close_stream(self, stream_id):
+        """
+        Send a 'closeStream' request on the RTMP stream channel.
+        :param stream_id: int
+        """
+        close_stream = self.writer.new_packet()
+
+        close_stream.set_chunk_stream_id(types.RTMP_STREAM_CHANNEL)
+        close_stream.set_type(types.DT_COMMAND)
+        close_stream.set_stream_id(stream_id)
+        close_stream.body = {
+            'command_name': 'closeStream',
+            'transaction_id': self._transaction_id,
+            'command_object': None,
+            'options': []
+        }
+
+        log.debug('Sending closeStream request:', close_stream)
+
+        self.writer.setup_packet(close_stream)
+
+    def send_delete_stream(self, deletion_stream_id):
+        """
+        Send a 'deleteStream' request on the RTMP stream channel.
+        :param deletion_stream_id: int
+        """
+        delete_stream = self.writer.new_packet()
+
+        # TODO: Does 'deleteStream' have to be sent on the command stream?
+        delete_stream.set_chunk_stream_id(types.RTMP_COMMAND_CHANNEL)
+        delete_stream.set_type(types.DT_COMMAND)
+        # TODO: Stream id on which chunk stream id 3 is running on.
+        delete_stream.set_stream_id(0)
+        delete_stream.body = {
+            'command_name': 'deleteStream',
+            'transaction_id': self._transaction_id,
+            'command_object': None,
+            'options': [deletion_stream_id]
+        }
+
+        log.debug('Sending deleteStream request:', delete_stream)
+
+        self.writer.setup_packet(delete_stream)
+
+    def disconnect(self):
+        """ Closes the socket connection between the client and server. """
         try:
+            log.info('Closing/disconnecting socket connection.')
             self.socket.shutdown(socket.SHUT_RDWR)
             self.socket.close()
         except socket.error as se:
@@ -590,6 +842,6 @@ class FileDataTypeMixIn(pyamf.util.pure.DataTypeMixIn):
 __all__ = [
     'pyamf',
     'RtmpClient',
-    'RtmpByteStream',
+    # 'RtmpByteStream',
     'FileDataTypeMixIn'
 ]
