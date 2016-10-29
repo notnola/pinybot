@@ -7,6 +7,7 @@
 # Modified by GoelBiju: https://github.com/GoelBiju/
 
 import requests
+# import web
 import re
 
 # Set initial title tags/quoted title via regex.
@@ -42,6 +43,7 @@ def auto_url(url, restrict_domain=None, chunk_size=512, decode_unicode=True):
         'Connection': 'keep-alive'
     }
 
+    # response = web.http_get(url, header=header)
     response = requests.get(url, headers=header, stream=True)
 
     content = u''
@@ -58,6 +60,7 @@ def auto_url(url, restrict_domain=None, chunk_size=512, decode_unicode=True):
                 individual = unichr(csd)
                 # Append to the unicode content.
                 content += u'' + individual
+
             if '</title>' in content or len(content) > max_bytes:
                 break
 
@@ -66,6 +69,7 @@ def auto_url(url, restrict_domain=None, chunk_size=512, decode_unicode=True):
         return None
     finally:
         # We need to close the connection because we have not read all the data.
+        # web._request_session.close()
         response.close()
 
     # Clean up the title.
@@ -74,11 +78,12 @@ def auto_url(url, restrict_domain=None, chunk_size=512, decode_unicode=True):
 
     start = content.find('<title>')
     end = content.find('</title>')
-    if start is -1 or end is -1:
+
+    if start is not -1 or end is not -1:
+        raw_title = content[start + 7:end]
+        clean_title = raw_title.strip()[:200]
+        title = ' '.join(clean_title.split())
+
+        return title or None
+    else:
         return None
-
-    title = (content[start + 7:end])
-    title = title.strip()[:200]
-
-    title = ' '.join(title.split())
-    return title or None

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 """ Provides functions to search/explore various APIs """
 
 # Some examples include: World-weather-online, Urban-dictionary, ip-api and api.icndb & many others.
@@ -11,8 +12,9 @@ from utilities import web, string_utili
 
 try:
     from bs4 import BeautifulSoup
+    bs4_present = True
 except ImportError:
-    BeautifulSoup = None
+    bs4_present = False
 
 ONE_LINER_TAGS = ['age', 'alcohol', 'animal', 'attitude', 'beauty', 'black', 'blonde', 'car', 'communication',
                   'dirty', 'doctor', 'drug', 'family', 'fat', 'fighting', 'flirty', 'food', 'friendship', 'happiness',
@@ -29,6 +31,7 @@ def urbandictionary_search(search):
     """
     urban_api_url = 'http://api.urbandictionary.com/v0/define?term=%s' % search.strip()
     response = web.http_get(urban_api_url, json=True)
+
     if response['json'] is not None:
         try:
             definition = response['json']['list'][0]['definition'].strip()
@@ -46,20 +49,21 @@ def weather_search(city):
     Searches World-weather-online's API for weather data for a given city.
     NOTE: You must have a working API key from the website to be able to use this function and also be aware of the
           API call restrictions on API access for your account.
+
     :param city: The city str to search for.
     :return: weather data str or None on no match or error.
     """
-    city = str(city).strip()
-    api_key = ''
+    api_key = ''  # Place the API key necessary here.
     if api_key:
         weather_api_url = 'http://api.worldweatheronline.com/free/v2/weather.ashx?q=%s&format=json&key=%s' %\
-                          (city, api_key)
+                          (city.strip(), api_key)
         response = web.http_get(weather_api_url, json=True)
+
         if response['json'] is not None:
             try:
                 pressure = response['json']['data']['current_condition'][0]['pressure']
-                temp_c = response['json']['data']['current_condition'][0]['temp_C']
-                temp_f = response['json']['data']['current_condition'][0]['temp_F']
+                temp_celsius = response['json']['data']['current_condition'][0]['temp_C']
+                temp_fahrenheit = response['json']['data']['current_condition'][0]['temp_F']
                 query = response['json']['data']['request'][0]['query'].encode('ascii', 'ignore')
 
                 cloud_cover = response['json']['data']['current_condition'][0]['cloudcover']
@@ -67,11 +71,13 @@ def weather_search(city):
                 sunset = response['json']['data']['weather'][0]['astronomy'][0]['sunset']
                 weather_info = '*Queried location:* %s. *Temperature:* %sC (%sF), *Pressure:* %s millibars, ' \
                                '*Cloud cover:* %s%%, *Sunrise:* %s, *Sunset:* %s.' % \
-                               (query, temp_c, temp_f, pressure, cloud_cover, sunrise, sunset)
+                               (query, temp_celsius, temp_fahrenheit, pressure, cloud_cover, sunrise, sunset)
                 return weather_info
             except (IndexError, KeyError) as ex:
                 print(ex)
                 return None
+        else:
+            return None
     else:
         return False
 
@@ -79,23 +85,21 @@ def weather_search(city):
 def whois(ip):
     """
     Searches ip-api for information about a given IP address.
-    :param ip: str the ip str to search for.
-    :return: str information str or None on error.
+    :param ip: str the ip to search for.
+    :return: str information or None on error.
     """
-    if str(ip).strip():
-        url = 'http://ip-api.com/json/%s' % ip
-        response = web.http_get(url, json=True)
-        if response['json'] is not None:
-            city = response['json']['city']
-            country = response['json']['country']
-            isp = response['json']['isp']
-            org = response['json']['org']
-            region = response['json']['regionName']
-            zipcode = response['json']['zip']
-            ip_info = country + ', ' + city + ', ' + region + ', *Zipcode*: ' + zipcode + '  *ISP*: ' + isp + '/' + org
-            return ip_info
-        else:
-            return None
+    url = 'http://ip-api.com/json/%s' % ip.strip()
+    response = web.http_get(url, json=True)
+
+    if response['json'] is not None:
+        city = response['json']['city']
+        country = response['json']['country']
+        isp = response['json']['isp']
+        org = response['json']['org']
+        region = response['json']['regionName']
+        zipcode = response['json']['zip']
+        ip_info = country + ', ' + city + ', ' + region + ', *Zipcode*: ' + zipcode + '  *ISP*: ' + isp + '/' + org
+        return ip_info
     else:
         return None
 
@@ -104,16 +108,18 @@ def whois(ip):
 def chuck_norris():
     """
     Finds a random Chuck Norris joke/quote from http://www.icndb.com/api/ .
-    The API also has category specifications, i.e. categories are either "nerdy"/"explicit" set via webform "?limtTo".
-    The character names can also be altered via passing the webform "?firstName=[name]" or "?lastName=[name]".
-    :return: str or None on failure.
+    NOTE:  The API also has category specifications, i.e. categories are either 'nerdy'/'explicit' set
+           via the web-form '?limitTo'. The character names can also be altered via passing the web-form
+           '?firstName=[name]' or '?lastName=[name]'.
+
+    :return: str joke or None if 'joke' is not found.
     """
     url = 'http://api.icndb.com/jokes/random/?escape=javascript'
     response = web.http_get(url, json=True)
+
     if response['json'] is not None:
         if response['json']['type'] == 'success':
-            joke = response['json']['value']['joke'].decode('string_escape')
-            return joke
+            return response['json']['value']['joke'].decode('string_escape')
         else:
             return None
     else:
@@ -126,8 +132,9 @@ def hash_cracker(hash_str):
     :param hash_str: str the md5 hash to crack.
     :return: dict{'status', 'result', 'message'} or None on error.
     """
-    url = 'http://md5cracker.org/api/api.cracker.php?r=9327&database=md5cracker.org&hash=%s' % hash_str
+    url = 'http://md5cracker.org/api/api.cracker.php?r=9327&database=md5cracker.org&hash=%s' % hash_str.strip()
     response = web.http_get(url, json=True)
+
     if response['json'] is not None:
         return {
             'status': response['json']['status'],
@@ -141,32 +148,32 @@ def hash_cracker(hash_str):
 def yo_mama_joke():
     """
     Retrieves a random 'Yo Mama' joke from an API.
-    :return: joke str or None on failure.
+    :return: joke str or None if no 'joke' is found.
     """
     url = 'http://api.yomomma.info/'
     response = web.http_get(url, json=True)
+
     if response['json'] is not None:
-        joke = response['json']['joke'].decode('string_escape')
-        return joke
+        return response['json']['joke'].decode('string_escape')
     else:
         return None
 
 
 def online_advice():
     """
-    Retrieves a random string of advice from an API.
-    :return: advice str or None on failure.
+    Retrieves a random string of advice from the 'adviceslip' (http://adviceslip.com/) API.
+    :return: advice str or None if 'advice' is not found.
     """
     url = 'http://api.adviceslip.com/advice'
     response = web.http_get(url, json=True)
     if response['json'] is not None:
-        advice = response['json']['slip']['advice']
-        return advice
+        return response['json']['slip']['advice']
     else:
         return None
 
 
 # TODO: Needs a more clearer and succinct output.
+# TODO: Parse all the required necessary information returned from the API.
 def duckduckgo_search(search):
     """
     Search DuckDuckGo using their API - https://duckduckgo.com/api .
@@ -186,75 +193,109 @@ def duckduckgo_search(search):
                 # The search word is stripped from the definition by default.
                 definitions.append(definition.encode('ascii', 'ignore').strip(search))
             return definitions
-        else:
-            return None
-    else:
-        return None
+    #     else:
+    #         return None
+    # else:
+    #     return None
+    return None
 
 
 def omdb_search(search):
     """
     Query the OMDb API - https://omdbapi.com/.
     :param search: str search term.
-    :return: str title, rating, and short description.
+    :return: str title, rating, and short a description.
     """
-    if str(search).strip():
-        omdb_url = 'http://www.omdbapi.com/?t=%s&plot=short&r=json' % search
-        response = web.http_get(omdb_url, json=True)
+    omdb_url = 'http://www.omdbapi.com/?t=%s&plot=short&r=json' % search.strip()
+    response = web.http_get(omdb_url, json=True)
 
-        if response['json'] is not None:
-            try:
-                title = response['json']['Title']
-                plot = response['json']['Plot']
-                imdbid = response['json']['imdbID']
-                imdbrating = response['json']['imdbRating']
-                if len(plot) > 159:
-                    plot_chunks = string_utili.chunk_string(plot, 70)
-                    plot_formatted = ''
-                    for i in range(0, 2):
-                        plot_formatted += ('\n' + plot_chunks[i])
-                else:
-                    plot_formatted = plot
+    if response['json'] is not None:
+        try:
+            title = response['json']['Title']
+            plot = response['json']['Plot']
+            imdb_id = response['json']['imdbID']
+            imdb_rating = response['json']['imdbRating']
+            if len(plot) > 159:
+                plot_chunks = string_utili.chunk_string(plot, 70)
+                plot_formatted = ''
+                for i in range(0, 2):
+                    plot_formatted += ('\n' + plot_chunks[i])
+            else:
+                plot_formatted = plot
 
-                omdb_info = '*Title:* %s\nDetails: %s\n*Rating:* %s\n*More Info:* http://www.imdb.com/title/%s' % \
-                            (title, plot_formatted, imdbrating, imdbid)
+            omdb_info = '*Title:* %s\nDetails: %s\n*Rating:* %s\n*More Info:* http://www.imdb.com/title/%s' % \
+                        (title, plot_formatted, imdb_rating, imdb_id)
 
-                return omdb_info
-            except (KeyError, IndexError) as ex:
-                print(ex)
-                return None
-        else:
+            return omdb_info
+        except (KeyError, IndexError) as ex:
+            print(ex)
             return None
     else:
         return None
 
 
+# TODO: Jservice trivia.
+# TODO: Implement this.
+# def jservice_trivia():
+#     """
+#     Returns a random Jeopardy question from the http://jservice.io/ API.
+#     :return: dict{'title', 'value', 'question', 'answer', jeopardy_airdate'} or None on error.
+#     """
+#     base_url = 'http://jservice.io/'
+#     get_url = base_url + 'api/random'
+#     response = web.http_get(get_url, json=True)
+#     if response['json'] is not None:
+#         return {
+#             'title': response['json'][0]['category']['title'],
+#             'value': response['json'][0]['value'],
+#             'question': response['json'][0]['question'],
+#             'answer': response['json'][0]['answer'],
+#             'jeopardy_airdate': response['json'][0]['airdate']
+#         }
+#     else:
+#         return None
+
+
+# TODO: Parse this correctly.
 def longman_dictionary(lookup_term):
     """
     Looks up a particular headword on the Pearson Longman Dictionary API -
     http://http://developer.pearson.com/apis/dictionaries and returns an appropriate definition response.
 
-    NOTE: The API is free for up to 4,000,000 calls per month.
+    NOTE: The API is free for up to 4,000,000 calls per month. We are using the 'entries' API endpoint located
+          by using http://api.pearson.com/v2/dictionaries/entries?headword=[headword here].
+
     :param lookup_term: str the term to search for a dictionary reference.
-    :return
+    :return:
     """
-    # http://api.pearson.com/v2/dictionaries/entries?headword=key
-    dictionary_url = 'http://api.pearson.com/v2/dictionaries/entries?headword=%s' % lookup_term
+    dictionary_url = 'http://api.pearson.com/v2/dictionaries/entries?headword=%s' % lookup_term.strip()
     response = web.http_get(dictionary_url, json=True)
 
     if response['json'] is not None:
-        return response['json']['results']
+        definitions = []
+        for search_result in response['json']['results']:
+            if 'senses' in search_result:
+                # print(search_result['senses'])
+                for sense_num in range(len(search_result['senses'])):
+                    # print(search_result['senses'][sense_num])
+                    if 'definition' in search_result['senses'][sense_num]:
+                        definition = search_result['senses'][sense_num]['definition']
+                        if type(definition) is not list:
+                            definitions.append(definition)
+        return definitions
+    else:
+        return None
 
 
-# These APIs require the use of Requests, BeautifulSoup, urllib2 and unicodedata. As a result of using HTML parsers,
-# the code maybe subject to change over time to adapt with the server's pages.
+# These APIs require the use of Requests, BeautifulSoup, urllib2 and unicodedata.
+# As a result of using HTML parsers, the code maybe subject to change over time to adapt with the server's pages.
 def time_is(location):
     """
     Retrieves the time in a location by parsing the time element in the html from Time.is .
     :param location: str location of the place you want to find time (works for small towns as well).
     :return: time str or None on failure.
     """
-    if BeautifulSoup:
+    if bs4_present:
         header = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:42.0) Gecko/20100101 Firefox/42.0',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -268,16 +309,15 @@ def time_is(location):
         post_url = 'http://time.is/' + location.replace(location[0], location[0].upper())
         time_data = web.http_get(post_url, header=header)
         time_html = time_data['content']
-        soup = BeautifulSoup(time_html, "html.parser")
-        time = str
+        soup = BeautifulSoup(time_html, 'html.parser')
 
         try:
+            time = ''
             for hit in soup.findAll(attrs={'id': 'twd'}):
                 time = hit.contents[0].strip()
         except Exception as ex:
             print(ex)
-            return None
-
+            time = None
         return time
     else:
         return None
@@ -290,16 +330,16 @@ def google_time(location):
     :param location: str location of the place you want to find time (Location must be a large town/city/country).
     :return: time str or None on failure.
     """
-    if BeautifulSoup is not None:
+    if bs4_present:
         to_send = location.replace(' ', '%20')
         url = 'https://www.google.com/search?q=time%20in%20' + to_send
         response = web.http_get(url)
         if response['content'] is not None:
             raw_content = response['content']
             soup = BeautifulSoup(raw_content, 'html.parser')
-            raw_info = None
 
             try:
+                raw_info = None
                 for hit in soup.findAll(attrs={'class': 'vk_c vk_gy vk_sh card-section _MZc'}):
                     raw_info = hit.contents
             except Exception as ex:
@@ -312,10 +352,11 @@ def google_time(location):
                 return location, time
             else:
                 return None
-        else:
-            return None
-    else:
-        return None
+    #     else:
+    #         return None
+    # else:
+    #     return None
+    return None
 
 
 def top40():
@@ -324,14 +365,15 @@ def top40():
     :return: list (nested list) all songs including the song name and artist in the format
              [[songs name, song artist], etc.]].
     """
-    if BeautifulSoup is not None:
+    if bs4_present:
         chart_url = 'http://www.bbc.co.uk/radio1/chart/singles'
         response = web.http_get(url=chart_url)
+
         if response['content'] is not None:
             html = response['content']
-            soup = BeautifulSoup(html, "html.parser")
-            raw_titles = soup.findAll("div", {"class": "cht-entry-title"})
-            raw_artists = soup.findAll("div", {"class": "cht-entry-artist"})
+            soup = BeautifulSoup(html, 'html.parser')
+            raw_titles = soup.findAll('div', {'class': 'cht-entry-title'})
+            raw_artists = soup.findAll('div', {'class': 'cht-entry-artist'})
 
             all_titles = []
             all_artists = []
@@ -350,34 +392,35 @@ def top40():
             for x in xrange(len(all_titles)):
                 songs.append([all_titles[x], all_artists[x]])
 
-            if len(songs) > 0:
+            if len(songs) is not 0:
                 return songs
-        else:
-            return None
-    else:
-        return None
+    #     else:
+    #         return None
+    # else:
+    #     return None
+    return None
 
 
 def one_liners(tag=None):
     """
     Retrieves a one-liner from http://onelinefun.com/ (by choosing a random category).
     :param tag: str a specific tag name from which you want to choose a joke from.
-    :return: joke: str a one line joke/statement (depending on category).
+    :return: str joke a one line joke/statement (depending on the specified category).
     """
-    if BeautifulSoup is not None:
+    if bs4_present:
         url = 'http://onelinefun.com/'
-        if tag:
-            joke_url = url + str(tag) + '/'
-        else:
+        if tag is None:
             # Select a random tag from the list if one has not been provided
             joke_tag = random.randint(0, len(ONE_LINER_TAGS) - 1)
             joke_url = url + ONE_LINER_TAGS[joke_tag] + '/'
+        else:
+            joke_url = url + str(tag) + '/'
 
         response = web.http_get(url=joke_url)
         if response['content'] is not None:
             html = response['content']
-            soup = BeautifulSoup(html, "html.parser")
-            jokes = soup.findAll("p")
+            soup = BeautifulSoup(html, 'html.parser')
+            jokes = soup.findAll('p')
             if jokes:
                 all_jokes = []
 
@@ -390,27 +433,24 @@ def one_liners(tag=None):
                     for x in range(6):
                         del all_jokes[len(all_jokes) - 1]
 
-                    joke = str(all_jokes[random.randint(0, len(all_jokes) - 1)])
-
-                    return joke
-                else:
-                    return None
-            else:
-                return None
-        else:
-            return None
-    else:
-        return None
+                    return str(all_jokes[random.randint(0, len(all_jokes) - 1)])
+    #             else:
+    #                 return None
+    #         else:
+    #             return None
+    #     else:
+    #         return None
+    # else:
+    return None
 
 
 def etymonline(search):
     """
     Searches the etymology of words/phrases using the Etymonline website.
-
     :param search: str the word/phrase you want to search for.
-    :return: dict the results from the search.
+    :return: str the quote from the the search result.
     """
-    if BeautifulSoup is not None:
+    if bs4_present:
         url = 'http://etymonline.com/index.php?term=%s&allowed_in_frame=0'
         search_parts = search.split(' ')
         search_term = '+'.join(search_parts)
@@ -419,8 +459,8 @@ def etymonline(search):
 
         if response['content'] is not None:
             html = response['content']
-            soup = BeautifulSoup(html, "html.parser")
-            quotes = soup.findAll("dd", {"class": "highlight"})
+            soup = BeautifulSoup(html, 'html.parser')
+            quotes = soup.findAll('dd', {'class': 'highlight'})
             # There are several quotes/term results returned, we only want
             # the first one, alternatively a loop can be setup.
             # Represent the tags as a string, since we do not have specific identification.
@@ -430,31 +470,11 @@ def etymonline(search):
                 quotes = quote.split('\r\n\r\n')
                 # There are more than one set of quotes parsed, you may iterate over this too in order to return a
                 # greater set of results.
-                return u'' + quotes[0]  # Result is returned in unicode.
-            else:
-                return None
-        else:
-            return None
-    else:
-        return None
-
-
-# TODO: Jservice trivia.
-def jservice_trivia():
-    """
-    Returns a random Jeopardy question from the http://jservice.io/ API.
-    :return: dict{'title', 'value', 'question', 'answer', jeopardy_airdate'} or None on error.
-    """
-    base_url = 'http://jservice.io/'
-    get_url = base_url + 'api/random'
-    response = web.http_get(get_url, json=True)
-    if response['json'] is not None:
-        return {
-            'title': response['json'][0]['category']['title'],
-            'value': response['json'][0]['value'],
-            'question': response['json'][0]['question'],
-            'answer': response['json'][0]['answer'],
-            'jeopardy_airdate': response['json'][0]['airdate']
-        }
-    else:
-        return None
+                return u'' + quotes[0]  # Result is returned as unicode.
+    #         else:
+    #             return None
+    #     else:
+    #         return None
+    # else:
+    #     return None
+    return None

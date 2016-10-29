@@ -70,26 +70,28 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     key = CONFIG['key']
 
     # - Privilege settings:
-    botters = []  # Botters will only be temporarily stored until the next bot restart.
+    # Botters will only be stored temporarily in this
+    # list until the next application restart.
+    botters = []
 
-    # TODO: Implement database.
     # TODO: Move loading and creation of files for each room into a separate function and call it when initialising.
+    # TODO: Prevent empty files or files with spaces from being loaded.
     # - Loads/creates permanent botter accounts files:
-    # if not os.path.exists(self.config_path() + CONFIG['botteraccounts']):
-    #     open(TinychatBot.config_path() + CONFIG['botteraccounts'], mode='w')
-    # botteraccounts = pinylib.fh.file_reader(self.config_path(), CONFIG['botteraccounts'])
-    #
+    if not os.path.exists(self.config_path() + CONFIG['botteraccounts']):
+        open(TinychatBot.config_path() + CONFIG['botteraccounts'], mode='w')
+    botteraccounts = pinylib.fh.file_reader(self.config_path(), CONFIG['botteraccounts'])
+
     # - Loads/creates autoforgive files:
-    # if not os.path.exists(CONFIG['path'] + CONFIG['autoforgive']):
-    #     open(self.config_path() + CONFIG['autoforgive'], mode='w')
-    # autoforgive = pinylib.fh.file_reader(config_path(), CONFIG['autoforgive'])
+    if not os.path.exists(CONFIG['path'] + CONFIG['autoforgive']):
+        open(self.config_path() + CONFIG['autoforgive'], mode='w')
+    autoforgive = pinylib.fh.file_reader(config_path(), CONFIG['autoforgive'])
 
     # TODO: Move this along with loading the other files.
     # Loads the 'ascii.txt' file with ASCII/unicode text into a dictionary.
     if CONFIG['ascii_chars']:
         ascii_dict = pinylib.fh.unicode_loader(CONFIG['path'] + CONFIG['ascii_file'])
         ascii_chars = True
-        if ascii_dict is None:
+        if ascii_dict is None or len(ascii_dict) is 0:
             ascii_chars = False
             print('No ' + CONFIG['ascii_file'] + ' was not found at: ' + CONFIG['path'])
             print('As a result the unicode text was not loaded. Please check your configurations.\n')
@@ -160,14 +162,19 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     youtube_pattern = re.compile(r'http(?:s*):\/\/(?:www\.youtube|youtu)\.\w+(?:\/watch\?v=|\/)(.{11})')
     character_limit_pattern = re.compile(r'[A-Z0-9]{50,}')
 
-    # TODO: Can we make this more succint?
+    # TODO: Can we make this more succinct?
     # Allow playlist mode to be enforced upon turning on public media.
     if public_media:
         playlist_mode = True
 
     # TODO: Imports and variables names, adjust to match new base.
-
+    # TODO: Add docstring information.
     def on_join(self, join_info_dict):
+        """
+
+        @param join_info_dict:
+        @return:
+        """
         log.info('User join info: %s' % join_info_dict)
         user = self.add_user_info(join_info_dict)
 
@@ -189,6 +196,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                                        (join_info_dict['nick'], join_info_dict['id'], join_info_dict['account']))
 
             # TODO: Test to see if this works.
+            # TODO: Bad strings can still ban mods and anyone else with power (follows todo in the function as well).
             ba = pinylib.fh.file_reader(CONFIG['path'], CONFIG['badaccounts'])
             if ba is not None:
                 if join_info_dict['account'] in ba:
@@ -199,7 +207,6 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                         self.send_bot_msg(unicode_catalog.TOXIC + ' *Auto-Banned:* %s (bad account)' %
                                           join_info_dict['account'], self._is_client_mod)
 
-            # TODO: Implement database.
             # Assign botteraccounts if they were in the locally stored file.
             if join_info_dict['account'] in self.botteraccounts:
                 user.has_power = True
@@ -215,7 +222,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                         self.console_write(pinylib.COLOR['bright_cyan'], '%s:%d joined the room.' %
                                            (join_info_dict['nick'], join_info_dict['id']))
 
+    # TODO: Add docstring information.
     def on_joinsdone(self):
+        """
+
+        @return:
+        """
         if not self._is_reconnected:
             if CONFIG['auto_message_enabled']:
                 self.start_auto_msg_timer()
@@ -224,7 +236,14 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         if self._is_client_owner and self._room_type != 'default':
             threading.Thread(target=self.get_privacy_settings).start()
 
+    # TODO: Add docstring information.
     def on_avon(self, uid, name):
+        """
+
+        @param uid:
+        @param name:
+        @return:
+        """
         if not self.is_broadcasting_allowed or name in self.cam_blocked:
             self.send_close_user_msg(name)
             self.console_write(pinylib.COLOR['cyan'], 'Auto closed broadcast %s:%s' % (name, uid))
@@ -266,7 +285,13 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
             self.console_write(pinylib.COLOR['cyan'], '%s:%s is broadcasting.' % (name, uid))
 
+    # TODO: Add docstring information.
     def send_auto_pm(self, nickname):
+        """
+
+        @param nickname:
+        @return:
+        """
         room = self._roomname.upper()
         new_pm_msg = self.replace_content(self.pm_msg, nickname, room)
 
@@ -277,7 +302,15 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         else:
             self.send_private_msg(new_pm_msg, nickname)
 
+    # TODO: Add docstring information.
     def on_nick(self, old, new, uid):
+        """
+
+        @param old:
+        @param new:
+        @param uid:
+        @return:
+        """
         if uid != self._client_id:
             old_info = self.find_user_info(old)
             old_info.nick = new
@@ -348,10 +381,16 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
             self.console_write(pinylib.COLOR['bright_cyan'], '%s:%s changed nick to: %s' % (old, uid, new))
 
+    # TODO: Add docstring information.
     def on_kick(self, uid, name):
+        """
+
+        @param uid:
+        @param name:
+        @return:
+        """
         if uid != self._client_id:
             user = self.find_user_info(name)
-            # TODO: Implement database.
             if user.account in self.autoforgive:
                 self.send_forgive_msg(user.id)
                 self.console_write(pinylib.COLOR['bright_red'], '%s:%s was kicked and was automatically forgiven.' %
@@ -360,7 +399,14 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 self.console_write(pinylib.COLOR['bright_red'], '%s:%s was banned.' % (name, uid))
                 self.send_banlist_msg()
 
+    # TODO: Add docstring information.
     def on_quit(self, uid, name):
+        """
+
+        @param uid:
+        @param name:
+        @return:
+        """
         if uid is not self._client_id:
             if name in self._room_users.keys():
                 # Execute the tidying method before deleting the user from our records.
@@ -369,19 +415,25 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 if self.join_quit_notifications:
                     self.console_write(pinylib.COLOR['cyan'], '%s:%s left the room.' % (name, uid))
 
+    # TODO: Add docstring information.
     def tidy_exit(self, name):
+        """
+
+        @param name:
+        @return:
+        """
         user = self.find_user_info(name)
         # Delete user from botters/botteraccounts if they were instated.
         if user.nick in self.botters:
             self.botters.remove(user.nick)
         if user.account:
-            # TODO: Implement database.
             if user.account in self.botteraccounts:
                 self.botteraccounts.remove(user.account)
         # Delete the nickname from the cam blocked list if the user was in it.
         if user.nick in self.cam_blocked:
             self.cam_blocked.remove(user.nick)
 
+    # TODO: Add docstring information.
     def on_reported(self, uid, nick):
         self.console_write(pinylib.COLOR['bright_red'], 'The bot was reported by %s:%s.' % (nick, uid))
         if self.bot_report_kick:
@@ -521,27 +573,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             if self.auto_url_mode:
                 threading.Thread(target=self.do_auto_url, args=(decoded_msg,)).start()
 
-        # TODO: Move CleverBot handle to elsewhere.
-        # TODO: Added CleverBot instant call.
-        # if the message begins with the client nickname and CleverBot Instant is turned on, send the message to
-        # to the active session.
-        if self.cleverbot_enable:
-            if self.cleverbot_instant:
-                if self.client_nick in decoded_msg.lower():
-                    # if msg.lower().startswith('%s ' % self.client_nick): (only first method)
-                    # There are two ways of going about sending a reply.
-                    # One is to take the message after the nickname, meaning the nickname has to be first in
-                    # the message.
-                    # This is more safe to use and usually yields a more accurate response.
-                    # The second is replacing the nickname with a blank space and taking the resulting message, this may
-                    # result is an abnormal response, though covers a variety of responses.
-                    # Only first method.
-                    # query = msg.split('%s ' % self.client_nick)[1]
-                    # The second method.
-                    query = decoded_msg.lower().replace(self.client_nick, '')
-                    self.console_write(pinylib.COLOR['yellow'], '%s [CleverBot]: %s' % (self.user.nick, query.strip()))
-                    threading.Thread(target=self.do_cleverbot, args=(query, True,)).start()
-                    return
+        # TODO: Move CleverBot message handler to elsewhere.
+        # TODO: Add function call to the cleverbot message handler.
 
         # Is this a custom command?
         if decoded_msg.startswith(CONFIG['prefix']):
@@ -552,10 +585,11 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             # The rest is the command argument.
             cmd_arg = ' '.join(parts[1:]).strip()
 
+            # TODO: This is quite untidy.
+            # TODO: Maybe use the public_cmds option instead of this?
             # TODO: Review permission control - focus of permissions changes, miscellaneous grouping?
             # Waive handling messages to normal users if the bot listening is set to False and the user
             # is not owner/super mod/mod/botter.
-            # TODO: Maybe use the public_cmds option instead of this?
             if not self.bot_listen:
                 if cmd == CONFIG['prefix'] + 'pmme':
                     self.do_pmme()
@@ -657,11 +691,9 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                     self.do_cleverbot_state()
 
                 # - Higher-level commands:
-                # TODO: Implement database.
                 elif cmd == CONFIG['prefix'] + 'botter':
                     threading.Thread(target=self.do_botter, args=(cmd_arg,)).start()
 
-                # TODO: Implement database.
                 elif cmd == CONFIG['prefix'] + 'protect':
                     threading.Thread(target=self.do_autoforgive, args=(cmd_arg,)).start()
 
@@ -745,8 +777,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 # elif cmd == CONFIG['prefix'] + 'seek':
                 #     self.do_media_seek(cmd_arg)
 
-                # elif cmd == CONFIG['prefix'] + 'skip':
-                #     self.do_media_skip()
+                elif cmd == CONFIG['prefix'] + 'skip':
+                     self.do_media_skip()
 
                 elif cmd == CONFIG['prefix'] + 'replay':
                     self.do_media_replay()
@@ -1146,7 +1178,6 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         self.cleverbot_enable = not self.cleverbot_enable
         self.send_bot_msg('*CleverBot enabled*: %s' % self.cleverbot_enable)
 
-    # TODO: Implement database.
     # TODO: Levels of botters - maybe just media users.
     def do_botter(self, new_botter):
         """
@@ -1203,7 +1234,6 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             else:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' No user named: ' + new_botter)
 
-    # TODO: Implement database.
     def do_autoforgive(self, new_autoforgive):
         """
         Adds a new autoforgive user, IF the user is logged in, to the autoforgive file;
@@ -1331,6 +1361,9 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                     self.send_bot_msg(unicode_catalog.INDICATE + ' Action not allowed.')
             else:
                 user = self.find_user_info(nick_name)
+
+                # TODO: Re-assess this logic.
+                # TODO: We should not be allowing the banning of any moderators.
                 if user is not None:
                     if user.is_owner or user.is_super or user.is_mod and not self.user.is_owner:
                         if not discrete:
@@ -1343,7 +1376,6 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                                 self.send_bot_msg(unicode_catalog.INDICATE + ' You cannot kick/ban another botter.')
                             return
                         elif user.account:
-                            # TODO: Relate botteraccounts to database.
                             if user.account in self.botteraccounts:
                                 if not discrete:
                                     self.send_bot_msg(unicode_catalog.INDICATE +
@@ -1437,6 +1469,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 if rem:
                     self.send_bot_msg(bad_nick + ' was removed.')
 
+    # TODO: Bad strings can still ban mods and anyone else with power.
     def do_bad_string(self, bad_string):
         """
         Adds a bad string to the bad strings file.
@@ -1473,6 +1506,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 if rem:
                     self.send_bot_msg(bad_string + ' was removed.')
 
+    # TODO: Bad account can still ban mods and anyone else with power.
     def do_bad_account(self, bad_account_name):
         """
         Adds a bad account name to the bad accounts file.
@@ -1829,16 +1863,16 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             # next_track = self.media_manager.get_next_track()
             # TODO: Replace get_next_track with next_track_info so we can get the next track information.
             pos, next_track = self.media_manager.next_track_info()
-            print(pos, next_track.type, self.media_manager.track().type)
+            # print(pos, next_track.type, self.media_manager.track().type)
             self.cancel_media_event_timer()
 
-            if next_track.type != self.media_manager.track().type:
-                print('stopping track of different type')
-                self.media_manager.mb_close()
-                self.send_media_broadcast_close(self.media_manager.track().type)
+            # if next_track.type != self.media_manager.track().type:
+            #     print('stopping track of different type')
+            #     self.media_manager.mb_close()
+            #     self.send_media_broadcast_close(self.media_manager.track().type)
 
             self.media_manager.we_play(next_track)
-            print('sending broadcast start')
+            # print('sending broadcast start')
             self.send_media_broadcast_start(next_track.type, next_track.id)
             self.media_event_timer(next_track.time)
 
@@ -3312,6 +3346,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         """
         threading.Timer(CONFIG['auto_message_interval'], self.auto_msg_handler).start()
 
+    # TODO: Evaluate design.
     def do_auto_url(self, message):
         """
         Retrieve header information for a given link.
@@ -3335,6 +3370,36 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                     self.send_bot_msg('*[ ' + url + ' ]*')
                     self.console_write(pinylib.COLOR['cyan'], self.user.nick + ' posted a URL: ' + url)
 
+    # TODO: Evaluate design.
+    # TODO: Added CleverBot instant call.
+    def cleverbot_message_handler(self, decoded_msg):
+        """
+
+        :param decoded_msg: str
+        :return: bool True/False
+        """
+        # if the message begins with the client nickname and CleverBot Instant is turned on,
+        # send the message to the active session.
+        if self.cleverbot_enable:
+            if self.cleverbot_instant:
+                if self.client_nick in decoded_msg.lower():
+                    # if msg.lower().startswith('%s ' % self.client_nick): (only first method)
+                    # There are two ways of going about sending a reply.
+                    # One is to take the message after the nickname, meaning the nickname has to be first in
+                    # the message.
+                    # This is more safe to use and usually yields a more accurate response.
+                    # The second is replacing the nickname with a blank space and taking the resulting message, this may
+                    # result is an abnormal response, though covers a variety of responses.
+                    # Only first method.
+                    # query = msg.split('%s ' % self.client_nick)[1]
+                    # The second method.
+                    query = decoded_msg.lower().replace(self.client_nick, '')
+                    self.console_write(pinylib.COLOR['yellow'], '%s [CleverBot]: %s' % (self.user.nick, query.strip()))
+                    threading.Thread(target=self.do_cleverbot, args=(query, True,)).start()
+                    return True
+        return False
+
+    # TODO: Evaluate design - we do not need this in the event that we restict the form data.
     # TODO: Added in a timer to monitor the CleverBot session & reset the messages periodically.
     def cleverbot_timer(self):
         """
@@ -3343,8 +3408,9 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         NOTE: Anything as a result asked before that to CleverBot may reply with an inaccurate reply.
         """
         while self.cleverbot_session is not None:
-            # Reset the POST log in CleverBot to an empty list to clear the previous message history if the time is
-            # 5 minutes or over and messages have been sent in the log.
+            # Reset the POST log in the CleverBot instance to an empty list in order to clear the previous
+            # message history. This occurs if it has been 5 minutes or great since the last message
+            # has been sent and stored in the log.
             if int(pinylib.time.time()) - self.cleverbot_msg_time >= 150 and \
                             len(self.cleverbot_session.post_log) is not 0:
                 self.cleverbot_session.post_log = []
@@ -3358,7 +3424,6 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         self.privacy_settings = privacy_settings.TinychatPrivacyPage(self._proxy)
         self.privacy_settings.parse_privacy_settings()
 
-    # TODO: Setup database and place all files in there.
     def config_path(self):
         """ Returns the path to the rooms configuration directory. """
         path = pinylib.CONFIG['config_path'] + self._roomname + '/'
@@ -3401,6 +3466,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             if check:
                 return True
 
+        # TODO: Evaluate design.
         # TODO: Test to see if this works or not.
         # The unicode characters UTF-16 decimal representation.
         # spam_chars = [',133', ',8192', ',10', ',9650']
@@ -3453,28 +3519,30 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                     # self.send_forgive_msg(user.id)
                 return True
 
+    # TODO: We cannot let whitespaces be accepted as potential bad strings.
+    # TODO: Test to see if this can still catch bad strings.
     def check_msg_for_bad_string(self, msg, pm=False):
         """
         Checks the chat message for bad string(s).
         :param msg: str the chat message.
         :param pm: boolean true/false if the check is from a private message or not.
         """
-        msg_words = msg.split(' ')
-        bad_strings = pinylib.fh.file_reader(self.config_path(), CONFIG['ban_strings'])
-        if bad_strings is not None:
-            for word in msg_words:
-                if word in bad_strings:
-                    if self._is_client_mod:
+        if self._is_client_mod:
+            msg_words = msg.split(' ')
+            bad_strings = pinylib.fh.file_reader(self.config_path(), CONFIG['ban_strings'])
+            if bad_strings is not None:
+                for word in msg_words:
+                    if bad_string.strip() in bad_strings:
                         self.send_ban_msg(self.user.nick, self.user.id)
                         if CONFIG['bsforgive']:
                             self.send_forgive_msg(self.user.id)
                         if not pm:
                             self.send_bot_msg(unicode_catalog.TOXIC + ' *Auto-banned*: (bad string in message)')
-                    return True
-            return False
 
-            # TODO: Add custom allocations for 'replacement variables'.
+                        return True
+                return False
 
+    # TODO: Add custom allocations for 'replacement variables'.
     # TODO: This is not tidy.
     def replace_content(self, message, user=None, room=None):
         """
@@ -3549,10 +3617,12 @@ def main():
     while not client.is_connected:
         pinylib.time.sleep(1)
 
-    # TODO: Removed alive.
+    # TODO: Removed alive handler in the class.
+
+    # TODO: We should not require ping in the event we monitor all other data.
     # Ping request thread management:
-    threading.Thread(target=client.send_ping_request)
-    client.console_write(pinylib.COLOR['white'], 'Started ping management.')
+    # threading.Thread(target=client.send_ping_request)
+    # client.console_write(pinylib.COLOR['white'], 'Started ping management.')
 
     if not CONFIG['server']:
         while client.is_connected:

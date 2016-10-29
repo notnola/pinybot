@@ -2,7 +2,6 @@
 import time
 import logging
 import requests
-import requests.compat
 
 log = logging.getLogger(__name__)
 
