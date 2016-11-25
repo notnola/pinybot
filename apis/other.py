@@ -1,29 +1,33 @@
 # -*- coding: utf-8 -*-
 
-""" Provides functions to search/explore various APIs """
+""" Provides functions to search/explore various APIs. """
 
-# Some examples include: World-weather-online, Urban-dictionary, ip-api and api.icndb & many others.
+# Some examples include that of:
+#   World-weather-online,
+#   Urban-dictionary,
+#   ip-api and api.icndb,
 # Includes BeautifulSoup parsed APIs/website functions.
 
 import random
 import unicodedata
+import urllib
 
 from utilities import web, string_utili
 
 try:
     from bs4 import BeautifulSoup
     bs4_present = True
-except ImportError:
+except (ImportError, BeautifulSoup):
     bs4_present = False
 
-ONE_LINER_TAGS = ['age', 'alcohol', 'animal', 'attitude', 'beauty', 'black', 'blonde', 'car', 'communication',
-                  'dirty', 'doctor', 'drug', 'family', 'fat', 'fighting', 'flirty', 'food', 'friendship', 'happiness',
+ONE_LINER_TAGS = ['age', 'alcohol', 'animal', 'attitude', 'beauty', 'black', 'car', 'communication',
+                  'dirty', 'doctor', 'drug', 'family', 'fighting', 'flirty', 'food', 'friendship', 'happiness',
                   'health', 'insults', 'intelligence', 'IT', 'kids', 'life', 'love', 'marriage', 'men', 'mistake',
                   'money', 'motivational', 'motorcycle', 'new', 'people', 'political', 'puns', 'retirement', 'rude',
-                  'sarcastic', 'sex', 'school', 'sport', 'stupid', 'success', 'time', 'travel', 'women', 'work']
+                  'sarcastic', 'school', 'sport', 'stupid', 'success', 'time', 'travel', 'work']
 
 
-def urbandictionary_search(search):
+def urban_dictionary_search(search):
     """
     Searches Urban-dictionary's API for a given search term.
     :param search: str the search term str to search for.
@@ -82,7 +86,7 @@ def weather_search(city):
         return False
 
 
-def whois(ip):
+def who_is(ip):
     """
     Searches ip-api for information about a given IP address.
     :param ip: str the ip to search for.
@@ -172,31 +176,29 @@ def online_advice():
         return None
 
 
-# TODO: Needs a more clearer and succinct output.
-# TODO: Parse all the required necessary information returned from the API.
-def duckduckgo_search(search):
+# TODO: Parse all the required necessary information returned from the API;
+#       more clear output from function.
+def duck_duck_go_search(search):
     """
-    Search DuckDuckGo using their API - https://duckduckgo.com/api .
-    NOTE: This is currently limited to definition as of now.
+    Search DuckDuckGo using their API (https://duckduckgo.com/api).
+
     :param search: The search term str to search for.
     :return: definition str or None on no match or error.
     """
-    if str(search).strip():
-        ddg_api = 'https://api.duckduckgo.com/?q=%s&format=json' % search
-        response = web.http_get(ddg_api, json=True)
+    duck_duck_go_api = 'http://api.duckduckgo.com/?q=%s&ia=answer&format=json&no_html=1' % \
+                       urllib.quote_plus(search.strip())
+    response = web.http_get(duck_duck_go_api, json=True)
 
-        if response['json'] is not None:
-            definitions = []
-            # Return up to 2 definitions.
-            for x in range(2):
-                definition = response['json']['RelatedTopics'][x]['Text']
-                # The search word is stripped from the definition by default.
-                definitions.append(definition.encode('ascii', 'ignore').strip(search))
-            return definitions
-    #     else:
-    #         return None
-    # else:
-    #     return None
+    if response['json'] is not None:
+        if response['json']['AnswerType'] == 'calc':
+            results = response['json']['Answer']
+        else:
+            related_topics = response['json']['RelatedTopics']
+            results = []
+            for topic in range(len(related_topics)):
+                if 'Text' in related_topics[topic]:
+                    results.append(related_topics[topic]['Text'].replace(search, ('*%s*' % search), 1))
+        return results
     return None
 
 
@@ -234,36 +236,35 @@ def omdb_search(search):
         return None
 
 
-# TODO: Jservice trivia.
-# TODO: Implement this.
-# def jservice_trivia():
-#     """
-#     Returns a random Jeopardy question from the http://jservice.io/ API.
-#     :return: dict{'title', 'value', 'question', 'answer', jeopardy_airdate'} or None on error.
-#     """
-#     base_url = 'http://jservice.io/'
-#     get_url = base_url + 'api/random'
-#     response = web.http_get(get_url, json=True)
-#     if response['json'] is not None:
-#         return {
-#             'title': response['json'][0]['category']['title'],
-#             'value': response['json'][0]['value'],
-#             'question': response['json'][0]['question'],
-#             'answer': response['json'][0]['answer'],
-#             'jeopardy_airdate': response['json'][0]['airdate']
-#         }
-#     else:
-#         return None
+# TODO: Implement Jservice trivia.
+def jservice_trivia():
+    """
+    Returns a random Jeopardy question from the http://jservice.io/ API.
+    :return: dict{'title', 'value', 'question', 'answer', jeopardy_airdate'} or None on error.
+    """
+    base_url = 'http://jservice.io/'
+    get_url = base_url + 'api/random'
+    response = web.http_get(get_url, json=True)
+    if response['json'] is not None:
+        return {
+            'title': response['json'][0]['category']['title'],
+            'value': response['json'][0]['value'],
+            'question': response['json'][0]['question'],
+            'answer': response['json'][0]['answer'],
+            'jeopardy_airdate': response['json'][0]['airdate']
+        }
+    else:
+        return None
 
 
 # TODO: Parse this correctly.
 def longman_dictionary(lookup_term):
     """
-    Looks up a particular headword on the Pearson Longman Dictionary API -
-    http://http://developer.pearson.com/apis/dictionaries and returns an appropriate definition response.
+    Looks up a particular headword on the Pearson Longman Dictionary API
+    (http://http://developer.pearson.com/apis/dictionaries) and returns an appropriate definition.
 
-    NOTE: The API is free for up to 4,000,000 calls per month. We are using the 'entries' API endpoint located
-          by using http://api.pearson.com/v2/dictionaries/entries?headword=[headword here].
+    NOTE: The API is free for up to 4,000,000 calls per month. We are using the 'entries' API endpoint
+          located by using http://api.pearson.com/v2/dictionaries/entries?headword=[headword here].
 
     :param lookup_term: str the term to search for a dictionary reference.
     :return:
@@ -275,9 +276,7 @@ def longman_dictionary(lookup_term):
         definitions = []
         for search_result in response['json']['results']:
             if 'senses' in search_result:
-                # print(search_result['senses'])
                 for sense_num in range(len(search_result['senses'])):
-                    # print(search_result['senses'][sense_num])
                     if 'definition' in search_result['senses'][sense_num]:
                         definition = search_result['senses'][sense_num]['definition']
                         if type(definition) is not list:
@@ -331,8 +330,7 @@ def google_time(location):
     :return: time str or None on failure.
     """
     if bs4_present:
-        to_send = location.replace(' ', '%20')
-        url = 'https://www.google.com/search?q=time%20in%20' + to_send
+        url = 'https://www.google.com/search?q=time%20in%20' + urllib.quote_plus(location)
         response = web.http_get(url)
         if response['content'] is not None:
             raw_content = response['content']
@@ -352,10 +350,6 @@ def google_time(location):
                 return location, time
             else:
                 return None
-    #     else:
-    #         return None
-    # else:
-    #     return None
     return None
 
 
@@ -378,39 +372,35 @@ def top40():
             all_titles = []
             all_artists = []
 
-            for x in xrange(len(raw_titles)):
+            for x in range(len(raw_titles)):
                 individual_title = unicodedata.normalize('NFKD', raw_titles[x].getText()).encode('ascii', 'ignore')
                 all_titles.append(individual_title)
 
-            for x in xrange(len(raw_artists)):
+            for x in range(len(raw_artists)):
                 individual_artist = unicodedata.normalize('NFKD', raw_artists[x].getText()).encode('ascii', 'ignore')
                 individual_artist = individual_artist.lstrip()
                 individual_artist = individual_artist.rstrip()
                 all_artists.append(individual_artist)
 
             songs = []
-            for x in xrange(len(all_titles)):
+            for x in range(len(all_titles)):
                 songs.append([all_titles[x], all_artists[x]])
 
             if len(songs) is not 0:
                 return songs
-    #     else:
-    #         return None
-    # else:
-    #     return None
     return None
 
 
 def one_liners(tag=None):
     """
-    Retrieves a one-liner from http://onelinefun.com/ (by choosing a random category).
+    Retrieves a one-liner from http://onelinefun.com/ (by selecting a random category).
     :param tag: str a specific tag name from which you want to choose a joke from.
     :return: str joke a one line joke/statement (depending on the specified category).
     """
     if bs4_present:
         url = 'http://onelinefun.com/'
         if tag is None:
-            # Select a random tag from the list if one has not been provided
+            # Select a random tag from the list if one has not been provided.
             joke_tag = random.randint(0, len(ONE_LINER_TAGS) - 1)
             joke_url = url + ONE_LINER_TAGS[joke_tag] + '/'
         else:
@@ -424,7 +414,7 @@ def one_liners(tag=None):
             if jokes:
                 all_jokes = []
 
-                for x in xrange(len(jokes)):
+                for x in range(len(jokes)):
                     individual_joke = unicodedata.normalize('NFKD', jokes[x].getText()).encode('ascii', 'ignore')
                     all_jokes.append(individual_joke)
 
@@ -434,47 +424,31 @@ def one_liners(tag=None):
                         del all_jokes[len(all_jokes) - 1]
 
                     return str(all_jokes[random.randint(0, len(all_jokes) - 1)])
-    #             else:
-    #                 return None
-    #         else:
-    #             return None
-    #     else:
-    #         return None
-    # else:
     return None
 
 
 def etymonline(search):
     """
-    Searches the etymology of words/phrases using the Etymonline website.
+    Searches the etymology of words/phrases using the Etymonline website (http://etymonline.com/).
     :param search: str the word/phrase you want to search for.
     :return: str the quote from the the search result.
     """
     if bs4_present:
-        url = 'http://etymonline.com/index.php?term=%s&allowed_in_frame=0'
-        search_parts = search.split(' ')
-        search_term = '+'.join(search_parts)
-        get_url = url % search_term
-        response = web.http_get(get_url)
+        etymonline_url = 'http://etymonline.com/index.php?term=%s&allowed_in_frame=0' % (search.replace(' ', '+'))
+        response = web.http_get(etymonline_url)
 
         if response['content'] is not None:
             html = response['content']
             soup = BeautifulSoup(html, 'html.parser')
             quotes = soup.findAll('dd', {'class': 'highlight'})
-            # There are several quotes/term results returned, we only want
-            # the first one, alternatively a loop can be setup.
-            # Represent the tags as a string, since we do not have specific identification.
-            # Unicode characters in this process will be represented as their respective values.
+            # There are several quotes/term results returned, we only want the first one,
+            # alternatively a loop can be setup. Represent the tags as a string,
+            # since we do not have specific identification. Unicode characters in this process
+            # will be represented as their respective values.
             if len(quotes) is not 0:
                 quote = quotes[0].getText()
                 quotes = quote.split('\r\n\r\n')
                 # There are more than one set of quotes parsed, you may iterate over this too in order to return a
                 # greater set of results.
                 return u'' + quotes[0]  # Result is returned as unicode.
-    #         else:
-    #             return None
-    #     else:
-    #         return None
-    # else:
-    #     return None
     return None

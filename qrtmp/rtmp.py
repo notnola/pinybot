@@ -1,6 +1,6 @@
 """
 Qrtmp Library
-Version: 0.0.4
+Version: 0.1.0
 """
 
 import logging
@@ -12,12 +12,14 @@ import time
 import pyamf
 import pyamf.util.pure
 
-from core import rtmp_reader, rtmp_writer
-from core.structures import packet
-from util import socks
-from util import types
+from qrtmp.consts import packet
+from qrtmp.consts.packet_types import types
+from qrtmp.io import rtmp_reader
+from qrtmp.io import rtmp_writer
+from qrtmp.util import socks
 
 log = logging.getLogger(__name__)
+
 
 # TODO: Logging with string formatting of RtmpPackets (__repr__) does not work.
 # TODO: Speed enhancement when connecting to an RTMP server.
@@ -33,6 +35,25 @@ log = logging.getLogger(__name__)
 
 # class NetStreamPlay(object):
 #     """ A class for holding a NetStream play stream information. """
+
+class NetConnection:
+    """ An instance to handle all NetConnecton based functionality. """
+
+    def __init__(self):
+        """
+
+        """
+        pass
+
+
+class NetStream:
+    """ An instance to handle all NetStream based functionality. """
+
+    def __init__(self):
+        """
+
+        """
+        pass
 
 
 # TODO: Make sure the main message sending methods only work with a valid connection, otherwise we pause
@@ -119,6 +140,7 @@ class RtmpClient:
         self._shared_objects = []
 
         # RPC - Command message parameters:
+        # TODO: Monitor the transaction ids used.
         # NOTE: This indicates the outstanding command to which the response we receive refers;
         #       the transaction id for the remote call procedure we make to the server is the same
         #       transaction id we receive from the server. This value could be adjusted on a packet basis
@@ -141,9 +163,8 @@ class RtmpClient:
         for conn_arg in args:
             self._custom_connection_parameters.append(conn_arg)
 
-    def connect(self):  # connect_params
+    def connect(self):
         """ Connect to the server with the given connect parameters. """
-        # :param connect_params:
         if self._proxy:
             parts = self._proxy.split(':')
             ip = parts[0]
@@ -223,7 +244,6 @@ class RtmpClient:
         """
 
         :param new_option: bool True/False
-        :return: bool
         """
         self.handle_default_messages = bool(new_option)
 
@@ -301,16 +321,16 @@ class RtmpClient:
         connection_packet.body = {'command_name': u'connect', 'transaction_id': self._transaction_id + 1,
                                   'command_object': [
                                       {
-                                          'app': self._app,  # u'' + self.app
-                                          'flashVer': self.flash_ver,  # u'' + self.flash_ver
-                                          'swfUrl': self._swf_url,  # u'' + self.swf_url
-                                          'tcUrl': self._tc_url,  # u'' + self.tc_url
+                                          'app': self._app,
+                                          'flashVer': self.flash_ver,
+                                          'swfUrl': self._swf_url,
+                                          'tcUrl': self._tc_url,
                                           'fpad': self._fpad,
                                           'capabilities': self.capabilities,
                                           'audioCodecs': self.audio_codecs,
                                           'videoCodecs': self.video_codecs,
                                           'videoFunction': self.video_function,
-                                          'pageUrl': self._page_url,  # u'' + self.page_url
+                                          'pageUrl': self._page_url,
                                           'objectEncoding': self.object_encoding
                                       }
                                   ], 'options': []}
@@ -422,60 +442,6 @@ class RtmpClient:
         else:
             return False
 
-    # TODO: Remove stream_id and override_csid slowly.
-    # TODO: Monitor the response on the same transaction id and get the transaction id logs of messages?
-    # TODO: Handle command object as a list or dictionary.
-    # TODO: createStream requests have a transaction id of 1 (1 more than the transaction id of NetConnection);
-    #       this most likely refers to the latest used - FMS might not recognise it if we send on 0 as it is for
-    #       NetConnection, NetStream is separate? Anything other than 0 could be if a expect a response from the server.
-    # TODO: Tokenize these calls so that if we expect a reply, then we know the reply to get.
-    # TODO: Establish a token system for this as well, so we know which onStatus, _result or _error message.
-    #       matches to which message sent.
-    # TODO: StreamId should not also be a parameter for this method as well, should be handled by
-    #       the inheriting class.
-    def call(self, procedure_name, parameters=None, transaction_id=None, command_object=None, stream_id=0):
-        """
-        Runs a remote procedure call (RPC) on the receiving end.
-        :param procedure_name: str
-        :param parameters: list
-        :param transaction_id: int
-        :param command_object: list
-        :param stream_id: int
-        """
-        # TODO: Allow various forms of parameters to be provided e.g. within parameters maybe a list?
-        #       Is this possible?
-
-        if transaction_id is None:
-            transaction_id = self._transaction_id
-
-        # TODO: Alter the way in which we send the RPC content so that we can separate the command name, transaction id,
-        #       the command object and the optional arguments (as specified in the specification).
-        optional_parameters = []
-        if parameters:
-            if type(parameters) is list:
-                optional_parameters.extend(parameters)
-            elif type(parameters) is dict:
-                optional_parameters.append(parameters)
-
-        # TODO: Rename 'command'.
-        remote_call = self.writer.new_packet()
-
-        remote_call.set_type(types.DT_COMMAND)
-        remote_call.set_stream_id(stream_id)
-        remote_call.body = {
-            'command_name': procedure_name,
-            'transaction_id': transaction_id,
-            # TODO: Avoid using this type of way of wrapping an object. If it isn't iterable we can just assume.
-            'command_object': None,
-            'options': optional_parameters
-        }
-
-        log.debug('Sending Remote Procedure Call: %s with content:', remote_call.body)
-
-        # print('Command Name: ', procedure_name)
-        # print('Stream Id of RPC:', remote_call.header.stream_id)
-        self.writer.setup_packet(remote_call)
-
     def shared_object_use(self, shared_object):
         """
         Use a shared object and add it to the managed list of shared objects (SOs).
@@ -484,6 +450,34 @@ class RtmpClient:
         if shared_object not in self._shared_objects:
             shared_object.use(self.reader, self.writer)
             self._shared_objects.append(shared_object)
+
+    # Set Chunk Size Message - default:
+    # TODO: Should we change the RtmpReader and RtmpWriter chunk sizes manually here?
+    def send_set_chunk_size(self, new_chunk_size):
+        """
+        Send a SET_CHUNK_SIZE RTMP message.
+        NOTE: We automatically adjust the RtmpWriter's chunk size to accommodate to
+              the new chunk size.
+
+        :param new_chunk_size: int the new chunk size to set the RtmpWriter to work with and to
+                               tell the server.
+        """
+        set_chunk_size = self.writer.new_packet()
+
+        set_chunk_size.set_type(types.DT_SET_CHUNK_SIZE)
+        set_chunk_size.set_stream_id(types.RTMP_CONNECTION_CHANNEL)
+        set_chunk_size.body = {
+            'chunk_size': int(new_chunk_size)
+        }
+
+        log.debug('Sending SET_CHUNK_SIZE to server:', set_chunk_size)
+
+        self.writer.setup_packet(set_chunk_size)
+
+        # Set the RtmpWriter chunk size to the new chunk size.
+        self.writer.chunk_size = new_chunk_size
+
+        log.debug('Set RtmpWriter chunk to size to:', new_chunk_size)
 
     # User Control Message - default:
     def send_set_buffer_length(self, stream_id, buffer_length):
@@ -573,6 +567,69 @@ class RtmpClient:
 
         self.writer.setup_packet(ack)
 
+    # TODO: Remove stream_id and override_csid slowly.
+    # TODO: Monitor the response on the same transaction id and get the transaction id logs of messages?
+    # TODO: Handle command object as a list or dictionary.
+    # TODO: createStream requests have a transaction id of 1 (1 more than the transaction id of NetConnection);
+    #       this most likely refers to the latest used - FMS might not recognise it if we send on 0 as it is for
+    #       NetConnection, NetStream is separate? Anything other than 0 could be if a expect a response from the server.
+    # TODO: Tokenize these calls so that if we expect a reply, then we know the reply to get.
+    # TODO: Establish a token system for this as well, so we know which onStatus, _result or _error message.
+    #       matches to which message sent.
+    # TODO: StreamId should not also be a parameter for this method as well, should be handled by
+    #       the inheriting class.
+    # TODO: Allow various forms of parameters to be provided e.g. within parameters maybe a list?
+    #       Is this possible?
+    # TODO: Fix issue with the parameters going into the transaction id due the transaction id field in function
+    #       stated first.
+    def call(self, procedure_name, parameters=None, transaction_id=None, command_object=None, amf3=False):
+        """
+        Runs a remote procedure call (RPC) on the receiving end.
+        :param procedure_name: str
+        :param parameters: list
+        :param transaction_id: int
+        :param command_object: list
+        :param amf3: bool True/False
+        """
+        # :param stream_id: int
+        if transaction_id is None:
+            transaction_id = self._transaction_id
+
+        # TODO: Alter the way in which we send the RPC content so that we can separate the
+        #       command name, transaction id, the command object and the optional arguments
+        #       (as specified in the specification).
+        optional_parameters = []
+        if parameters:
+            if type(parameters) is list:
+                optional_parameters.extend(parameters)
+            elif type(parameters) is dict:
+                optional_parameters.append(parameters)
+
+        # TODO: Rename 'command'.
+        remote_call = self.writer.new_packet()
+
+        # TODO: Option to switch between an AMF0 encoded command or AMF3 encoded command.
+        if not amf3:
+            remote_call.set_type(types.DT_COMMAND)
+        else:
+            remote_call.set_type(types.DT_AMF3_COMMAND)
+
+        # remote_call.set_stream_id(stream_id)
+        remote_call.set_stream_id(0)
+
+        remote_call.body = {
+            'command_name': procedure_name,
+            'transaction_id': transaction_id,
+            # TODO: Avoid using this type of way of wrapping an object. If it isn't iterable we can just assume.
+            # TODO: We are assuming the command object is provided as a whole dictionary.
+            'command_object': command_object,
+            'options': optional_parameters
+        }
+
+        log.debug('Sending Remote Procedure Call: %s with content:', remote_call.body)
+
+        self.writer.setup_packet(remote_call)
+
     # TODO: Move to NetStream class - these four methods are specifically sent on the RTMP STREAM CHANNEL.
     # TODO: Establish a token system for this as well, so we know which onStatus, _result or _error message.
     #       matches to which message sent.
@@ -597,47 +654,53 @@ class RtmpClient:
 
         self.writer.setup_packet(create_stream)
 
-    # def send_receive_audio(self, receive):
-    #     """
-    #     Send a 'receiveAudio' request on the RTMP stream channel.
-    #     :param receive: bool True/False
-    #     """
-    #     receive_audio = self.writer.new_packet()
-    #
-    #     receive_audio.set_chunk_stream_id(types.RTMP_STREAM_CHANNEL)
-    #     receive_audio.set_type(types.DT_COMMAND)
-    #     receive_audio.body = {
-    #         'command_name': 'receiveAudio',
-    #         'transaction_id': self._transaction_id,
-    #         'command_object': None,
-    #         'options': [receive]
-    #     }
-    #
-    #     log.debug('Sending receiveAudio request:', receive_audio)
-    #
-    #     self.writer.setup_packet(receive_audio)
-    #
-    # def send_receive_video(self, receive):
-    #     """
-    #     Send a 'receiveVideo' request on the RTMP stream channel.
-    #     :param receive: bool True/False
-    #     """
-    #     receive_video = self.writer.new_packet()
-    #
-    #     receive_video.set_chunk_stream_id(types.RTMP_STREAM_CHANNEL)
-    #     receive_video.set_type(types.DT_COMMAND)
-    #     receive_video.body = {
-    #         'command_name': 'receiveVideo',
-    #         'transaction_id': self._transaction_id,
-    #         'command_object': None,
-    #         'options': [receive]
-    #     }
+    def send_receive_audio(self, stream_id, receive):
+        """
+        Send a 'receiveAudio' request on the RTMP stream channel.
 
-        # log.debug('Sending receiveVideo request:', receive_video)
+        :param stream_id: int the id on which we would like to send the receive request.
+        :param receive: bool True/False if we want to receive audio or not.
+        """
+        receive_audio = self.writer.new_packet()
 
-        # self.writer.setup_packet(receive_video)
+        receive_audio.set_chunk_stream_id(types.RTMP_STREAM_CHANNEL)
+        receive_audio.set_type(types.DT_COMMAND)
+        receive_audio.set_stream_id(stream_id)
+        receive_audio.body = {
+            'command_name': 'receiveAudio',
+            'transaction_id': self._transaction_id,
+            'command_object': None,
+            'options': [receive]
+        }
 
-    def send_play(self, stream_id, stream_name):  # , start=-2, duration=-1, reset=False
+        log.debug('Sending receiveAudio to the server:', receive_audio)
+
+        self.writer.setup_packet(receive_audio)
+
+    def send_receive_video(self, stream_id, receive):
+        """
+        Send a 'receiveVideo' request on the RTMP stream channel.
+
+        :param stream_id: int the id on which we would like to send the receive request.
+        :param receive: bool True/False if we want to receive video or not.
+        """
+        receive_video = self.writer.new_packet()
+
+        receive_video.set_chunk_stream_id(types.RTMP_STREAM_CHANNEL)
+        receive_video.set_type(types.DT_COMMAND)
+        receive_video.set_stream_id(stream_id)
+        receive_video.body = {
+            'command_name': 'receiveVideo',
+            'transaction_id': self._transaction_id,
+            'command_object': None,
+            'options': [receive]
+        }
+
+        log.debug('Sending receiveVideo to the server:', receive_video)
+
+        self.writer.setup_packet(receive_video)
+
+    def send_play(self, stream_id, stream_name, start=-2, duration=-1, reset=False):
         """
         Send a 'play' request on the RTMP stream channel.
 
@@ -654,11 +717,10 @@ class RtmpClient:
 
         :param stream_id: int
         :param stream_name: str the stream name of the file you want to request playback for (READ ABOVE)
+        :param start: int (default -2)
+        :param duration: int (default -1)
+        :param reset: bool (default False)
         """
-        # :param start: int (default -2)
-        # :param duration: int (default -1)
-        # :param reset: bool (default False)
-
         play_stream = self.writer.new_packet()
 
         play_stream.set_chunk_stream_id(types.RTMP_STREAM_CHANNEL)
@@ -668,9 +730,16 @@ class RtmpClient:
             'command_name': 'play',
             'transaction_id': self._transaction_id,
             'command_object': None,
-            # TODO: There seems to be no support for: start, duration, reset in the latest FMS.
-            'options': [stream_name]
+            # TODO: Support start, duration and reset parameters.
+            'options': [stream_name, start]
         }
+
+        # Add the specific duration to play the stream for (if it is not set to play until it finishes).
+        if duration is not -1:
+            play_stream.body['options'].append(duration)
+        # Add the reset option if it is not set to False (and is instead True).
+        if reset is not False:
+            play_stream.body['options'].append(reset)
 
         log.debug('Sending play to the server:', play_stream)
 
@@ -682,7 +751,7 @@ class RtmpClient:
     #
     #     Properties include: len(number) - duration of playback in seconds.
     #                         offset(number) - absolute stream time at which server switches between streams of
-    #                                          different bitrates for Flash Media Server dynamic streaming
+    #                                          different bit-rates for Flash Media Server dynamic streaming
     #                         oldStreamName(string) - name of the old stream or the stream to transition from
     #                         start(number) - start time in seconds
     #                         streamName(string) - name of the new stream to transition to or to play
@@ -691,17 +760,52 @@ class RtmpClient:
     #     NOTE: These are all AMF3 encoded values in AS3 object.
     #     """
 
-    # def send_seek(self):
-    #     """
-    #     Send a 'seek' request on the RTMP stream channel.
-    #     """
-    #     seek = self.writer.new_packet()
+    def send_seek(self, stream_id, time_point):
+        """
+        Send a 'seek' request on the RTMP stream channel.
 
-    # def send_pause(self):
-    #     """
-    #     Send a 'pause' request on the RTMP stream channel.
-    #     """
-    #     pause = self.writer.new_packet()
+        :param stream_id: int the stream id in which we want to send the seek request.
+        :param time_point: float the point in the playlist (in milliseconds) to seek to.
+        """
+        seek_stream = self.writer.new_packet()
+
+        seek_stream.set_chunk_stream_id(types.RTMP_STREAM_CHANNEL)
+        seek_stream.set_type(types.DT_COMMAND)
+        seek_stream.set_stream_id(stream_id)
+        seek_stream.body = {
+            'command_name': 'seek',
+            'transaction_id': self._transaction_id,
+            'command_object': None,
+            'options': [stream_id, time_point]
+        }
+
+        log.debug('Sending seek to the server:', seek_stream)
+
+        self.writer.setup_packet(seek_stream)
+
+    def send_pause(self, stream_id, pause_flag, time_point=0.0):
+        """
+        Send a 'pause' request on the RTMP stream channel.
+
+        :param stream_id: int
+        :param pause_flag: bool (True/False) whether the stream should be paused or resumed.
+        :param time_point: float the point at which the stream should be paused or resumed.
+        """
+        pause_stream = self.writer.new_packet()
+
+        pause_stream.set_chunk_stream_id(types.RTMP_STREAM_CHANNEL)
+        pause_stream.set_type(types.DT_COMMAND)
+        pause_stream.set_stream_id(stream_id)
+        pause_stream.body = {
+            'command_name': 'pause',
+            'transaction_id': self._transaction_id,
+            'command_object': None,
+            'options': [pause_flag, time_point]
+        }
+
+        log.debug('Sending pause to the server:', pause_stream)
+
+        self.writer.setup_packet(pause_stream)
 
     def send_publish(self, stream_id, publish_name, publish_type):
         """
@@ -757,8 +861,11 @@ class RtmpClient:
         # TODO: Does 'deleteStream' have to be sent on the command stream?
         delete_stream.set_chunk_stream_id(types.RTMP_COMMAND_CHANNEL)
         delete_stream.set_type(types.DT_COMMAND)
-        # TODO: Stream id on which chunk stream id 3 is running on.
-        delete_stream.set_stream_id(0)
+        # TODO: Stream id on which chunk stream id 3 - connection channel - is running on.
+        #       This should really be sent with a header format of 1 since it is usually sent
+        #       whenever you want to delete the stream, which is after messages are already
+        #       flowing in the stream.
+        delete_stream.set_stream_id(types.RTMP_CONNECTION_CHANNEL)
         delete_stream.body = {
             'command_name': 'deleteStream',
             'transaction_id': self._transaction_id,

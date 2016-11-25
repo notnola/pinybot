@@ -1057,6 +1057,7 @@ class TinychatRTMPClient:
                 self.connection.call('bauth', [u'' + _token])
                 self._bauth_key = _token
 
+    # TODO: Issue when sending the call, cauth key is sent on transaction id.
     # TODO: Evaluate design.
     def send_cauth_msg(self, cauthkey):
         """
@@ -1156,6 +1157,7 @@ class TinychatRTMPClient:
         if not self.client_nick:
             self.client_nick = string_utili.create_random_string(5, 25)
         self.console_write(COLOR['white'], 'Setting nick: %s' % self.client_nick)
+        # TODO: Issue when sending the remote call, the nick is sent on transaction id and not the options list.
         self.connection.call('nick', [u'' + self.client_nick])
 
     # TODO: Evaluate design.

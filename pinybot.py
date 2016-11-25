@@ -77,24 +77,24 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     # TODO: Move loading and creation of files for each room into a separate function and call it when initialising.
     # TODO: Prevent empty files or files with spaces from being loaded.
     # - Loads/creates permanent botter accounts files:
-    if not os.path.exists(self.config_path() + CONFIG['botteraccounts']):
-        open(TinychatBot.config_path() + CONFIG['botteraccounts'], mode='w')
-    botteraccounts = pinylib.fh.file_reader(self.config_path(), CONFIG['botteraccounts'])
+    # if not os.path.exists(self.config_path() + CONFIG['botteraccounts']):
+    #     open(TinychatBot.config_path() + CONFIG['botteraccounts'], mode='w')
+    # botteraccounts = pinylib.fh.file_reader(self.config_path(), CONFIG['botteraccounts'])
 
     # - Loads/creates autoforgive files:
-    if not os.path.exists(CONFIG['path'] + CONFIG['autoforgive']):
-        open(self.config_path() + CONFIG['autoforgive'], mode='w')
-    autoforgive = pinylib.fh.file_reader(config_path(), CONFIG['autoforgive'])
+    # if not os.path.exists(CONFIG['path'] + CONFIG['autoforgive']):
+    #     open(self.config_path() + CONFIG['autoforgive'], mode='w')
+    # autoforgive = pinylib.fh.file_reader(config_path(), CONFIG['autoforgive'])
 
     # TODO: Move this along with loading the other files.
     # Loads the 'ascii.txt' file with ASCII/unicode text into a dictionary.
     if CONFIG['ascii_chars']:
         ascii_dict = pinylib.fh.unicode_loader(CONFIG['path'] + CONFIG['ascii_file'])
         ascii_chars = True
-        if ascii_dict is None or len(ascii_dict) is 0:
+        if ascii_dict is None:
+            print('No ' + CONFIG['ascii_file'] + ' was found in: ' + CONFIG['path'])
+            print('As a result the unicode data could not be loaded. Please check your configuration.\n')
             ascii_chars = False
-            print('No ' + CONFIG['ascii_file'] + ' was not found at: ' + CONFIG['path'])
-            print('As a result the unicode text was not loaded. Please check your configurations.\n')
 
     # - media events/variables settings:
     media_manager = media_manager.MediaManager()
@@ -108,11 +108,6 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     playback_delay = 2.5
     playlist_mode = CONFIG['playlist_mode']
     public_media = CONFIG['public_media']
-
-    # - Audio and video settings:
-    # camera_manager = camera_manager.CameraManager()
-    # logo_stream = False
-    # flv1_logo_data = open('utilities/camera_manager/logo.flv1', 'rb').read()
 
     # - module settings:
     privacy_settings = object
@@ -156,10 +151,10 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     bot_report_kick = CONFIG['bot_report_kick']
 
     # - regex settings:
-    # TODO: Will we need to add the specific flag (re.I) for each search function?
     tinychat_spam_pattern = re.compile(r'tinychat.com\/\w+|tinychat. com\/\w+|tinychat .com\/\w+($| |\/+ |\/+$|\n+)\s',
-                                       re.I)
-    youtube_pattern = re.compile(r'http(?:s*):\/\/(?:www\.youtube|youtu)\.\w+(?:\/watch\?v=|\/)(.{11})')
+                                       re.IGNORECASE)
+    youtube_pattern = re.compile(r'http(?:s*):\/\/(?:www\.youtube|youtu)\.\w+(?:\/watch\?v=|\/)(.{11})',
+                                 re.IGNORECASE)
     character_limit_pattern = re.compile(r'[A-Z0-9]{50,}')
 
     # TODO: Can we make this more succinct?
@@ -232,9 +227,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             if CONFIG['auto_message_enabled']:
                 self.start_auto_msg_timer()
         if self._is_client_mod:
+            print("Trying to send banlist message.")
             self.send_banlist_msg()
+            print("Sent banlist message.")
         if self._is_client_owner and self._room_type != 'default':
             threading.Thread(target=self.get_privacy_settings).start()
+        self.console_write(pinylib.COLOR['cyan'], 'All joins information received.')
 
     # TODO: Add docstring information.
     def on_avon(self, uid, name):
@@ -566,7 +564,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 spam_potential = self.sanitize_message(msg_sender, self.raw_msg)
                 # TODO: See spam potential without being a moderator, to reduce spam in console(?)
                 if spam_potential:
-                    self.console_write(pinylib.COLOR['bright_red'], 'Spam inbound - halting handling.')
+                    self.console_write(pinylib.COLOR['bright_red'], 'Spam inbound - halt handling.')
                     return
 
             # If auto URL has been switched on, run, in a new the thread, the automatic URL header retrieval.
@@ -895,8 +893,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                     threading.Thread(target=self.do_md5_hash_cracker, args=(cmd_arg,)).start()
 
                 # TODO: Test the module.
-                # elif cmd == CONFIG['prefix'] + 'ddg':
-                #     threading.Thread(target=self.do_duckduckgo_search, args=(cmd_arg,)).start()
+                elif cmd == CONFIG['prefix'] + 'ddg':
+                    threading.Thread(target=self.do_duckduckgo_search, args=(cmd_arg,)).start()
 
                 # TODO: Removed Wikipedia module usage.
 
@@ -3038,32 +3036,6 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             else:
                 self.send_private_msg('Wrong key.', self.user.nick)
 
-    # def do_cam_up_logo(self, key):
-    #     """
-    #     Makes the bot cam up with a single frame of flv1 data.
-    #     :param key: str the key needed for moderators/bot controllers.
-    #     """
-    #     if self.user.is_owner or self.user.is_super:
-    #         # self.set_stream()
-    #         if self._publish_connection:
-    #             self.logo_stream = True
-    #             threading.Thread(target=self.image_stream, args=(self.flv1_logo_data, )).start()
-    #         else:
-    #             self.send_private_msg('No streaming connection established, have you ran *!up* [key]?.', self.user.nick)
-    #     elif self.user.is_mod or self.user.has_power:
-    #         if len(key) is 0:
-    #             self.send_private_msg('Missing key.', self.user.nick)
-    #         elif key == self.key:
-    #             # self.set_stream()
-    #             if self._publish_connection:
-    #                 self.logo_stream = True
-    #                 threading.Thread(target=self.image_stream, args=(self.flv1_logo_data, )).start()
-    #             else:
-    #                 self.send_private_msg('No streaming connection established, have you run *!up* [key]?.',
-    #                                       self.user.nick)
-    #         else:
-    #             self.send_private_msg('Wrong key.', self.user.nick)
-
     def do_cam_down(self, key):
         """
         Makes the bot cam down.
@@ -3078,28 +3050,6 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 self.set_stream(False)
             else:
                 self.send_private_msg('Wrong key.', self.user.nick)
-
-    # def do_cam_down_logo(self, key):
-    #     """
-    #     Makes the bot cam down the logo shown on the broadcast, however without
-    #     stopping the broadcast altogether.
-    #     :param key: str the key needed for moderators/bot controllers.
-    #     """
-    #     if self.user.is_owner or self.user.is_super:
-    #         if self.logo_stream:
-    #             self.logo_stream = False
-    #         else:
-    #             self.send_private_msg('No logo stream session present to close.', self.user.nick)
-    #     elif self.user.is_mod or self.user.has_power:
-    #         if len(key) is 0:
-    #             self.send_private_msg('Missing key.', self.user.nick)
-    #         elif key == self.key:
-    #             if self.logo_stream:
-    #                 self.logo_stream = False
-    #             else:
-    #                 self.send_private_msg('No logo stream session present to close.', self.user.nick)
-    #         else:
-    #             self.send_private_msg('Wrong key.', self.user.nick)
 
     def do_nocam(self, key):
         """
@@ -3458,7 +3408,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         """
         # Reset the spam check at each message check, this allows us to know if the message should be passed onto
         # any further procedures.
-        user = self.find_user_info(msg_sender)
+        # user = self.find_user_info(msg_sender)
+        decoded_msg = self._decode_msg(raw_msg)
 
         # Always check to see if the user's message has any bad strings initially.
         if self.check_bad_string:
@@ -3495,24 +3446,28 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                     #     self.send_forgive_msg(user.id)
                 return True
 
+        # TODO: Working method.
         # Kick/ban those who post links to other rooms.
         if self.room_link_spam:
-            if 'tinychat.com/' + self._roomname not in raw_msg:
+            if 'tinychat.com/' + self._roomname not in decoded_msg:
                 # TODO: Regex does not handle carriage returns after the string - Added more regex to handle
                 #       line feed, whitespaces and various possible ways of the URL displaying (and on multiple lines).
                 #       any characters after it. Previous: r'tinychat.com\/\w+($| |\/+ |\/+$)'
                 #       Now: r'tinychat.com\/\w+|tinychat. com\/\w+|tinychat .com\/\w+($| |\/+ |\/+$|\n+)\s'
 
                 # Perform case-insensitive matching on the strings matching/similar to 'tinychat.com'.
-                msg_search = self.tinychat_spam_pattern.search(raw_msg)
-                if msg_search:
-                    # if self._is_client_mod:
-                        # self.send_ban_msg(user.nick, user.id)
-                    return True
+                msg_search = self.tinychat_spam_pattern.search(decoded_msg)
+                print(msg_search)
+                if msg_search is not None:
+                    matched = msg_search.group()
+                    if matched[0] is not None:
+                        # if self._is_client_mod:
+                            # self.send_ban_msg(user.nick, user.id)
+                        return True
 
         # If snapshot prevention is on, make sure we kick/ban any user taking snapshots in the room.
         if self.snapshot_spam:
-            if self.snap_line in raw_msg:
+            if self.snap_line in decoded_msg:
                 # if self._is_client_mod:
                 #     self.send_ban_msg(user.nick, user.id)
                     # Remove next line to keep ban.
@@ -3531,7 +3486,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             msg_words = msg.split(' ')
             bad_strings = pinylib.fh.file_reader(self.config_path(), CONFIG['ban_strings'])
             if bad_strings is not None:
-                for word in msg_words:
+                for bad_string in msg_words:
                     if bad_string.strip() in bad_strings:
                         self.send_ban_msg(self.user.nick, self.user.id)
                         if CONFIG['bsforgive']:
