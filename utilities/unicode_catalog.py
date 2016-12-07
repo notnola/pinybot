@@ -3,7 +3,7 @@
 # Reference format:
 # UNICODE_NAME = unicode representation # Additional comment on what this unicode symbol is assigned to.
 
-TIME = u"\u231A"  # uptime
+TIME = u"\u231A"  # up-time
 
 MUSICAL_NOTE = u"\u266B"  # playlist entries
 
@@ -21,9 +21,9 @@ CROSS_MARK = u"\u2717"  # removing a camera block
 
 CIRCLED_WHITE_STAR = u"\u272A"  # stating media request playing
 
-BLACK_HEART = u"\u2764"  # added to autoforgive
+BLACK_HEART = u"\u2764"  # added to auto-forgive
 
-WHITE_HEART = u"\u2661"  # removed from autoforgive
+WHITE_HEART = u"\u2661"  # removed from auto-forgive
 
 TOXIC = u"\u2620"  # bad word found
 

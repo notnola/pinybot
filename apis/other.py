@@ -20,7 +20,7 @@ try:
 except (ImportError, BeautifulSoup):
     bs4_present = False
 
-ONE_LINER_TAGS = ['age', 'alcohol', 'animal', 'attitude', 'beauty', 'black', 'car', 'communication',
+ONE_LINER_TAGS = ['age', 'alcohol', 'animal', 'attitude', 'beauty', 'car', 'communication',
                   'dirty', 'doctor', 'drug', 'family', 'fighting', 'flirty', 'food', 'friendship', 'happiness',
                   'health', 'insults', 'intelligence', 'IT', 'kids', 'life', 'love', 'marriage', 'men', 'mistake',
                   'money', 'motivational', 'motorcycle', 'new', 'people', 'political', 'puns', 'retirement', 'rude',

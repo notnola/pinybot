@@ -1,6 +1,6 @@
 """
 Qrtmp Library
-Version: 0.1.0
+Version: 0.1.1
 """
 
 import logging
@@ -12,8 +12,8 @@ import time
 import pyamf
 import pyamf.util.pure
 
-from qrtmp.consts import packet
-from qrtmp.consts.packet_types import types
+from qrtmp.consts.packets import packet
+from qrtmp.consts.packets import types
 from qrtmp.io import rtmp_reader
 from qrtmp.io import rtmp_writer
 from qrtmp.util import socks
@@ -35,25 +35,6 @@ log = logging.getLogger(__name__)
 
 # class NetStreamPlay(object):
 #     """ A class for holding a NetStream play stream information. """
-
-class NetConnection:
-    """ An instance to handle all NetConnecton based functionality. """
-
-    def __init__(self):
-        """
-
-        """
-        pass
-
-
-class NetStream:
-    """ An instance to handle all NetStream based functionality. """
-
-    def __init__(self):
-        """
-
-        """
-        pass
 
 
 # TODO: Make sure the main message sending methods only work with a valid connection, otherwise we pause

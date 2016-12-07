@@ -6,6 +6,8 @@ from utilities import web
 
 log = logging.getLogger(__name__)
 
+# TODO: Monitor how the api results from one call in any lastfm api is returned.
+
 
 def get_lastfm_chart(chart_items=5):
     """

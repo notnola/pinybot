@@ -167,8 +167,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     def on_join(self, join_info_dict):
         """
 
-        @param join_info_dict:
-        @return:
+        :param join_info_dict: dict
         """
         log.info('User join info: %s' % join_info_dict)
         user = self.add_user_info(join_info_dict)
@@ -219,10 +218,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     # TODO: Add docstring information.
     def on_joinsdone(self):
-        """
-
-        @return:
-        """
+        """ """
         if not self._is_reconnected:
             if CONFIG['auto_message_enabled']:
                 self.start_auto_msg_timer()
@@ -238,9 +234,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     def on_avon(self, uid, name):
         """
 
-        @param uid:
-        @param name:
-        @return:
+        :param uid:
+        :param name:
         """
         if not self.is_broadcasting_allowed or name in self.cam_blocked:
             self.send_close_user_msg(name)
@@ -287,8 +282,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     def send_auto_pm(self, nickname):
         """
 
-        @param nickname:
-        @return:
+        :param nickname:
         """
         room = self._roomname.upper()
         new_pm_msg = self.replace_content(self.pm_msg, nickname, room)
@@ -304,10 +298,9 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     def on_nick(self, old, new, uid):
         """
 
-        @param old:
-        @param new:
+        :param old:
+        :param new:
         @param uid:
-        @return:
         """
         if uid != self._client_id:
             old_info = self.find_user_info(old)
@@ -383,9 +376,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     def on_kick(self, uid, name):
         """
 
-        @param uid:
-        @param name:
-        @return:
+        :param uid:
+        :param name:
         """
         if uid != self._client_id:
             user = self.find_user_info(name)
@@ -401,9 +393,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     def on_quit(self, uid, name):
         """
 
-        @param uid:
-        @param name:
-        @return:
+        :param uid:
+        :param name:
         """
         if uid is not self._client_id:
             if name in self._room_users.keys():
@@ -417,8 +408,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     def tidy_exit(self, name):
         """
 
-        @param name:
-        @return:
+        :param name:
         """
         user = self.find_user_info(name)
         # Delete user from botters/botteraccounts if they were instated.
@@ -433,6 +423,11 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     # TODO: Add docstring information.
     def on_reported(self, uid, nick):
+        """
+
+        :param uid:
+        :param nick:
+        """
         self.console_write(pinylib.COLOR['bright_red'], 'The bot was reported by %s:%s.' % (nick, uid))
         if self.bot_report_kick:
             self.send_ban_msg(nick, uid)
@@ -766,14 +761,14 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                     threading.Thread(target=self.do_media_request_choice, args=(False,)).start()
 
                 # TODO: Media manager now linked to commands and their respective functions.
-                # elif cmd == CONFIG['prefix'] + 'pause':
-                #     self.do_media_pause()
+                elif cmd == CONFIG['prefix'] + 'pause':
+                    self.do_media_pause()
 
-                # elif cmd == CONFIG['prefix'] + 'resume':
-                #     self.do_media_resume()
+                elif cmd == CONFIG['prefix'] + 'resume':
+                    self.do_media_resume()
 
-                # elif cmd == CONFIG['prefix'] + 'seek':
-                #     self.do_media_seek(cmd_arg)
+                elif cmd == CONFIG['prefix'] + 'seek':
+                    self.do_media_seek(cmd_arg)
 
                 elif cmd == CONFIG['prefix'] + 'skip':
                      self.do_media_skip()
@@ -800,7 +795,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 #       could be persistent in the majority of functions.
                 # TODO: Check all of the media_manager module.
 
-                # TODO: API checks.
+                # TODO: API checks complete.
                 elif cmd == CONFIG['prefix'] + 'top40':
                     threading.Thread(target=self.do_charts).start()
 
@@ -923,16 +918,9 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 elif cmd == CONFIG['prefix'] + 'joke':
                     threading.Thread(target=self.do_one_liner, args=(cmd_arg,)).start()
 
-                # TODO: Place these two function into one and provide variable to determine the use of one.
-                # elif cmd == CONFIG['prefix'] + 'time':
-                #     threading.Thread(target=self.do_time, args=(cmd_arg, False, False,)).start()
-
-                # elif cmd == CONFIG['prefix'] + 'time+':
-                #     threading.Thread(target=self.do_time, args=(cmd_arg, True, False,)).start()
-
+                # TODO: Re-write how we use the time API, below is what we need to include.
                 # TODO: Allow 'non-military' time conversion (24 hr --> 12 hr with AM/PM) via argument(?)
-                # elif cmd == CONFIG['prefix'] + 'time12':
-                #     threading.Thread(target=self.do_time, args=(cmd_arg, True, True,)).start()
+                # TODO: Place these two function into one and provide variable to determine the use of one.
 
                 else:
                     # TODO: This code is not tidy, tidy it up - it is in the incorrect place (if the requested command
@@ -946,12 +934,6 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             # Print command to console.
             self.console_write(pinylib.COLOR['yellow'], msg_sender + ': ' + cmd + ' ' + cmd_arg)
         else:
-            # Print chat message to console.
-            # if self._nickname_color == 'default':
-            #     self.console_write(pinylib.COLOR['green'], self.user.nick + ': ' + decoded_msg)
-            # else:
-            #     self.console_write(pinylib.COLOR['white'], self.user.nick + ': ' + decoded_msg)
-
             self.console_write(pinylib.COLOR['green'], self.user.nick + ': ' + decoded_msg)
 
         # Add msg to user object last_msg attribute.
@@ -1055,7 +1037,6 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         """ Shows current room settings. """
         if self._is_client_owner:
             settings = self.privacy_settings.current_settings()
-            # Send the broadcast and room passwords as am undercover message to the room owner.
             self.send_undercover_msg(self.user.nick, '*Broadcast Password:* ' + settings['broadcast_pass'])
             self.send_owner_run_msg('*Room Password:* ' + settings['room_pass'])
             self.send_owner_run_msg('*Login Type:* ' + settings['allow_guests'])
@@ -1161,7 +1142,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         else:
             self.send_bot_msg('There is *no private message set* in the configuration file.')
 
-    # TODO: Do we need this function?
+    # TODO: Commented out private room function for now, if we need it again we can use it.
     # def do_private_room(self):
     #     """" Sets room to private room. """
     #     if self._is_client_mod:
@@ -1176,92 +1157,93 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         self.cleverbot_enable = not self.cleverbot_enable
         self.send_bot_msg('*CleverBot enabled*: %s' % self.cleverbot_enable)
 
+    # TODO: Make a class for handling botters and types.
     # TODO: Levels of botters - maybe just media users.
-    def do_botter(self, new_botter):
-        """
-        Adds a new botter to allow control over the bot and appends the user to the list
-        of botters, and IF they are signed, in to the botter accounts list and save their
-        account to file as well.
-        :param new_botter: str the nick name of the user to bot.
-        """
-        if len(new_botter) is 0:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' Please state a nickname to bot.')
-        else:
-            bot_user = self.find_user_info(new_botter)
-            if bot_user is not None:
-                if not bot_user.is_owner or not bot_user.is_mod:
-                    # Adding new botters.
-                    if bot_user.account and bot_user.account not in self.botteraccounts:
-                        self.botteraccounts.append(bot_user.account)
-                        writer = pinylib.fh.file_writer(CONFIG['path'], CONFIG['botteraccounts'], bot_user.account)
-                        if writer:
-                            bot_user.has_power = True
-                            self.send_bot_msg(unicode_catalog.BLACK_STAR + ' *%s* was added as a verified botter.' %
-                                              new_botter)
+    # def do_botter(self, new_botter):
+    #     """
+    #     Adds a new botter to allow control over the bot and appends the user to the list
+    #     of botters, and IF they are signed, in to the botter accounts list and save their
+    #     account to file as well.
+    #     :param new_botter: str the nick name of the user to bot.
+    #     """
+    #     if len(new_botter) is 0:
+    #         self.send_bot_msg(unicode_catalog.INDICATE + ' Please state a nickname to bot.')
+    #     else:
+    #         bot_user = self.find_user_info(new_botter)
+    #         if bot_user is not None:
+    #             if not bot_user.is_owner or not bot_user.is_mod:
+    #                 # Adding new botters.
+    #                 if bot_user.account and bot_user.account not in self.botteraccounts:
+    #                     self.botteraccounts.append(bot_user.account)
+    #                     writer = pinylib.fh.file_writer(CONFIG['path'], CONFIG['botteraccounts'], bot_user.account)
+    #                     if writer:
+    #                         bot_user.has_power = True
+    #                         self.send_bot_msg(unicode_catalog.BLACK_STAR + ' *%s* was added as a verified botter.' %
+    #                                           new_botter)
+    #
+    #                 elif not bot_user.account and bot_user.nick not in self.botters:
+    #                     self.botters.append(bot_user.nick)
+    #                     bot_user.has_power = True
+    #                     self.send_bot_msg(unicode_catalog.BLACK_STAR + ' *%s* was added as a temporary botter.' %
+    #                                       new_botter)
+    #
+    #                 else:
+    #                     # Removing existing botters or verified botters.
+    #                     remove = False
+    #
+    #                     if bot_user.account:
+    #                         for x in range(len(self.botteraccounts)):
+    #                             if self.botteraccounts[x] == bot_user.account:
+    #                                 del self.botteraccounts[x]
+    #                                 remove = pinylib.fh.remove_from_file(CONFIG['path'], CONFIG['botteraccounts'],
+    #                                                                      bot_user.account)
+    #                                 break
+    #                     else:
+    #                         for x in range(len(self.botters)):
+    #                             if self.botters[x] == bot_user.nick:
+    #                                 del self.botters[x]
+    #                                 remove = True
+    #                                 break
+    #
+    #                     if remove:
+    #                         bot_user.has_power = False
+    #                         self.send_bot_msg(unicode_catalog.WHITE_STAR + ' *' + new_botter +
+    #                                           '* was removed from botting.')
+    #             else:
+    #                 self.send_bot_msg(unicode_catalog.INDICATE + ' This user already has privileges. No need to bot.')
+    #         else:
+    #             self.send_bot_msg(unicode_catalog.INDICATE + ' No user named: ' + new_botter)
 
-                    elif not bot_user.account and bot_user.nick not in self.botters:
-                        self.botters.append(bot_user.nick)
-                        bot_user.has_power = True
-                        self.send_bot_msg(unicode_catalog.BLACK_STAR + ' *%s* was added as a temporary botter.' %
-                                          new_botter)
-
-                    else:
-                        # Removing existing botters or verified botters.
-                        remove = False
-
-                        if bot_user.account:
-                            for x in range(len(self.botteraccounts)):
-                                if self.botteraccounts[x] == bot_user.account:
-                                    del self.botteraccounts[x]
-                                    remove = pinylib.fh.remove_from_file(CONFIG['path'], CONFIG['botteraccounts'],
-                                                                         bot_user.account)
-                                    break
-                        else:
-                            for x in range(len(self.botters)):
-                                if self.botters[x] == bot_user.nick:
-                                    del self.botters[x]
-                                    remove = True
-                                    break
-
-                        if remove:
-                            bot_user.has_power = False
-                            self.send_bot_msg(unicode_catalog.WHITE_STAR + ' *' + new_botter +
-                                              '* was removed from botting.')
-                else:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' This user already has privileges. No need to bot.')
-            else:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' No user named: ' + new_botter)
-
-    def do_autoforgive(self, new_autoforgive):
-        """
-        Adds a new autoforgive user, IF the user is logged in, to the autoforgive file;
-        all users in this file be automatically forgiven if they are banned.
-        :param new_autoforgive: str the nick name of the user to add to autoforgive.
-        """
-        if len(new_autoforgive) is not 0:
-            autoforgive_user = self.find_user_info(new_autoforgive)
-            if autoforgive_user is not None:
-                if autoforgive_user.account and autoforgive_user.account not in self.autoforgive:
-                    self.autoforgive.append(autoforgive_user.account)
-                    self.send_bot_msg(unicode_catalog.BLACK_HEART + ' *' + unicode_catalog.NO_WIDTH + new_autoforgive +
-                                      unicode_catalog.NO_WIDTH + '*' + ' is now protected.')
-                    pinylib.fh.file_writer(CONFIG['path'], CONFIG['autoforgive'], autoforgive_user.account)
-                elif not autoforgive_user.account:
-                    self.send_bot_msg(unicode_catalog.INDICATE +
-                                      ' Protection is only available to users with accounts.')
-                else:
-                    for x in range(len(self.autoforgive)):
-                        if self.autoforgive[x] == autoforgive_user.account:
-                            del self.autoforgive[x]
-                            pinylib.fh.remove_from_file(CONFIG['path'], CONFIG['autoforgive'],
-                                                        autoforgive_user.account)
-                            self.send_bot_msg(unicode_catalog.WHITE_HEART + ' *' + unicode_catalog.NO_WIDTH +
-                                              new_autoforgive + unicode_catalog.NO_WIDTH + '* is no longer protected.')
-                            break
-            else:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' No user named: ' + new_autoforgive)
-        else:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' Please state a nickname to protect.')
+    # def do_autoforgive(self, new_autoforgive):
+    #     """
+    #     Adds a new autoforgive user, IF the user is logged in, to the autoforgive file;
+    #     all users in this file be automatically forgiven if they are banned.
+    #     :param new_autoforgive: str the nick name of the user to add to autoforgive.
+    #     """
+    #     if len(new_autoforgive) is not 0:
+    #         autoforgive_user = self.find_user_info(new_autoforgive)
+    #         if autoforgive_user is not None:
+    #             if autoforgive_user.account and autoforgive_user.account not in self.autoforgive:
+    #                 self.autoforgive.append(autoforgive_user.account)
+    #                 self.send_bot_msg(unicode_catalog.BLACK_HEART + ' *' + unicode_catalog.NO_WIDTH + new_autoforgive +
+    #                                   unicode_catalog.NO_WIDTH + '*' + ' is now protected.')
+    #                 pinylib.fh.file_writer(CONFIG['path'], CONFIG['autoforgive'], autoforgive_user.account)
+    #             elif not autoforgive_user.account:
+    #                 self.send_bot_msg(unicode_catalog.INDICATE +
+    #                                   ' Protection is only available to users with accounts.')
+    #             else:
+    #                 for x in range(len(self.autoforgive)):
+    #                     if self.autoforgive[x] == autoforgive_user.account:
+    #                         del self.autoforgive[x]
+    #                         pinylib.fh.remove_from_file(CONFIG['path'], CONFIG['autoforgive'],
+    #                                                     autoforgive_user.account)
+    #                         self.send_bot_msg(unicode_catalog.WHITE_HEART + ' *' + unicode_catalog.NO_WIDTH +
+    #                                           new_autoforgive + unicode_catalog.NO_WIDTH + '* is no longer protected.')
+    #                         break
+    #         else:
+    #             self.send_bot_msg(unicode_catalog.INDICATE + ' No user named: ' + new_autoforgive)
+    #     else:
+    #         self.send_bot_msg(unicode_catalog.INDICATE + ' Please state a nickname to protect.')
 
     def do_cam_approve(self, nick_name):
         """ Send a cam approve message to a user. """
@@ -1373,12 +1355,13 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                             if not discrete:
                                 self.send_bot_msg(unicode_catalog.INDICATE + ' You cannot kick/ban another botter.')
                             return
-                        elif user.account:
-                            if user.account in self.botteraccounts:
-                                if not discrete:
-                                    self.send_bot_msg(unicode_catalog.INDICATE +
-                                                      ' You cannot kick/ban another verified botter.')
-                                return
+                        # TODO: Accounts in botteraccounts will not be included until we have the class working.
+                        # elif user.account:
+                            # if user.account in self.botteraccounts:
+                            #     if not discrete:
+                            #         self.send_bot_msg(unicode_catalog.INDICATE +
+                            #                           ' You cannot kick/ban another verified botter.')
+                            #     return
 
                     self.send_ban_msg(user.nick, user.id)
                     if not ban:
@@ -1448,6 +1431,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                         pinylib.fh.file_writer(self.config_path(), CONFIG['nick_bans'], bad_nick)
                         # TODO: States type of file the name was added to.
                         self.send_bot_msg('*' + bad_nick + '* was added to *nick bans*.')
+
                         # Ban the nickname if it is present in the room.
                         if bad_nick in self._room_users.keys():
                             bn_user = self.find_user_info(bad_nick)
@@ -1513,10 +1497,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         if self._is_client_mod:
             if len(bad_account_name) is 0:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Account can\'t be blank.')
-            # TODO: Account names can be shorter than 3 characters.
-            # elif len(bad_account_name) < 3:
-            #     self.send_bot_msg(unicode_catalog.INDICATE + ' Account name too short: ' +
-            #                       str(len(bad_account_name)))
+            # TODO: Removed account name is too short as names can be below 3 characters previously.
             else:
                 bad_accounts = pinylib.fh.file_reader(self.config_path(), CONFIG['account_bans'])
                 if bad_accounts is None:
@@ -1528,6 +1509,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                     else:
                         pinylib.fh.file_writer(self.config_path(), CONFIG['account_bans'], bad_account_name)
                         self.send_bot_msg('*' + bad_account_name + '* was added to *account bans*.')
+
                         # Bans the account name if the account is currently in the room.
                         for nickname in self._room_users.keys():
                             user = self.find_user_info(nickname)
@@ -1621,17 +1603,20 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                         if user_info is not None:
                             user.tinychat_id = user_info['tinychat_id']
                             user.last_login = user_info['last_active']
+
                     self.send_owner_run_msg('*ID:* %s' % user.id)
                     self.send_owner_run_msg('*Owner:* %s' % user.is_owner)
                     # self.send_owner_run_msg('*Is Mod:* %s' % user.is_mod)
                     self.send_owner_run_msg('*Device Type:* %s' % user.btype)
                     self.send_owner_run_msg('*User Account Type:* %s' % str(user.stype))
                     self.send_owner_run_msg('*User Account Gift Points:* %d' % user.gp)
+
                     # TODO: Change attribute name.
                     if not user.is_owner and not user.is_mod:
                         if user.nick or user.account in self.botters or self.botteraccounts:
                             self.send_owner_run_msg('*Sudo:* %s' % user.is_super)
                             self.send_owner_run_msg('*Bot Controller:* %s' % user.has_power)
+
                     # TODO: Change attribute names.
                     self.send_undercover_msg(self.user.nick, '*Account:* ' + str(user.account))
                     self.send_undercover_msg(self.user.nick, '*Tinychat ID:* ' + user.tinychat_id)
@@ -1659,10 +1644,9 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Please specify *YouTube title, id or link*.')
             else:
                 # TODO: Make searches more accurate - direct video id search instead or URL search.
-                # Try checking the search term to see if matches our URL regex pattern. If so,
-                # we can extract the video id from the URL.
+                # Try checking the search term to see if matches our URL regex pattern.
+                # If so, we can extract the video id from the URL.
                 match_url = self.youtube_pattern.match(search)
-                # print('Match URL:', match_url)
                 if match_url is not None:
                     video_id = match_url.group(1)
                     _media = youtube.youtube_time(video_id)
@@ -1693,7 +1677,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     def do_play_soundcloud(self, search):
         """
         Plays a SoundCloud track matching the search term.
-        :param search:
+        :param search: str
         """
         log.info('User: %s:%s is searching soundcloud: %s' % (self.user.nick, self.user.id, search))
         if self._is_client_mod:
@@ -1858,19 +1842,11 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         else:
             # TODO: Handle the event in which the media we are skipping to is not of the same type.
             #       This is to ensure the previous media type stops playing.
-            # next_track = self.media_manager.get_next_track()
             # TODO: Replace get_next_track with next_track_info so we can get the next track information.
             pos, next_track = self.media_manager.next_track_info()
-            # print(pos, next_track.type, self.media_manager.track().type)
             self.cancel_media_event_timer()
 
-            # if next_track.type != self.media_manager.track().type:
-            #     print('stopping track of different type')
-            #     self.media_manager.mb_close()
-            #     self.send_media_broadcast_close(self.media_manager.track().type)
-
             self.media_manager.we_play(next_track)
-            # print('sending broadcast start')
             self.send_media_broadcast_start(next_track.type, next_track.id)
             self.media_event_timer(next_track.time)
 
@@ -1995,8 +1971,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 songs_list = other.top40()
                 top40_list = list(reversed(songs_list))
                 if songs_list is None:
-                    self.send_bot_msg(unicode_catalog.INDICATE +
-                                      ' We could not fetch the Top40 songs list.')
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' We could not fetch the Top40 songs list.')
                 elif len(songs_list) is 0:
                     self.send_bot_msg(unicode_catalog.INDICATE + ' No songs were found.')
                 else:
@@ -2306,10 +2281,10 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             if len(self.media_manager.track_list) is 0:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' The playlist is *empty*.')
             else:
-                inqueue = self.media_manager.queue()
-                if inqueue is not None:
-                    self.send_bot_msg(str(inqueue[0]) + ' *item(s) in the playlist.* ' +
-                                      str(inqueue[1]) + ' *Still in queue.*')
+                in_queue = self.media_manager.queue()
+                if in_queue is not None:
+                    self.send_bot_msg(str(in_queue[0]) + ' *item(s) in the playlist.* ' +
+                                      str(in_queue[1]) + ' *Still in queue.*')
         else:
             self.send_bot_msg('Not enabled right now.')
 
@@ -2472,7 +2447,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             if len(search) is 0:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Please specify a search term for *Urban-Dictionary*.')
             else:
-                urban_definition = other.urbandictionary_search(search)
+                urban_definition = other.urban_dictionary_search(search)
                 if urban_definition is None:
                     self.send_bot_msg(unicode_catalog.INDICATE + ' Could not find a definition for: ' + search)
                 else:
@@ -2507,7 +2482,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         if len(ip_str) is 0:
             self.send_bot_msg(unicode_catalog.INDICATE + ' Please provide an I.P. address.')
         else:
-            whois = other.whois(ip_str)
+            whois = other.who_is(ip_str)
             if whois is None:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' No information found for: ' + ip_str)
             else:
@@ -2539,7 +2514,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         if len(search) is 0:
             self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter a *DuckDuckGo* search term.')
         else:
-            definitions = other.duckduckgo_search(search)
+            definitions = other.duck_duck_go_search(search)
             if definitions is not None:
                 for x in range(len(definitions)):
                     # TODO: String utility implementation here.
@@ -2679,35 +2654,6 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Unable to retrieve from server.')
 
     # TODO: Fix time issues when using additional time, 12 hour time and google time.
-    # def do_time(self, location, additional, twelve_hour):
-    #     """
-    #     Shows the time in a location via Google (or time.is if specified otherwise).
-    #     :param location: str location name.
-    #     :param additional: bool True/False whether the time.is API should be used to fetch the time.
-    #     :param twelve_hour: bool True/False (if additional is True) whether the time returned should be displayed in
-    #                         analogue with AM/PM.
-    #     """
-    #     if len(location) is 0:
-    #         self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter a location to fetch the time.')
-    #     else:
-    #         if additional is False:
-    #             google_location, google_time = other.google_time(location)
-    #             if (google_location is None) or (google_time is None):
-    #                 self.send_bot_msg(unicode_catalog.INDICATE + ' We could not fetch the time in *"%s"*.' % location)
-    #             else:
-    #                 self.send_bot_msg('%s: *%s*' % (google_location, google_time))
-    #         else:
-    #             time = other.time_is(location)
-    #             if time is None:
-    #                 self.send_bot_msg(unicode_catalog.INDICATE + ' We could not fetch the time in "%s".' % location)
-    #             else:
-    #                 if twelve_hour:
-    #                     time_status = 'AM'
-    #                     raw_time = int(time[0:1])
-    #                     if raw_time > 12:
-    #                         time_status = 'PM'
-    #                     time = str(raw_time - 12) + time[2:len(time)] + ' ' + time_status
-    #                 self.send_bot_msg('The time in *%s* is: *%s*.' % (location, time))
 
     # TODO: ASCII needs to be re-done properly - "None" reply.
     def do_ascii(self, ascii_id):
@@ -2788,14 +2734,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 elif pm_cmd == CONFIG['prefix'] + 'up':
                     threading.Thread(target=self.do_cam_up, args=(pm_arg, )).start()
 
-                # elif pm_cmd == CONFIG['prefix'] + 'logo':
-                #     threading.Thread(target=self.do_cam_up_logo, args=(pm_arg, )).start()
-
                 elif pm_cmd == CONFIG['prefix'] + 'down':
                     threading.Thread(target=self.do_cam_down, args=(pm_arg, )).start()
-
-                # elif pm_cmd == CONFIG['prefix'] + 'stoplogo':
-                #     threading.Thread(target=self.do_cam_down_logo, args=(pm_arg, )).start()
 
                 elif pm_cmd == CONFIG['prefix'] + 'nocam':
                     threading.Thread(target=self.do_nocam, args=(pm_arg, )).start()
@@ -3524,7 +3464,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         print('  IP: %s, PORT: %s, Proxy: %s, RTMP URL: %s, Application: %s' %
               (self._ip, self._port, self._proxy, self._tc_url, self._app))
         print('  SWF (Desktop) Version: %s, SWF URL: %s' % (self._desktop_version, self._swf_url))
-        print ('- Tinychat Room Information:')
+        print('- Tinychat Room Information:')
         print('  Nickname: %s, ID: %s, Account: %s' % (self.client_nick, self._client_id, self.account))
         print('  Type: %s, Greenroom: %s, Room password: %s, Room broadcasting password: %s\n' %
               (self._room_type, self._greenroom, self.room_pass, self._b_password))
