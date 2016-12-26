@@ -116,7 +116,7 @@ def chuck_norris():
            via the web-form '?limitTo'. The character names can also be altered via passing the web-form
            '?firstName=[name]' or '?lastName=[name]'.
 
-    :return: str joke or None if 'joke' is not found.
+    :return str: joke or None if 'joke' is not found.
     """
     url = 'http://api.icndb.com/jokes/random/?escape=javascript'
     response = web.http_get(url, json=True)
@@ -152,7 +152,7 @@ def hash_cracker(hash_str):
 def yo_mama_joke():
     """
     Retrieves a random 'Yo Mama' joke from an API.
-    :return: joke str or None if no 'joke' is found.
+    :return str: joke or None if no 'joke' is found.
     """
     url = 'http://api.yomomma.info/'
     response = web.http_get(url, json=True)
@@ -166,7 +166,7 @@ def yo_mama_joke():
 def online_advice():
     """
     Retrieves a random string of advice from the 'adviceslip' (http://adviceslip.com/) API.
-    :return: advice str or None if 'advice' is not found.
+    :return str: advice or None if 'advice' is not found.
     """
     url = 'http://api.adviceslip.com/advice'
     response = web.http_get(url, json=True)
@@ -183,7 +183,7 @@ def duck_duck_go_search(search):
     Search DuckDuckGo using their API (https://duckduckgo.com/api).
 
     :param search: The search term str to search for.
-    :return: definition str or None on no match or error.
+    :return results: list or None on no match or error.
     """
     duck_duck_go_api = 'http://api.duckduckgo.com/?q=%s&ia=answer&format=json&no_html=1' % \
                        urllib.quote_plus(search.strip())
@@ -206,7 +206,7 @@ def omdb_search(search):
     """
     Query the OMDb API - https://omdbapi.com/.
     :param search: str search term.
-    :return: str title, rating, and short a description.
+    :return omdb_info: str title, rating, and short a description.
     """
     omdb_url = 'http://www.omdbapi.com/?t=%s&plot=short&r=json' % search.strip()
     response = web.http_get(omdb_url, json=True)
@@ -240,7 +240,7 @@ def omdb_search(search):
 def jservice_trivia():
     """
     Returns a random Jeopardy question from the http://jservice.io/ API.
-    :return: dict{'title', 'value', 'question', 'answer', jeopardy_airdate'} or None on error.
+    :return dict: {'title', 'value', 'question', 'answer', jeopardy_airdate'} or None on error.
     """
     base_url = 'http://jservice.io/'
     get_url = base_url + 'api/random'
@@ -267,7 +267,7 @@ def longman_dictionary(lookup_term):
           located by using http://api.pearson.com/v2/dictionaries/entries?headword=[headword here].
 
     :param lookup_term: str the term to search for a dictionary reference.
-    :return:
+    :return definitions: list
     """
     dictionary_url = 'http://api.pearson.com/v2/dictionaries/entries?headword=%s' % lookup_term.strip()
     response = web.http_get(dictionary_url, json=True)
@@ -292,7 +292,7 @@ def time_is(location):
     """
     Retrieves the time in a location by parsing the time element in the html from Time.is .
     :param location: str location of the place you want to find time (works for small towns as well).
-    :return: time str or None on failure.
+    :return time: str or None on failure.
     """
     if bs4_present:
         header = {
@@ -327,7 +327,7 @@ def google_time(location):
     """
     Retrieves the time in a location using Google.
     :param location: str location of the place you want to find time (Location must be a large town/city/country).
-    :return: time str or None on failure.
+    :return time: str or None on failure.
     """
     if bs4_present:
         url = 'https://www.google.com/search?q=time%20in%20' + urllib.quote_plus(location)
@@ -356,7 +356,7 @@ def google_time(location):
 def top40():
     """
     Retrieves the Top40 songs list from www.bbc.co.uk/radio1/chart/singles.
-    :return: list (nested list) all songs including the song name and artist in the format
+    :return songs: list (nested list) all songs including the song name and artist in the format
              [[songs name, song artist], etc.]].
     """
     if bs4_present:
@@ -391,11 +391,42 @@ def top40():
     return None
 
 
+def capital_fm_latest():
+    """
+    Retrieves the track playing at the moment on the Capital FM radio station (http://www.capitalfm.com/).
+    The function returns a music search term which can be used by the YouTube or SoundCloud API to load the song.
+    :return music_term: str the current track that is playing and the track artist.
+    """
+    if bs4_present:
+        last_played_url = 'http://www.capitalfm.com/radio/last-played-songs/'
+        response = web.http_get(url=last_played_url)
+
+        if response['content'] is not None:
+            html = response['content']
+            soup = BeautifulSoup(html, 'html.parser')
+
+            now_playing_content = soup.find('div', {'class': 'now-playing__text-content'})
+
+            raw_current_track = now_playing_content.find('span', {'itemprop': 'name', 'class': 'track'})
+            raw_current_artist = now_playing_content.find('span', {'itemprop': 'byArtist', 'class': 'artist'})
+
+            current_track = raw_current_track.getText().strip()
+            current_artist = raw_current_artist.getText().strip()
+
+            music_search_term = current_track + ' - ' + current_artist
+            return music_search_term
+        else:
+            return None
+
+
+# TODO: Reduce the need to keep on requesting jokes, maybe have a local save of data, which is removed every time the
+#       command is requested, as long as it doesn't match another joke in the local save it can be used.
+#       Once all the jokes have been used, we can issue another request to get new ones (this should save data).
 def one_liners(tag=None):
     """
     Retrieves a one-liner from http://onelinefun.com/ (by selecting a random category).
     :param tag: str a specific tag name from which you want to choose a joke from.
-    :return: str joke a one line joke/statement (depending on the specified category).
+    :return joke: str a one line joke/statement (depending on the specified category).
     """
     if bs4_present:
         url = 'http://onelinefun.com/'

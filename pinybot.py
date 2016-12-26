@@ -201,7 +201,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                         self.send_bot_msg(unicode_catalog.TOXIC + ' *Auto-Banned:* %s (bad account)' %
                                           join_info_dict['account'], self._is_client_mod)
 
-            # Assign botteraccounts if they were in the locally stored file.
+            # Assign botter accounts if they were in the locally stored file.
             if join_info_dict['account'] in self.botteraccounts:
                 user.has_power = True
         else:
@@ -223,9 +223,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             if CONFIG['auto_message_enabled']:
                 self.start_auto_msg_timer()
         if self._is_client_mod:
-            print("Trying to send banlist message.")
             self.send_banlist_msg()
-            print("Sent banlist message.")
+
         if self._is_client_owner and self._room_type != 'default':
             threading.Thread(target=self.get_privacy_settings).start()
         self.console_write(pinylib.COLOR['cyan'], 'All joins information received.')
@@ -300,7 +299,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
         :param old:
         :param new:
-        @param uid:
+        :param uid:
         """
         if uid != self._client_id:
             old_info = self.find_user_info(old)
@@ -334,7 +333,6 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
             if old.startswith('guest-'):
                 # TODO: Confirm this works and reads the file correctly.
-                # bn = pinylib.fh.file_reader(CONFIG['path'], CONFIG['badnicks'])
                 bn = pinylib.fh.file_reader(self.config_path(), CONFIG['nick_bans'])
 
                 if bn is not None and new in bn:
@@ -348,7 +346,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                     if user is not None:
                         if self.welcome_user:
                             # TODO: Welcome user owner message if an account is present,
-                            # otherwise it is an undercover message.
+                            #       otherwise it is an undercover message.
                             if user.account:
                                 # Greet user with account name/message.
                                 self.send_bot_msg(unicode_catalog.NOTIFICATION + ' Welcome to ' + self._roomname +
@@ -439,6 +437,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     def on_media_broadcast_start(self, media_type, video_id, usr_nick):
         """
         A user started a media broadcast.
+
         :param media_type: str the type of media, youTube or soundCloud.
         :param video_id: str the YouTube ID or SoundCloud track ID.
         :param usr_nick: str the user name of the user playing media.
@@ -461,6 +460,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     def on_media_broadcast_close(self, media_type, usr_nick):
         """
         A user closed a media broadcast.
+
         :param media_type: str the type of media, youTube or soundCloud.
         :param usr_nick: str the user name of the user closing the media.
         """
@@ -471,6 +471,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     def on_media_broadcast_paused(self, media_type, usr_nick):
         """
         A user paused the media broadcast.
+
         :param media_type: str the type of media being paused, youTube or soundCloud.
         :param usr_nick: str the user name of the user pausing the media.
         """
@@ -481,6 +482,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     def on_media_broadcast_play(self, media_type, time_point, usr_nick):
         """
         A user resumed playing a media broadcast.
+
         :param media_type: str the media type, youTube or soundCloud.
         :param time_point: int the time point in the tune in milliseconds.
         :param usr_nick: str the user resuming the tune.
@@ -495,6 +497,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     def on_media_broadcast_skip(self, media_type, time_point, usr_nick):
         """
         A user time searched a tune.
+
         :param media_type: str the media type. youTube or soundCloud.
         :param time_point: int the time point in the tune in milliseconds.
         :param usr_nick: str the user time searching the tune.
@@ -512,6 +515,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         """
         Starts a media broadcast.
         NOTE: This method replaces play_youtube and play_soundcloud.
+
         :param media_type: str 'youTube' or 'soundCloud'.
         :param video_id: str the media video ID.
         :param time_point: int where to start the media from in milliseconds.
@@ -532,13 +536,18 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         :param use_chat_msg: boolean True/False, use normal chat messages/send messages
                              depending on whether or not the client is a moderator.
         """
+        print('Sending', msg)
         if use_chat_msg:
             self.send_chat_msg(msg)
+            print('Sent chat message')
         else:
             if self._is_client_mod:
                 self.send_owner_run_msg(msg)
+                print('Sent owner run message.')
             else:
                 self.send_chat_msg(msg)
+                print('Sent chat message.')
+
         if CONFIG['bot_msg_to_console']:
             self.console_write(pinylib.COLOR['white'], msg)
 
@@ -569,6 +578,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         # TODO: Move CleverBot message handler to elsewhere.
         # TODO: Add function call to the cleverbot message handler.
 
+        print('1')
+
         # Is this a custom command?
         if decoded_msg.startswith(CONFIG['prefix']):
             # Split the message into parts.
@@ -577,6 +588,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             cmd = parts[0].lower().strip()
             # The rest is the command argument.
             cmd_arg = ' '.join(parts[1:]).strip()
+
+            print('2')
 
             # TODO: This is quite untidy.
             # TODO: Maybe use the public_cmds option instead of this?
@@ -590,6 +603,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                     self.console_write(pinylib.COLOR['bright_red'], '%s:%s [Not handled - sleeping]' %
                                        (self.user.nick, decoded_msg))
                 return
+
+            print('3')
 
             # Super mod commands:
             if self.user.is_super:
@@ -611,6 +626,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 elif cmd == CONFIG['prefix'] + 'crb':
                     threading.Thread(target=self.do_clear_room_bans).start()
 
+            print('4')
+
             # Owner and super mod commands:
             if self.user.is_owner or self.user.is_super:
                 if cmd == CONFIG['prefix'] + 'kill':
@@ -620,6 +637,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             if self.user.is_owner or self.user.is_super or self.user.has_power:
                 if cmd == CONFIG['prefix'] + 'mi':
                     self.do_media_info()
+
+            print('5')
 
             # Mod and bot controller commands:
             # - Lower-level commands (toggles):
@@ -814,15 +833,20 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 elif cmd == CONFIG['prefix'] + 'cpl':
                     self.do_clear_playlist()
 
+            print('6')
+
             # Public commands:
             if self.is_cmds_public or self.user.is_owner or self.user.is_super or \
                     self.user.is_mod or self.user.has_power:
+
+                print('7')
 
                 if cmd == CONFIG['prefix'] + 'v':
                     threading.Thread(target=self.do_version).start()
 
                 elif cmd == CONFIG['prefix'] + 'help':
                     threading.Thread(target=self.do_help).start()
+                    print('8')
 
                 elif cmd == CONFIG['prefix'] + 'uptime':
                     threading.Thread(target=self.do_uptime).start()
@@ -1287,7 +1311,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             clear = '133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133' \
                     '133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133'
             # self._send_command('privmsg', [clear, u'#262626,en'])
-            self.connection.call('privmsg', [clear, u'#262626,en'])
+            self.net_connection.messages.call('privmsg', [clear, u'#262626,en'])
 
         self.send_bot_msg(unicode_catalog.STATE + ' *The chat was cleared by ' + str(self.user.nick) + '*')
 
@@ -2175,6 +2199,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         """ Posts a link to a GitHub README/Wiki about the bot commands. """
         self.send_bot_msg('*Commands:* https://github.com/GoelBiju/pinybot/wiki/Features/'
                           '\n*README:* https://github.com/GoelBiju/pinybot/blob/master/README.md')
+        print('Sent')
 
     def do_uptime(self):
         """ Shows the bots uptime. """
@@ -2961,35 +2986,35 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 else:
                     self.send_private_msg('Wrong key.', self.user.nick)
 
-    def do_cam_up(self, key):
-        """
-        Makes the bot cam up.
-        :param key str the key needed for moderators/bot controllers.
-        """
-        if self.user.is_owner or self.user.is_super:
-            self.set_stream()
-        elif self.user.is_mod or self.user.has_power:
-            if len(key) is 0:
-                self.send_private_msg('Missing key.', self.user.nick)
-            elif key == self.key:
-                self.set_stream()
-            else:
-                self.send_private_msg('Wrong key.', self.user.nick)
+    # def do_cam_up(self, key):
+    #     """
+    #     Makes the bot cam up.
+    #     :param key str the key needed for moderators/bot controllers.
+    #     """
+    #     if self.user.is_owner or self.user.is_super:
+    #         self.set_stream()
+    #     elif self.user.is_mod or self.user.has_power:
+    #         if len(key) is 0:
+    #             self.send_private_msg('Missing key.', self.user.nick)
+    #         elif key == self.key:
+    #             self.set_stream()
+    #         else:
+    #             self.send_private_msg('Wrong key.', self.user.nick)
 
-    def do_cam_down(self, key):
-        """
-        Makes the bot cam down.
-        :param key: str the key needed for moderators/bot controllers.
-        """
-        if self.user.is_owner or self.user.is_super:
-            self.set_stream(False)
-        elif self.user.is_mod or self.user.has_power:
-            if len(key) is 0:
-                self.send_private_msg('Missing key.', self.user.nick)
-            elif key == self.key:
-                self.set_stream(False)
-            else:
-                self.send_private_msg('Wrong key.', self.user.nick)
+    # def do_cam_down(self, key):
+    #     """
+    #     Makes the bot cam down.
+    #     :param key: str the key needed for moderators/bot controllers.
+    #     """
+    #     if self.user.is_owner or self.user.is_super:
+    #         self.set_stream(False)
+    #     elif self.user.is_mod or self.user.has_power:
+    #         if len(key) is 0:
+    #             self.send_private_msg('Missing key.', self.user.nick)
+    #         elif key == self.key:
+    #             self.set_stream(False)
+    #         else:
+    #             self.send_private_msg('Wrong key.', self.user.nick)
 
     def do_nocam(self, key):
         """
@@ -3166,7 +3191,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             else:
                 pinylib.time.sleep(self.playback_delay)
                 track = self.media_manager.get_next_track()
-                if track is not None and self.is_connected:
+                # if track is not None and self.is_connected:
+                if track is not None and self.net_connection.active_connection:
                     self.send_media_broadcast_start(track.type, track.id)
                 self.media_event_timer(track.time)
 
@@ -3223,7 +3249,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     def auto_msg_handler(self):
         """ The event handler for auto_msg_timer. """
-        if self.is_connected:
+        # if self.is_connected:
+        if self.net_connection.active_connection:
             if CONFIG['auto_message_enabled']:
                 self.send_bot_msg(self.random_msg(), use_chat_msg=True)
         self.start_auto_msg_timer()
@@ -3348,7 +3375,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         """
         # Reset the spam check at each message check, this allows us to know if the message should be passed onto
         # any further procedures.
-        # user = self.find_user_info(msg_sender)
+        user = self.find_user_info(msg_sender)
         decoded_msg = self._decode_msg(raw_msg)
 
         # Always check to see if the user's message has any bad strings initially.
@@ -3397,7 +3424,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
                 # Perform case-insensitive matching on the strings matching/similar to 'tinychat.com'.
                 msg_search = self.tinychat_spam_pattern.search(decoded_msg)
-                print(msg_search)
+                # print(msg_search)
                 if msg_search is not None:
                     matched = msg_search.group()
                     if matched[0] is not None:
@@ -3509,7 +3536,8 @@ def main():
     t.start()
 
     # Wait for the connection to be established and then continue.
-    while not client.is_connected:
+    # while not client.is_connected:
+    while not client.net_connection.active_connection:
         pinylib.time.sleep(1)
 
     # TODO: Removed alive handler in the class.
@@ -3520,7 +3548,8 @@ def main():
     # client.console_write(pinylib.COLOR['white'], 'Started ping management.')
 
     if not CONFIG['server']:
-        while client.is_connected:
+        # while client.is_connected:
+        while client.net_connection.active_connection:
             chat_msg = raw_input()
 
             # TODO: Save pertinent bot data before exiting - MySQLDB implementation.
@@ -3562,7 +3591,8 @@ def main():
                     # Print our chat messages onto the console
                     client.console_write(pinylib.COLOR['cyan'], 'You: ' + chat_msg)
     else:
-        while client.is_connected:
+        # while client.is_connected:
+        while client.net_connection.active_connection:
             continue
 
 if __name__ == '__main__':
