@@ -26,7 +26,7 @@ def post_login(account, password):
     :param password: str tinychat account password.
     :return: dict{'content', 'cookies', 'headers', 'status_code'} or None on error.
     """
-    url = 'http://tinychat.com/login'
+    url = 'https://tinychat.com/login'
     header = {'Referer': url}
     form_data = {
         'form_sent': '1',
@@ -50,10 +50,10 @@ def get_roomconfig_xml(room, roompass=None, proxy=None):
     :return: dict {'tcurl', 'ip', 'port', 'app', 'roomtype', 'greenroom=bool', 'bpassword'}
     """
     if roompass:
-        xmlurl = 'http://apl.tinychat.com/api/find.room/%s?site=tinychat&password=%s&url=tinychat.com' % \
+        xmlurl = 'https://apl.tinychat.com/api/find.room/%s?site=tinychat&password=%s&url=tinychat.com' % \
                  (room, roompass)
     else:
-        xmlurl = 'http://apl.tinychat.com/api/find.room/%s?site=tinychat&url=tinychat.com' % room
+        xmlurl = 'https://apl.tinychat.com/api/find.room/%s?site=tinychat&url=tinychat.com' % room
 
     response = web.http_get(xmlurl, proxy=proxy)
     if response['content'] is not None:
@@ -137,7 +137,7 @@ def spy_info(room):
     :return: dict{'mod_count', 'broadcaster_count', 'total_count', list('users')} or PW on password protected room.,
     or None on failure or empty room.
     """
-    url = 'http://api.tinychat.com/%s.json' % room
+    url = 'https://api.tinychat.com/%s.json' % room
     check = get_roomconfig_xml(room)
     if check == 'PW':
         return check
@@ -171,9 +171,9 @@ def get_bauth_token(roomname, nick, uid, greenroom, proxy=None):
     :return: str token or PW if a password is needed to broadcast.
     """
     if greenroom:
-        xmlurl = 'http://tinychat.com/api/broadcast.pw?site=greenroom&name=%s&nick=%s&id=%s' % (roomname, nick, uid)
+        xmlurl = 'https://tinychat.com/api/broadcast.pw?site=greenroom&name=%s&nick=%s&id=%s' % (roomname, nick, uid)
     else:
-        xmlurl = 'http://tinychat.com/api/broadcast.pw?site=tinychat&name=%s&nick=%s&id=%s' % (roomname, nick, uid)
+        xmlurl = 'https://tinychat.com/api/broadcast.pw?site=tinychat&name=%s&nick=%s&id=%s' % (roomname, nick, uid)
 
     response = web.http_get(xmlurl, proxy=proxy)
     if response['content'] is not None:
@@ -195,7 +195,7 @@ def get_captcha_key(roomname, uid, proxy=None):
     :param proxy: str use a proxy for this request.
     :return: str the captcha key or None on captcha enabled room.
     """
-    url = 'http://tinychat.com/api/captcha/check.php?room=tinychat^%s&guest_id=%s' % (roomname, uid)
+    url = 'https://tinychat.com/api/captcha/check.php?room=tinychat^%s&guest_id=%s' % (roomname, uid)
     response = web.http_get(url, json=True, proxy=proxy)
     if response['json'] is not None:
         if 'key' in response['json']:
@@ -214,7 +214,7 @@ def get_cauth_cookie(roomname, proxy=None):
     :return: str the 'cookie'
     """
     ts = int(round(time.time() * 1000))
-    url = 'http://tinychat.com/cauth?room=%s&t=%s' % (roomname, ts)
+    url = 'https://tinychat.com/cauth?room=%s&t=%s' % (roomname, ts)
     response = web.http_get(url, json=True, proxy=proxy)
     if response['json'] is not None:
         if 'cookie' in response['json']:
@@ -231,14 +231,14 @@ def recaptcha(proxy=None):
     :return: dict{'cookies'} this is NOT used in the code , but is left here for debugging purposes.
     """
     t = str(random.uniform(0.9, 0.10))
-    url = 'http://tinychat.com/cauth/captcha?%s' % t
+    url = 'https://tinychat.com/cauth/captcha?%s' % t
     response = web.http_get(url, json=True, proxy=proxy)
     if response['json'] is not None:
         recaptcha_required = False
 
         link = ''
         if response['json']['need_to_solve_captcha'] == 1:
-            link = 'http://tinychat.com/cauth/recaptcha?token=%s' % response['json']['token']
+            link = 'https://tinychat.com/cauth/recaptcha?token=%s' % response['json']['token']
             recaptcha_required = True
         elif response['json']['need_to_solve_captcha'] == 0:
             return recaptcha_required
@@ -279,7 +279,7 @@ def generate_snapshot(process_file=None, client_name=None, client_room=None):
     }
 
     date_formatted = time.strftime('%m-%d-%Y')
-    post_url = 'http://upload.tinychat.com/savess?file=%s%s%s.jpg' % \
+    post_url = 'https://upload.tinychat.com/savess?file=%s%s%s.jpg' % \
                (client_name + '%2B', client_room + '%2B', date_formatted)
     print('Sending to: %s Filename: %s' % (post_url, process_file))
 

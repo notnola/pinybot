@@ -140,7 +140,7 @@ def configuration_loader(file_location, manual_section=None):
                 except TypeError:  # Exception
                     pass
 
-                # Handle dictionaries
+                # Handle dictionaries.
                 try:
                     value = ast.literal_eval(value)
                 except (SyntaxError, ValueError):  # Exception
@@ -174,7 +174,7 @@ def unicode_loader(file_location):
 
         # Add the parsed unicode data to the dictionary.
         unicode_data = {}
-        for x in xrange(len(unicode_raw_data)):
+        for x in range(len(unicode_raw_data)):
             unicode_object = unicode_raw_data[x].split(' ')
             unicode_id = u'' + unicode_object[0]
             unicode_byte_data = u'' + ' '.join(unicode_object[1:])

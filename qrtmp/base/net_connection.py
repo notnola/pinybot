@@ -1,14 +1,21 @@
+"""
+Qrtmp's NetConnection module which handles the main connection to an RTMP server.
+
+Version 0.4.1
+"""
+
 import logging
 import struct
 
 from qrtmp.base.base_connection import BaseConnection
 from qrtmp.formats import types
 from qrtmp.io.net_connection import messages
+from qrtmp.base.net_stream import NetStream
+
+log = logging.getLogger(__name__)
 
 # TODO: If we don't reload the class, the same class variables will be used in new code if we try
 #       to initialise it again.
-
-log = logging.getLogger(__name__)
 
 
 # TODO: We should make it clear if we are talking about packets or messages.
@@ -19,51 +26,65 @@ class NetConnection(BaseConnection):
 
     :inherits: qrtmp.base.base_connection.BaseConnection
     """
-    # TODO: Will we need these variables?
-    # Parameter access variables.
-    _stored_rtmp_server = False
-    _stored_rtmp_parameters = False
-    _stored_extra_rtmp_parameters = False
 
-    # Setup the basic RTMP parameters required to connect.
-    _app = None
+    # TODO: Add another __init__ function here.
+    def __init__(self):
+        """
+        Initialise the NetConnection variables along with the BaseConnection variables.
+        """
+        BaseConnection.__init__(self)
 
-    # Setup other RTMP parameters.
-    _swf_url = None
-    _tc_url = None
-    _page_url = None
-    _fpad = None
+        # TODO: Will we need these variables?
+        # Parameter access variables.
+        # self._stored_rtmp_server = False
+        # self._stored_rtmp_parameters = False
+        # self._stored_extra_rtmp_parameters = False
 
-    # Setup the basic RTMP connection message parameters.
-    flash_ver = None
-    capabilities = None
-    audio_codecs = None
-    video_codecs = None
-    video_function = None
-    object_encoding = None
+        # Setup the basic RTMP parameters required to connect.
+        self._app = None
 
-    # Allow for extra RTMP connection message parameters to be used.
-    _extra_rtmp_parameters = []
+        # Setup other RTMP parameters.
+        self._swf_url = None
+        self._tc_url = None
+        self._page_url = None
+        self._fpad = None
 
-    # Default flash versions for various operating systems:
-    windows_flash_version = 'WIN 24,0,0,186'
-    mac_flash_version = 'MAC 24,0,0,186'
-    linux_flash_version = 'LNX 11,2,202,635'
+        # Setup the basic RTMP connection message parameters.
+        self.flash_ver = None
+        self.capabilities = None
+        self.audio_codecs = None
+        self.video_codecs = None
+        self.video_function = None
+        self.object_encoding = None
 
-    # TODO: Find more about shared objects.
-    # _shared_objects = []
+        # Allow for extra RTMP connection message parameters to be used.
+        self._extra_rtmp_parameters = []
 
-    # TODO: Should transaction id be in RtmpWriter?
-    # Setup a transaction id in order to communicate RTMP messages between
-    # the client and server.
-    # _transaction_id = None
+        # Default flash versions for various operating systems:
+        self.windows_flash_version = 'WIN 24,0,0,186'
+        self.mac_flash_version = 'MAC 24,0,0,186'
+        self.linux_flash_version = 'LNX 11,2,202,635'
 
-    # Initialise the NetConnection messages variable.
-    messages = None
+        # TODO: Find more about shared objects.
+        # self._shared_objects = []
 
-    # Initialise working states for the functions in this class.
-    active_connection = False
-    handle_messages = True
+        # TODO: Should transaction id be in RtmpWriter?
+        # Setup a transaction id in order to communicate RTMP messages between
+        # the client and server.
+        # self._transaction_id = None
+
+        # Initialise the NetConnection messages variable.
+        self.messages = None
+
+        # Initialise the NetStream class.
+        self.net_stream = None
+
+        # Initialise working states for the functions in this class.
+        self._handle_messages = True
+        self._handle_messages_return = False
+
+        # Initialise the connections state.
+        self.active_connection = False
 
     # TODO: Make functions to clear all the important variables before connecting.
 
@@ -78,31 +99,32 @@ class NetConnection(BaseConnection):
         """
         if not self.active_connection:
             # If the RTMP server has already been stored, then we can reset this.
-            if self._stored_rtmp_server:
-                self.reset_rtmp_server()
+            # if self._stored_rtmp_server:
+            #     self.reset_rtmp_server()
 
             self._set_base_parameters(base_ip=ip_address, base_port=connection_port, base_proxy=proxy_address)
             log.info('Set RTMP server parameters: ip address ({0}), connection port ({1}) and proxy address ({2}).'
                      .format(ip_address, connection_port, proxy_address))
-            self._stored_rtmp_server = True
+            # self._stored_rtmp_server = True
         else:
             log.warning('You cannot modify the RTMP parameters while there is an active connection. Disconnect first.')
+            return False
 
-    def reset_rtmp_server(self):
-        """
-        Resets the PROXY, IP and PORT variables.
-
-        This function can be called from the outside for a new NetConnection and new server parameters.
-        """
-        self._proxy = None
-
-        self._ip = None
-        self._port = None
-
-        # Reset the RTMP server stored variable.
-        self._stored_rtmp_server = False
-
-        log.info('Reset RTMP server parameters.')
+    # def reset_rtmp_server(self):
+    #     """
+    #     Resets the PROXY, IP and PORT variables.
+    #
+    #     This function can be called from the outside for a new NetConnection and new server parameters.
+    #     """
+    #     self._proxy = None
+    #
+    #     self._ip = None
+    #     self._port = None
+    #
+    #     # Reset the RTMP server stored variable.
+    #     self._stored_rtmp_server = False
+    #
+    #     log.info('Reset RTMP server parameters.')
 
     # TODO: Set flashVer and fpad to 'None' otherwise a Null value might cause the server to
     #       reject the connection request.
@@ -125,8 +147,8 @@ class NetConnection(BaseConnection):
         """
         if not self.active_connection:
             # Reset the RTMP parameters if they have already been stored.
-            if self._stored_rtmp_parameters:
-                self.reset_rtmp_parameters()
+            # if self._stored_rtmp_parameters:
+            #     self.reset_rtmp_parameters()
 
             # This is the application name, this is necessary in order for the client
             # to make use of the RTMP application on the server.
@@ -148,33 +170,34 @@ class NetConnection(BaseConnection):
             self.object_encoding = kwargs.get('object_encoding', 0.0)
 
             # Set the stored RTMP parameters as we have stored new parameters.
-            self._stored_rtmp_parameters = True
+            # self._stored_rtmp_parameters = True
         else:
             log.warning('You cannot modify the RTMP parameters while there is an active connection.')
+            return False
 
-    def reset_rtmp_parameters(self):
-        """
-        Resets the RTMP parameters variables.
-
-        This function can be called from the outside for a new NetConnection or new RTMP parameters.
-        """
-        self._app = None
-
-        self._swf_url = None
-        self._tc_url = None
-        self._page_url = None
-        self._fpad = None
-
-        self.flash_ver = None
-        self.capabilities = None
-        self.audio_codecs = None
-        self.video_codecs = None
-        self.video_function = None
-        self.object_encoding = None
-
-        # Reset the stored RTMP parameters variable as the parameters have been reset.
-        self._stored_rtmp_parameters = False
-
+    # def reset_rtmp_parameters(self):
+    #     """
+    #     Resets the RTMP parameters variables.
+    #
+    #     This function can be called from the outside for a new NetConnection or new RTMP parameters.
+    #     """
+    #     self._app = None
+    #
+    #     self._swf_url = None
+    #     self._tc_url = None
+    #     self._page_url = None
+    #     self._fpad = None
+    #
+    #     self.flash_ver = None
+    #     self.capabilities = None
+    #     self.audio_codecs = None
+    #     self.video_codecs = None
+    #     self.video_function = None
+    #     self.object_encoding = None
+    #
+    #     # Reset the stored RTMP parameters variable as the parameters have been reset.
+    #     self._stored_rtmp_parameters = False
+    #
         log.info('Reset RTMP parameters.')
 
     # TODO: Work out the logic here, we do not want to delete what is given into the function.
@@ -191,8 +214,8 @@ class NetConnection(BaseConnection):
                                         along in the RTMP connection message.
         """
         if not self.active_connection:
-            if len(self._extra_rtmp_parameters) is not 0:
-                self.reset_extra_rtmp_parameters()
+            # if len(self._extra_rtmp_parameters) is not 0:
+            #     self.reset_extra_rtmp_parameters()
 
             log.info('Adding extra RTMP parameters.')
             for connection_argument in args:
@@ -200,23 +223,24 @@ class NetConnection(BaseConnection):
                 log.info('Set extra RTMP parameter: {0}'.format(connection_argument))
             log.info('Finished extra RTMP parameters.')
 
-            self._stored_extra_rtmp_parameters = True
+            # self._stored_extra_rtmp_parameters = True
         else:
             log.warning('You cannot modify the extra RTMP parameters while there is an active connection.')
+            return False
 
-    def reset_extra_rtmp_parameters(self):
-        """
-        Resets extra RTMP parameters.
-
-        This function can also be called from the outside in the event a new connection should be made with the same
-        NetConnection object or if you want to store new parameters.
-        """
-        self._extra_rtmp_parameters = []
-
-        # Resets the stored extra RTMP parameters variable as we have reset any stored parameters.
-        self._stored_extra_rtmp_parameters = False
-
-        log.info('Reset extra RTMP parameters.')
+    # def reset_extra_rtmp_parameters(self):
+    #     """
+    #     Resets extra RTMP parameters.
+    #
+    #     This function can also be called from the outside in the event a new connection should be made with the same
+    #     NetConnection object or if you want to store new parameters.
+    #     """
+    #     self._extra_rtmp_parameters = []
+    #
+    #     # Resets the stored extra RTMP parameters variable as we have reset any stored parameters.
+    #     self._stored_extra_rtmp_parameters = False
+    #
+    #     log.info('Reset extra RTMP parameters.')
 
     def create_connection_message(self):
         """
@@ -240,8 +264,11 @@ class NetConnection(BaseConnection):
         connection_message = self.rtmp_writer.new_packet()
 
         # Set up the connect message's RTMP header.
-        #   - initial connection timestamp is set to zero:
-        connection_message.set_timestamp(0)
+        # TODO: Should the timestamp be set to 1 or 0?
+        #   - the connection message is sent on the NetConnection stream.
+        connection_message.set_chunk_stream_id(types.RTMP_CONNECTION_CHUNK_STREAM)
+        #   - initial connection timestamp is set to 1 to show the first message:
+        connection_message.set_timestamp(1)
         #   - this is an AMF0 COMMAND message:
         connection_message.set_type(types.DT_COMMAND)
         #   - the connection message is always sent on the NetConnection stream (stream id 0):
@@ -277,11 +304,14 @@ class NetConnection(BaseConnection):
         # be in AMF format).
         if len(self._extra_rtmp_parameters) is not 0:
             for parameter in self._extra_rtmp_parameters:
-                if type(parameter) is dict:
-                    connection_message.body['options'].append(parameter)
-                else:
+                if type(parameter) is list:
                     connection_message.body['options'].extend(parameter)
+                else:
+                    connection_message.body['options'].append(parameter)
             log.info('Added extra RTMP parameters into connection message.')
+
+        # Set up the connection packet.
+        connection_message.setup()
 
         # Return the prepared connection message to which ever function called it.
         return connection_message
@@ -295,15 +325,20 @@ class NetConnection(BaseConnection):
         if base_connect:
             log.info('The BaseConnection is connected.')
 
-            # Get the RTMP "connect" message and send write it into the stream using the RtmpWriter.
-            connect_message = self.create_connection_message()
+            # Get the RTMP "connect" packet and send write it into the stream using the RtmpWriter.
+            connect_packet = self.create_connection_message()
 
+            # print('sending connect packet')
             # Setup the packet and write the message into the RTMP stream.
-            self.rtmp_writer.setup_packet(connect_message)
+            self.rtmp_writer.send_packet(connect_packet)
             log.info('Sent RTMP "connect" message/packet.')
+            # print('sent packet')
 
             # Call the NetConnection messages function to be initialised for use by the client.
-            self.initialise_net_connection_messages()
+            self._initialise_net_connection_messages()
+
+            # Allow the NetStream object to be accessed and created.
+            self._initialise_net_stream()
 
             # TODO: We should only return true to allow the reading of packets once NetConnection.Success has been
             #       received from the server.
@@ -311,14 +346,22 @@ class NetConnection(BaseConnection):
             log.info('RTMP connection is active.')
         else:
             log.error('The BaseConnection (base connect - {0}) was not successful.'.format(base_connect))
+            return False
 
-    def initialise_net_connection_messages(self):
+    def _initialise_net_connection_messages(self):
         """
         Initialises the NetConnection default messages for use by the client.
         The RtmpWriter class is required in order for the messages to be accessed and used.
         """
         self.messages = messages.NetConnectionMessages(self.rtmp_writer)
         log.info('Initialised NetConnectionMessages.')
+
+    def _initialise_net_stream(self):
+        """
+
+
+        """
+        self.net_stream = NetStream(self.rtmp_writer)
 
     def set_handle_messages(self, new_option):
         """
@@ -328,10 +371,24 @@ class NetConnection(BaseConnection):
         :param new_option: boolean True/False stating if we should automatically handle default packets/messages.
         """
         try:
-            self.handle_messages = bool(new_option)
+            self._handle_messages = bool(new_option)
             log.info('Changed handle messages to: {0}'.format(new_option))
         except TypeError:
             log.error('Handle messages can only be True/False.')
+            return None
+
+    def return_handled_message(self, new_option):
+        """
+        Allows the client to choose if a handled packet should be return anyway by the read_packet() function.
+
+        :param new_option: boolean True/False stating if we should return the handled packet.
+        """
+        try:
+            self._handle_messages_return = bool(new_option)
+            log.info('Changed handle messages return to: {0}'.format(new_option))
+        except TypeError:
+            log.error('Handle messages return can only be True/False.')
+            return None
 
     # TODO: We need to say if read_packet returned None, otherwise we have a NoneType received_packet which can cause
     #       issues in other code further.
@@ -350,18 +407,26 @@ class NetConnection(BaseConnection):
 
             if received_packet is not None:
                 # Handle default RTMP messages automatically.
-                if self.handle_messages:
+                if self._handle_messages:
                     handled_state = self.handle_packet(received_packet)
+                    # If the message is handled we can set it's handled attribute.
                     if handled_state is True:
                         received_packet.handled = True
+                        # If the client doesn't want to receive the handled packet,
+                        # we can read the next packet.
+                        if not self._handle_messages_return:
+                            return self.read_packet()
 
-                # log.info('Received Packet: {0}'.format(received_packet))
+                log.info('Received Packet: {0}'.format(received_packet))
                 return received_packet
             else:
                 log.warning('No packet was read from the stream.')
+                print('No packet was read from stream.')
         else:
             raise StopIteration
 
+    # TODO: Raise warning if we receive a SET_CHUNK_SIZE and handle_packet has
+    #       not been enabled?
     # TODO: Connect handle_packet with io.net_connection.commands
     def handle_packet(self, received_packet):
         """
@@ -404,7 +469,7 @@ class NetConnection(BaseConnection):
 
             # Set RtmpWriter chunk size to the new chunk size received.
             self.rtmp_writer.chunk_size = new_chunk_size
-            log.debug('Set RtmpWriter chunk to size to:{0}'.format(self.rtmp_writer.chunk_size))
+            log.debug('Set RtmpWriter chunk to size to: {0}'.format(self.rtmp_writer.chunk_size))
 
             log.info('Handled SET_CHUNK_SIZE packet with new chunk size received.')
             return True
@@ -435,6 +500,99 @@ class NetConnection(BaseConnection):
         else:
             return False
 
+    # TODO: Remove stream_id and override_csid slowly.
+    # TODO: Monitor the response on the same transaction id and get the transaction id logs of messages?
+    # TODO: Handle command object as a list or dictionary.
+    # TODO: createStream requests have a transaction id of 1 (1 more than the transaction id of NetConnection);
+    #       this most likely refers to the latest used - FMS might not recognise it if we send on 0 as it is for
+    #       NetConnection, NetStream is separate? Anything other than 0 could be if a expect a response from the server.
+    # TODO: Tokenize these calls so that if we expect a reply, then we know the reply to get.
+    # TODO: Establish a token system for this as well, so we know which onStatus, _result or _error message.
+    #       matches to which message sent.
+    # TODO: StreamId should not also be a parameter for this method as well, should be handled by
+    #       the inheriting class.
+    # TODO: Allow various forms of parameters to be provided e.g. within parameters maybe a list?
+    #       Is this possible?
+    # TODO: Fix issue with the parameters going into the transaction id due the transaction id field in function
+    #       stated first.
+    def call(self, procedure_name, parameters=None, transaction_id=None, command_object=None, amf3=False):
+        """
+        Attempts to call a remote procedure call (RPC) on the RTMP server.
+
+        :param procedure_name: str
+        :param parameters: list
+        :param transaction_id: int
+        :param command_object: list
+        :param amf3: boolean True/False
+        """
+        # TODO: Rename 'command'.
+        # Create a new packet to send the call on.
+        remote_call = self.rtmp_writer.new_packet()
+
+        print('Created new packet for the call.', remote_call)
+
+        # TODO: Calls should be sent on NetConnection, NetStream messages can be sent specifically via
+        #       NetStream messages.
+        # Calls should be made on the NetConnection stream.
+        remote_call.set_chunk_stream_id(types.RTMP_CONNECTION_CHUNK_STREAM)
+
+        # Set the appropriate data type for the call.
+        if amf3 is False:
+            remote_call.set_type(types.DT_COMMAND)
+        elif amf3 is True:
+            remote_call.set_type(types.DT_AMF3_COMMAND)
+
+        # The default stream id for this should be 0.
+        remote_call.set_stream_id(0)
+
+        # TODO: Should the transaction id be customisable here?
+        if transaction_id is None:
+            transaction_id = self.rtmp_writer.transaction_id
+
+        print('Set the transaction id.')
+
+        command_object_parameters = []
+        if command_object is not None:
+            if type(command_object) is list:
+                command_object_parameters.extend(command_object)
+            elif type(command_object) is dict:
+                command_object_parameters.append(command_object)
+        else:
+            command_object_parameters = None
+
+        print('Command object parameters:', command_object_parameters)
+
+        # TODO: Alter the way in which we send the RPC content so that we can separate the
+        #       command name, transaction id, the command object and the optional arguments
+        #       (as specified in the specification).
+        optional_parameters = []
+        if parameters is not None:
+            if type(parameters) is list:
+                optional_parameters.extend(parameters)
+            elif type(parameters) is dict:
+                optional_parameters.append(parameters)
+
+        print('Optional parameters:', optional_parameters)
+
+        # Form the final body.
+        remote_call.body = {
+            'command_name': procedure_name,
+            'transaction_id': transaction_id,
+            # TODO: Avoid using this type of way of wrapping an object. If it isn't iterable we can just assume.
+            # TODO: We are assuming the command object is provided as a whole dictionary.
+            'command_object': command_object_parameters,
+            'options': optional_parameters
+        }
+
+        # log.debug('Sending Remote Procedure Call: %s with content:', remote_call.body)
+        print('Call body:', remote_call.body)
+
+        # Set up the remote call packet to be sent.
+        remote_call.setup()
+
+        # Send the remote call packet.
+        self.rtmp_writer.send_packet(remote_call)
+
     # def shared_object_use(self, shared_object):
     #     """
     #     Use a shared object and add it to the managed list of shared objects (SOs).
@@ -453,10 +611,10 @@ class NetConnection(BaseConnection):
         log.info('Active connection is off.')
 
         # Reset the connection variables.
-        self.reset_rtmp_server()
-        self.reset_rtmp_parameters()
-        self.reset_extra_rtmp_parameters()
-        log.info('Reset NetConnection class variables.')
+        # self.reset_rtmp_server()
+        # self.reset_rtmp_parameters()
+        # self.reset_extra_rtmp_parameters()
+        # log.info('Reset NetConnection class variables.')
 
         try:
             # TODO: We may need to pass socket.SHUT_RDWR for it work.
@@ -465,3 +623,4 @@ class NetConnection(BaseConnection):
             log.info('Socket object has been shutdown and closed.')
         except self._socket_module.error as socket_error:
             log.error('Socket Error: {0}'.format(socket_error))
+            return False

@@ -9,6 +9,8 @@ a connection to an RTMP server via a proxy.
 
 # TODO: Added exceptions to __init__.
 
+from qrtmp.base import net_connection
+
 __author__ = 'GoelBiju'
 __authors__ = ['prekageo', 'Anorov', 'hydralabs', 'nortxort']
 __credits__ = __authors__
