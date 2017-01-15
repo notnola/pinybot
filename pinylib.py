@@ -13,7 +13,6 @@ import traceback
 import threading
 import about
 
-from qrtmp import net_connection
 from apis import tinychat
 from colorama import init, Fore, Style
 from files import file_handler as fh
@@ -157,7 +156,7 @@ class TinychatRTMPClient:
         self.account = account
         self.password = password
         self.room_pass = room_pass
-        self.net_connection = net_connection.NetConnection()
+        # self.net_connection = net_connection.NetConnection()
         # self.greenroom_connection = net_connection.NetConnection()
         self.user = object
         self.is_connected = False
@@ -311,29 +310,29 @@ class TinychatRTMPClient:
                 # TODO: Adapted connection style to match base; dictionary format.
                 # TODO: Edit the connection process to match new rtmp library structure.
                 # Initialise our RTMP library to communicate with the RTMP server:
-                self.net_connection.set_rtmp_server(self._ip, self._port, self._proxy)
+                # self.net_connection.set_rtmp_server(self._ip, self._port, self._proxy)
 
-                self.net_connection.set_rtmp_parameters(self._app, tc_url=self._tc_url, page_url=self._embed_url,
-                                                        swf_url=self._swf_url)
+                # self.net_connection.set_rtmp_parameters(self._app, tc_url=self._tc_url, page_url=self._embed_url,
+                #                                         swf_url=self._swf_url)
 
                 # Setup our custom connection object:
-                self.net_connection.set_extra_rtmp_parameters(
-                    {
-                        'room': self._roomname,
-                        'type': self._room_type,
-                        'prefix': self._prefix,
-                        'account': self.account,
-                        'cookie': cauth_cookie,
-                        'version': self._desktop_version
-                    }
-                )
+                # self.net_connection.set_extra_rtmp_parameters(
+                #     {
+                #         'room': self._roomname,
+                #         'type': self._room_type,
+                #         'prefix': self._prefix,
+                #         'account': self.account,
+                #         'cookie': cauth_cookie,
+                #         'version': self._desktop_version
+                #     }
+                # )
 
                 # Set the flashVer to be the Windows flash player in the connect RTMP message.
-                self.net_connection.flash_ver = self.net_connection.windows_flash_version
+                # self.net_connection.flash_ver = self.net_connection.windows_flash_version
 
                 # Attempt a connection and return the connection status.
-                print('Connecting to normal application.')
-                self.net_connection.rtmp_connect()
+                # print('Connecting to normal application.')
+                # self.net_connection.rtmp_connect()
 
                 # After-hand connection settings:
                 # - set windows title when connected with information regarding the room:
@@ -366,7 +365,7 @@ class TinychatRTMPClient:
 
             # Reset custom variables.
             self._room_banlist.clear()
-            self.net_connection.disconnect()
+            # self.net_connection.disconnect()
         except Exception as ex:
             log.error('Disconnect error: %s' % ex, exc_info=True)
             if CONFIG['debug_mode']:
@@ -397,14 +396,14 @@ class TinychatRTMPClient:
         failures = 0
         packet = None
         # while self.is_connected:
-        while self.net_connection.active_connection:
+        # while self.net_connection.active_connection:
             try:
                 # TODO: Previous read packet calls have been changed for new ones.
-                packet = self.net_connection.read_packet()
+                # packet = self.net_connection.read_packet()
 
                 if CONFIG['debug_mode']:
                     log.info(packet.header)
-                    print('Received:', packet.header, packet.body)
+                    # print('Received:', packet.header, packet.body)
 
                 # TODO: Removed the setting of amf0_data_type and amf_data_type.
 
@@ -1139,12 +1138,12 @@ class TinychatRTMPClient:
     def send_bauth_msg(self):
         """ Get and send the bauth key needed before we can start a broadcast. """
         if self._bauth_key is not None:
-            self.net_connection.call('bauth', [u'' + self._bauth_key])
+            # self.net_connection.call('bauth', [u'' + self._bauth_key])
         else:
             _token = tinychat.get_bauth_token(self._roomname, self.client_nick, self._client_id,
                                               self._greenroom, proxy=self._proxy)
             if _token != 'PW':
-                self.net_connection.call('bauth', [u'' + _token])
+                # self.net_connection.call('bauth', [u'' + _token])
                 self._bauth_key = _token
 
     # TODO: Issue when sending the call, cauth key is sent on transaction id.
@@ -1154,7 +1153,7 @@ class TinychatRTMPClient:
         Send the cauth key message with a working cauth key, we need to send this before we can chat.
         :param cauthkey: str a working cauth key.
         """
-        self.net_connection.call('cauth', [u'' + cauthkey])
+        # self.net_connection.call('cauth', [u'' + cauthkey])
 
     # TODO: Evaluate design.
     # TODO: Trim this method into something more simpler.
@@ -1186,7 +1185,7 @@ class TinychatRTMPClient:
 
             print('url encoded:', msg_url_encoded)
 
-            self.net_connection.call('owner_run', [u'notice' + msg_url_encoded])
+            # self.net_connection.call('owner_run', [u'notice' + msg_url_encoded])
 
     # TODO: Evaluate design.
     def send_cam_approve_msg(self, nick, uid=None):
@@ -1201,12 +1200,12 @@ class TinychatRTMPClient:
             if uid is None:
                 user = self.find_user_info(nick)
                 if user is not None:
-                    self.net_connection.call('privmsg', [u'' + self._encode_msg(msg), u'#0,en',
-                                                         u'n' + str(user.id) + '-' + nick])
+                    # self.net_connection.call('privmsg', [u'' + self._encode_msg(msg), u'#0,en',
+                    #                                      u'n' + str(user.id) + '-' + nick])
 
             else:
-                self.net_connection.call('privmsg', [u'' + self._encode_msg(msg), u'#0,en',
-                                                     u'n' + str(uid) + '-' + nick])
+                # self.net_connection.call('privmsg', [u'' + self._encode_msg(msg), u'#0,en',
+                #                                      u'n' + str(uid) + '-' + nick])
 
     # TODO: Evaluate design.
     def send_chat_msg(self, msg):
@@ -1214,7 +1213,7 @@ class TinychatRTMPClient:
         Send a chat room message.
         :param msg: str the message to send.
         """
-        self.net_connection.call('privmsg', [u'' + self._encode_msg(msg), u'#262626,en'])
+        # self.net_connection.call('privmsg', [u'' + self._encode_msg(msg), u'#262626,en'])
 
     # TODO: Evaluate design.
     def send_private_msg(self, msg, nick):
@@ -1225,10 +1224,10 @@ class TinychatRTMPClient:
         """
         user = self.find_user_info(nick)
         if user is not None:
-            self.net_connection.call('privmsg', [u'' + self._encode_msg('/msg ' + nick + ' ' + msg),
-                                                 u'#262626,en', u'n' + str(user.id) + '-' + nick])
-            self.net_connection.call('privmsg', [u'' + self._encode_msg('/msg ' + nick + ' ' + msg),
-                                                 u'#262626,en', u'b' + str(user.id) + '-' + nick])
+            # self.net_connection.call('privmsg', [u'' + self._encode_msg('/msg ' + nick + ' ' + msg),
+            #                                      u'#262626,en', u'n' + str(user.id) + '-' + nick])
+            # self.net_connection.call('privmsg', [u'' + self._encode_msg('/msg ' + nick + ' ' + msg),
+            #                                      u'#262626,en', u'b' + str(user.id) + '-' + nick])
 
     # TODO: Evaluate design.
     def send_undercover_msg(self, nick, msg):
@@ -1241,10 +1240,10 @@ class TinychatRTMPClient:
         """
         user = self.find_user_info(nick)
         if user is not None:
-            self.net_connection.call('privmsg', [u'' + self._encode_msg(msg), u'#0,en', u'n' +
-                                                 str(user.id) + '-' + nick])
-            self.net_connection.call('privmsg', [u'' + self._encode_msg(msg), u'#0,en', u'b' +
-                                                 str(user.id) + '-' + nick])
+            # self.net_connection.call('privmsg', [u'' + self._encode_msg(msg), u'#0,en', u'n' +
+            #                                      str(user.id) + '-' + nick])
+            # self.net_connection.call('privmsg', [u'' + self._encode_msg(msg), u'#0,en', u'b' +
+            #                                      str(user.id) + '-' + nick])
 
     # TODO: Evaluate design.
     def set_nick(self):
@@ -1253,7 +1252,7 @@ class TinychatRTMPClient:
             self.client_nick = string_utili.create_random_string(5, 25)
         self.console_write(COLOR['white'], 'Setting nick: %s' % self.client_nick)
         # TODO: Issue when sending the remote call, the nick is sent on transaction id and not the options list.
-        self.net_connection.call('nick', [u'' + self.client_nick])
+        # self.net_connection.call('nick', [u'' + self.client_nick])
 
     # TODO: Evaluate design.
     def send_ban_msg(self, nick, uid=None):
@@ -1266,11 +1265,11 @@ class TinychatRTMPClient:
             if uid is None:
                 user = self.find_user_info(nick)
                 if user is not None:
-                    self.net_connection.call('kick', [u'' + nick, str(user.id)])
+                    # self.net_connection.call('kick', [u'' + nick, str(user.id)])
                     # Request updated ban list.
                     self.send_banlist_msg()
             else:
-                self.net_connection.call('kick', [u'' + nick, str(uid)])
+                # self.net_connection.call('kick', [u'' + nick, str(uid)])
                 # Request updated ban list.
                 self.send_banlist_msg()
 
@@ -1281,7 +1280,7 @@ class TinychatRTMPClient:
         :param uid: int the ID of the user we want to forgive.
         """
         if self._is_client_mod:
-            self.net_connection.call('forgive', [u'' + str(uid)])
+            # self.net_connection.call('forgive', [u'' + str(uid)])
             # Request updated ban list.
             self.send_banlist_msg()
 
@@ -1289,7 +1288,7 @@ class TinychatRTMPClient:
     def send_banlist_msg(self):
         """ Send banlist message. """
         if self._is_client_mod:
-            self.net_connection.call('banlist')
+            # self.net_connection.call('banlist')
 
     # TODO: Evaluate design.
     def send_topic_msg(self, topic):
@@ -1298,7 +1297,7 @@ class TinychatRTMPClient:
         :param topic: str the new room topic.
         """
         if self._is_client_mod:
-            self.net_connection.call('topic', [u'' + topic])
+            # self.net_connection.call('topic', [u'' + topic])
 
     # TODO: Evaluate design.
     def send_close_user_msg(self, nick):
@@ -1307,19 +1306,19 @@ class TinychatRTMPClient:
         :param nick: str the nickname of the user we want to close.
         """
         if self._is_client_mod:
-            self.net_connection.call('owner_run', [u'_close' + nick])
+            # self.net_connection.call('owner_run', [u'_close' + nick])
 
     # TODO: Evaluate design.
     def send_mute_msg(self):
         """ Send mute message to mute all broadcasting users in the room. """
         if self._is_client_mod:
-            self.net_connection.call('owner_run', [u'mute'])
+            # self.net_connection.call('owner_run', [u'mute'])
 
     # TODO: Evaluate design.
     def send_push2talk_msg(self):
         """ Send 'push2talk' room message to force push to talk for all users. """
         if self._is_client_mod:
-            self.net_connection.call('owner_run', [u'push2talk'])
+            # self.net_connection.call('owner_run', [u'push2talk'])
 
     # TODO: Evaluate design.
     # TODO: Simplify this procedure - remove any unnecessary variables.
@@ -1692,24 +1691,24 @@ def main():
     t.daemon = True
     t.start()
 
-    while not client.net_connection.active_connection:
-        time.sleep(1)
+    # while not client.net_connection.active_connection:
+    #     time.sleep(1)
 
-    while client.net_connection.active_connection:
-        chat_msg = raw_input()
-        if chat_msg.lower() == '/q':
-            client.disconnect()
-            # Exit to system safely whilst returning exit code 0.
-            sys.exit(0)
+    # while client.net_connection.active_connection:
+    #     chat_msg = raw_input()
+    #     if chat_msg.lower() == '/q':
+    #         client.disconnect()
+    #         Exit to system safely whilst returning exit code 0.
+    #         sys.exit(0)
 
-        elif chat_msg.lower() == '/pm':
-            nickname = raw_input('Nickname?: ')
-            from utilities import unicode_catalog
-            client.send_private_msg('Hi.' + unicode_catalog.NO_WIDTH, nickname)
-            client.send_undercover_msg(nickname, 'Hi (undercover).')
-            client.send_owner_run_msg('testing owner run message. ')
-        else:
-            client.send_chat_msg(chat_msg)
+        # elif chat_msg.lower() == '/pm':
+        #     nickname = raw_input('Nickname?: ')
+        #     from utilities import unicode_catalog
+        #     client.send_private_msg('Hi.' + unicode_catalog.NO_WIDTH, nickname)
+        #     client.send_undercover_msg(nickname, 'Hi (undercover).')
+        #     client.send_owner_run_msg('testing owner run message. ')
+        # else:
+        #     client.send_chat_msg(chat_msg)
 
 if __name__ == '__main__':
     if CONFIG['debug_to_file']:
