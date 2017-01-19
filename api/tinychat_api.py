@@ -59,7 +59,7 @@ def tinychat_user_info(tc_account):
     :param tc_account: str the account name.
     :return: dict {'username', 'tinychat_id', 'last_active', 'name', 'location'}.
     """
-    url = 'http://tinychat.com/api/tcinfo?username=%s' % tc_account
+    url = 'https://tinychat.com/api/tcinfo?username=%s' % tc_account
     json_data = web_request.get_request(url=url, json=True)
     if json_data is not None:
         try:
@@ -115,9 +115,9 @@ def get_bauth_token(roomname, nick, uid, greenroom, proxy=None):
     :return: str token or PW if a password is needed to broadcast.
     """
     if greenroom:
-        xmlurl = 'http://tinychat.com/api/broadcast.pw?site=greenroom&name=%s&nick=%s&id=%s' % (roomname, nick, uid)
+        xmlurl = 'https://tinychat.com/api/broadcast.pw?site=greenroom&name=%s&nick=%s&id=%s' % (roomname, nick, uid)
     else:
-        xmlurl = 'http://tinychat.com/api/broadcast.pw?site=tinychat&name=%s&nick=%s&id=%s' % (roomname, nick, uid)
+        xmlurl = 'https://tinychat.com/api/broadcast.pw?site=tinychat&name=%s&nick=%s&id=%s' % (roomname, nick, uid)
 
     web_content = web_request.get_request(xmlurl, proxy=proxy)
     if web_content is not None:
@@ -139,7 +139,7 @@ def get_captcha_key(roomname, uid, proxy=None):
     :param proxy: str use a proxy for this request.
     :return: str the captcha key or None on captcha enabled room.
     """
-    url = 'http://tinychat.com/api/captcha/check.php?room=tinychat^%s&guest_id=%s' % (roomname, uid)
+    url = 'https://tinychat.com/api/captcha/check.php?room=tinychat^%s&guest_id=%s' % (roomname, uid)
     json_data = web_request.get_request(url, json=True, proxy=proxy)
     if json_data is not None:
         if 'key' in json_data['content']:
@@ -164,7 +164,7 @@ def get_cauth_cookie(roomname, proxy=None):
     :return: str the 'cookie'
     """
     ts = int(round(time.time() * 1000))
-    url = 'http://tinychat.com/cauth?room=%s&t=%s' % (roomname, str(ts))
+    url = 'https://tinychat.com/cauth?room=%s&t=%s' % (roomname, str(ts))
     json_data = web_request.get_request(url, json=True, proxy=proxy)
     if json_data is not None:
         if 'cookie' in json_data['content']:
@@ -186,7 +186,7 @@ def recaptcha(proxy=None):
     :return: dict{'cookies'} this is NOT used in the code , but are left here for debugging purposes.
     """
     t = str(random.uniform(0.9, 0.10))
-    url = 'http://tinychat.com/cauth/captcha?%s' % t
+    url = 'https://tinychat.com/cauth/captcha?%s' % t
     response = web_request.get_request(url, json=True, proxy=proxy)
     if response is not None:
         if 'need_to_solve_captcha' in response['content']:
@@ -194,12 +194,12 @@ def recaptcha(proxy=None):
             link = ''
             try:
                 if response['content']['need_to_solve_captcha'] == 1:
-                    link = 'http://tinychat.com/cauth/recaptcha?token=%s' % response['content']['token']
+                    link = 'https://tinychat.com/cauth/recaptcha?token=%s' % response['content']['token']
                     successful_recaptcha = True
             except (Exception, KeyError):
                 if '"need_to_solve_captcha":1' in response['content']:
                     token = response['content'].split('"token":"')[1].split('"')[0]
-                    link = 'http://tinychat.com/cauth/recaptcha?token=%s' % token
+                    link = 'https://tinychat.com/cauth/recaptcha?token=%s' % token
 
             if successful_recaptcha:
                 print(link)

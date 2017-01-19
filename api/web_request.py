@@ -10,7 +10,7 @@ DEFAULT_HEADER = {
     'Accept-Language': 'en-US,en;q=0.5',
     'Accept-Encoding': 'gzip, deflate',
     'Connection': 'keep-alive',
-    'Referrer': 'http://tinychat.com'
+    'Referrer': 'https://tinychat.com'
 }
 
 #  A session that all requests will use.
@@ -138,7 +138,7 @@ def post_login(account, password):
     :param password: str tinychat account password.
     :return: dict{'content', 'cookies', 'headers', 'status_code'} or None on error.
     """
-    url = 'http://tinychat.com/login'
+    url = 'https://tinychat.com/login'
     header = {'Referer': url}
     form_data = {
         'form_sent': '1',
