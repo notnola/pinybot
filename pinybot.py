@@ -1,452 +1,280 @@
-#!/usr/bin/env python2
 # -*- coding: utf-8 -*-
-
-# TODO: Removed logo.
 """
-Supplementary Information:
--------------------------
+pinybot
 
-Description: A Tinychat Python bot (based on the pinylib library) with additional features/commands.
-Repository homepage: https://goelbiju.github.io/pinybot/
-Repository: https://github.com/GoelBiju/pinybot/
-
-Acknowledgements:
-----------------
-Acknowledgements to Nortxort (https://github.com/nortxort/) and Autotonic (https://github.com/autotonic/).
-Many others, including Notnola (https://github.com/notnola/) and Technetium1 (https://github.com/technetium1),
-have helped with this project, as well all the contributors on the GitHub repository who have made this
-project the best it can be.
-
-I would like to say thank to you as well for choosing to contribute by using this open-source software.
+EDITED from: tinybot by nortxort (https://github.com/nortxort/tinybot)
 """
 
-import logging
 import sys
+import logging
 import re
 import threading
-import random
 
-# TODO: Auto-url moved to utilities folder.
 import pinylib
-from apis import youtube, soundcloud, lastfm, clever_client_bot, other, locals
-from utilities import string_utili, console_utili, media_manager, privacy_settings, auto_url, unicode_catalog
+import apis
+from util import media_manager, privacy_settings, auto_url, unicode_catalog
 
-# TODO: Loading configuration changed slightly.
-# State the name of the '.ini' configuration file here:
-CONFIG_FILE_NAME = '/config.ini'
-# Make sure we only parse the 'bot' section in the configuration.
-CONFIG, CONFIG_PATH = pinylib.load_config(CONFIG_FILE_NAME, 'Bot')
-if CONFIG is None:
-    print('No file named %s found in: %s' % (CONFIG_FILE_NAME, CONFIG_PATH))
-    print('We cannot proceed to start-up without the configuration file.')
-    # Exit to system safely whilst returning exit code 1.
-    sys.exit(1)
+__all__ = ['pinylib']
 
-# TODO: 'bot_message_to_console' configuration option added.
-# TODO: 'public_cmds' configuration option added.
-# TODO: Rework on the text files, new naming and content changes.
-
-# TODO: Logging issue - TypeError: not all arguments converted during string formatting - debug_to_file.
 log = logging.getLogger(__name__)
+# __version__ = '6.0.5'
 __version__ = '1.5.0'
-
-# TODO: Clear console (console_utili.py) procedure moved to utilities.
-# TODO: Eight ball moved to locals.
+__version_name__ = 'Quantum'
+__status__ = 'alpha.8'
+__authors_information__ = 'Nortxort (https://github.com/nortxort/tinybot' + unicode_catalog.NO_WIDTH + ') GoelBiju ' \
+                          '(https://github.com/GoelBiju/pinybot' + unicode_catalog.NO_WIDTH + ')'
 
 
 class TinychatBot(pinylib.TinychatRTMPClient):
-    """ Overrides event methods in TinychatRTMPClient that the client should to react to. """
+    """ The main bot instance which inherits the TinychatRTMPClient from pinylib. """
 
-    # TODO: Set full path for the PATH key in the CONFIG dictionary.
-    # Set the path for CONFIG key.
-    CONFIG['path'] = sys.path[0] + '/' + CONFIG['path']
+    privacy_settings = None
 
-    # Initial settings:
-    key = CONFIG['key']
-
-    # TODO: Move loading and creation of files for each room into a separate function and call it when initialising.
-    # TODO: Prevent empty files or files with spaces from being loaded.
-    # TODO: Removed setting botters list and loading botteraccounts and autoforgive accounts.
-
-    # TODO: Move this along with loading the other files.
-    # Loads the 'ascii.txt' file with ASCII/unicode text into a dictionary.
-    if CONFIG['ascii_chars']:
-        ascii_dict = pinylib.fh.unicode_loader(CONFIG['path'] + CONFIG['ascii_file'])
-        ascii_chars = True
-        if ascii_dict is None:
-            print('No ' + CONFIG['ascii_file'] + ' was found in: ' + CONFIG['path'])
-            print('As a result the unicode data could not be loaded. Please check your configuration.\n')
-            ascii_chars = False
-
-    # - media events/variables settings:
+    # Media event variables:
     media_manager = media_manager.MediaManager()
     media_timer_thread = None
-    search_play_lists = []
+    media_delay = 2.5
+
+    # Media control variables:
     search_list = []
+    is_search_list_youtube_playlist = False
 
-    yt_type = 'youTube'
-    sc_type = 'soundCloud'
-    playback_delay = 2.5
-    playlist_mode = CONFIG['playlist_mode']
-    public_media = CONFIG['public_media']
-    media_request = None
+    # Custom media event variables:
+    radio_timer_thread = None
+    latest_radio_track = None
+    similar_radio_tracks = 0
+    # media_request = None
+    # _syncing = False
 
-    # - module settings:
-    privacy_settings = object
+    # Custom message variables:
+    # TODO: Implement !ytlast.
+    latest_posted_url = None
 
-    cleverbot_enable = CONFIG['cleverbot_enable']
-    cleverbot_instant = CONFIG['cleverbot_instant']
-    cleverbot_msg_time = int(pinylib.time.time())
-    cleverbot_session = None
+    # Initiate CleverBot related variables:
+    _cleverbot_session = None
+    _cleverbot_msg_time = int(pinylib.time.time())
 
-    # - join settings:
-    is_newusers_allowed = CONFIG['new_users_allowed']
-    is_broadcasting_allowed = CONFIG['broadcasting_allowed']
-    is_guest_entry_allowed = CONFIG['guests_allowed']
-    is_guest_nicks_allowed = CONFIG['guest_nicks_allowed']
+    # Compile regex patterns for use later:
+    _tinychat_spam_pattern = re.compile(r'tinychat.com\/\w+|tinychat. com\/\w+|tinychat .com\/\w+($| |\/+ |\/+$|\n+)\s',
+                                        re.IGNORECASE)
+    _youtube_pattern = re.compile(r'http(?:s*):\/\/(?:www\.youtube|youtu)\.\w+(?:\/watch\?v=|\/)(.{11})', re.IGNORECASE)
+    _character_limit_pattern = re.compile(r'[A-Z0-9]{%r,}' % pinylib.CONFIG.B_CAPITAL_CHARACTER_LIMIT_LENGTH)
 
-    auto_pm = CONFIG['auto_pm']
-    auto_pm_msg = CONFIG['auto_pm_msg']
-    welcome_user = CONFIG['welcome_user']
-    welcome_broadcast_msg = CONFIG['welcome_broadcast_msg']
+    #
+    _snapshot_message = 'I just took a video snapshot of this chatroom. Check it out here:'
 
-    join_quit_notifications = CONFIG['join_quit_notifications']
+    # Automatically setting the media to work on playlist mode if public media has been enabled.
+    if pinylib.CONFIG.B_PUBLIC_MEDIA_MODE:
+        pinylib.CONFIG.B_PLAYLIST_MODE = True
 
-    # - method settings:
-    bot_listen = True
-    auto_url_mode = CONFIG['auto_url_mode']
-    auto_close = CONFIG['auto_close']
-    ban_mobiles = CONFIG['ban_mobiles']
-    cam_blocked = []
-    # TODO: Removed forgive all command and method.
-    syncing = False
-    is_cmds_public = CONFIG['public_cmds']
-
-    # - spam prevention settings:
-    spam_prevention = CONFIG['spam_prevention']
-
-    unicode_spam = CONFIG['unicode_spam']
-    check_bad_string = CONFIG['check_bad_string']
-    snapshot_spam = CONFIG['snapshot_spam']
-    room_link_spam = CONFIG['room_link_spam']
-    snapshot_line = 'I just took a video snapshot of this chatroom. Check it out here:'
-    message_caps_limit = CONFIG['message_caps_limit']
-    caps_char_limit = CONFIG['caps_char_limit']
-    bot_report_kick = CONFIG['bot_report_kick']
-
-    # - regex settings:
-    tinychat_spam_pattern = re.compile(r'tinychat.com\/\w+|tinychat. com\/\w+|tinychat .com\/\w+($| |\/+ |\/+$|\n+)\s',
-                                       re.IGNORECASE)
-    youtube_pattern = re.compile(r'http(?:s*):\/\/(?:www\.youtube|youtu)\.\w+(?:\/watch\?v=|\/)(.{11})',
-                                 re.IGNORECASE)
-    character_limit_pattern = re.compile(r'[A-Z0-9]{50,}')
-
-    # TODO: Can we make this more succinct?
-    # Allow playlist mode to be enforced upon turning on public media.
-    if public_media is True:
-        playlist_mode = True
-
-    # TODO: Imports and variables names, adjust to match new base.
-    # TODO: Add docstring information.
     def on_join(self, join_info_dict):
         """
-        Override how we handle the 'join' command, this will allow us handle single users joining a room.
-
-        :param join_info_dict: dict
+        Overrides the handling of the 'join' command from the server. This will allow us to handle a single user
+        joining the room at a time.
+        :param join_info_dict:
         """
-        log.info('User join info: %s' % join_info_dict)
-        user = self.add_user_info(join_info_dict)
+        log.info('user join info: %s' % join_info_dict)
+        _user = self.users.add(join_info_dict)
 
-        if join_info_dict['account']:
-            tc_info = pinylib.tinychat.tinychat_user_info(join_info_dict['account'])
-            if tc_info is not None:
-                user.tinychat_id = tc_info['tinychat_id']
-                user.last_login = tc_info['last_active']
+        if _user is not None:
+            if _user.account:
+                tc_info = pinylib.core.tinychat_user_info(_user.account)
+                if tc_info is not None:
+                    _user.tinychat_id = tc_info['tinychat_id']
+                    _user.last_login = tc_info['last_active']
 
-            if self.join_quit_notifications:
-                if join_info_dict['own']:
-                    self.console_write(pinylib.COLOR['red'], 'Room Owner %s:%d:%s' %
-                                       (join_info_dict['nick'], join_info_dict['id'], join_info_dict['account']))
-                elif join_info_dict['mod']:
-                    self.console_write(pinylib.COLOR['bright_red'], 'Moderator %s:%d:%s' %
-                                       (join_info_dict['nick'], join_info_dict['id'], join_info_dict['account']))
+                # TODO: 1.5.0 - Modified to add in to optionally show joins information (this can be changed in the
+                #       configuration file).
+                if _user.is_owner:
+                    _user.user_level = 1
+                    if pinylib.CONFIG.ROOM_EVENT_INFORMATION:
+                        self.console_write(pinylib.COLOR['red'], 'Room Owner %s:%d:%s' %
+                                           (_user.nick, _user.id, _user.account))
+                elif _user.is_mod:
+                    _user.user_level = 3
+                    if pinylib.CONFIG.ROOM_EVENT_INFORMATION:
+                        self.console_write(pinylib.COLOR['bright_red'], 'Moderator %s:%d:%s' %
+                                           (_user.nick, _user.id, _user.account))
                 else:
-                    self.console_write(pinylib.COLOR['bright_yellow'], '%s:%d has account: %s' %
-                                       (join_info_dict['nick'], join_info_dict['id'], join_info_dict['account']))
+                    _user.user_level = 5
+                    if pinylib.CONFIG.ROOM_EVENT_INFORMATION:
+                        self.console_write(pinylib.COLOR['bright_yellow'], '%s:%d has account: %s' %
+                                           (_user.nick, _user.id, _user.account))
 
-            # TODO: Test to see if this works.
-            # TODO: Bad strings can still ban mods and anyone else with power (follows todo in the function as well).
-            ba = pinylib.fh.file_reader(CONFIG['path'], CONFIG['badaccounts'])
-            if ba is not None:
-                if join_info_dict['account'] in ba:
-                    if self._is_client_mod:
-                        self.send_ban_msg(join_info_dict['nick'], join_info_dict['id'])
-                        if CONFIG['baforgive']:
-                            self.send_forgive_msg(join_info_dict['id'])
-                        self.send_bot_msg(unicode_catalog.TOXIC + ' *Auto-Banned:* %s (bad account)' %
-                                          join_info_dict['account'], self._is_client_mod)
+                    if _user.account in pinylib.CONFIG.B_ACCOUNT_BANS:
+                        if self._is_client_mod:
+                            self.send_ban_msg(_user.nick, _user.id)
+                            if pinylib.CONFIG.B_FORGIVE_AUTO_BANS:
+                                self.send_forgive_msg(_user.id)
+                            self.send_bot_msg(unicode_catalog.TOXIC + '*Auto-Banned:* (bad account)')
 
-            # TODO: Removed botters for now.
-            # Assign botter accounts if they were in the locally stored file.
-            # if join_info_dict['account'] in self.botteraccounts:
-            #     user.has_power = True
-        else:
-            if join_info_dict['id'] is not self._client_id:
-                if not self.is_guest_entry_allowed:
-                    self.send_ban_msg(join_info_dict['nick'], join_info_dict['id'])
-                    # Remove next line to keep ban.
-                    self.send_forgive_msg(join_info_dict['id'])
-                    self.send_bot_msg(unicode_catalog.TOXIC + ' *Auto-Banned:* (guests not allowed)')
-                else:
-                    if self.join_quit_notifications:
-                        self.console_write(pinylib.COLOR['bright_cyan'], '%s:%d joined the room.' %
-                                           (join_info_dict['nick'], join_info_dict['id']))
+            else:
+                _user.user_level = 5
+                if _user.id is not self._client_id:
+                    # Handle entry to users who are have not entered the captcha and are just previewing the room.
+                    if _user.lf and not pinylib.CONFIG.B_ALLOW_LURKERS and self._is_client_mod:
+                        self.send_ban_msg(_user.nick, _user.id)
+                        if pinylib.CONFIG.B_FORGIVE_AUTO_BANS:
+                            self.send_forgive_msg(_user.id)
+                        self.send_bot_msg(unicode_catalog.TOXIC + '*Auto-Banned:* (lurkers not allowed)')
 
-    # TODO: Add docstring information.
+                    # Handle entry to users who are only guests.
+                    elif not pinylib.CONFIG.B_ALLOW_GUESTS and self._is_client_mod:
+                        self.send_ban_msg(_user.nick, _user.id)
+                        if pinylib.CONFIG.B_FORGIVE_AUTO_BANS:
+                            self.send_forgive_msg(_user.id)
+                        self.send_bot_msg(unicode_catalog.TOXIC + '*Auto-Banned:* (guests not allowed)')
+                    else:
+                        self.console_write(pinylib.COLOR['cyan'], '%s:%d joined the room.' % (_user.nick, _user.id))
+
     def on_joinsdone(self):
         """
-        Overrides handling the 'joinsdone' command to allow us to start processes after all
-        the joins information has been sent.
+        Overrides the handling the 'joinsdone' command from the server. This allows us to start processes which need to
+        be done after we receive all the 'joins' information.
         """
-        if not self._is_reconnected:
-            if CONFIG['auto_message_enabled']:
-                self.start_auto_msg_timer()
+        # Send 'banlist' message to get a list of the banned users if it exists (once we have finished
+        # receiving the 'joins' information).
         if self._is_client_mod:
             self.send_banlist_msg()
+            self.load_list(nicks=True, accounts=True, strings=True)
 
-        if self._is_client_owner and self._room_type != 'default':
+        # Handle retrieving the privacy settings information for the room (if the bot is on the room owner's account).
+        if self._is_client_owner and self.rtmp_parameter['roomtype'] != 'default':
             threading.Thread(target=self.get_privacy_settings).start()
-        self.console_write(pinylib.COLOR['cyan'], 'All joins information received.')
 
-    # TODO: Add docstring information.
+        self.console_write(pinylib.COLOR['cyan'], 'All joins information received from the server.')
+
     def on_avon(self, uid, name):
         """
-        Overrides handling the 'avon' command when users start broadcasting.
-
-        :param uid: str
-        :param name: str
+        Overrides the handling the 'avon' command sent from the server.
+        This is essential when a user starts broadcasting.
+        :param uid:
+        :param name:
         """
-        if not self.is_broadcasting_allowed or name in self.cam_blocked:
+        if not pinylib.CONFIG.B_ALLOW_BROADCASTS and self._is_client_mod:
             self.send_close_user_msg(name)
             self.console_write(pinylib.COLOR['cyan'], 'Auto closed broadcast %s:%s' % (name, uid))
         else:
-            user = self.find_user_info(name)
+            # TODO: Find the user object using the name.
+            # avon_user = self.users.search(name)
+            # TODO: Add code into to get the device type on which the user is using to broadcast.
 
-            if not user.is_owner or not user.is_mod or not user.has_power:
-                uid_parts = uid.split(':')
-                if len(uid_parts) is 2:
-                    clean_uid = uid_parts[0]
-                    user_device = u'' + uid_parts[1]
-                    if user_device not in ['android', 'ios']:
-                        user_device = 'unknown'
-                    # TODO: 'device_type' attribute update.
-                    user.device_type = user_device
-                    self.console_write(pinylib.COLOR['cyan'], '%s:%s is broadcasting from an %s.' %
-                                       (name, clean_uid, user_device))
+            # Handle auto-closing users which has been set to happen for guests/newusers.
+            if pinylib.CONFIG.B_AUTO_CLOSE:
+                if name.startswith('newuser'):
+                    self.send_close_user_msg(name)
+                elif name.startswith('guest-'):
+                    self.send_close_user_msg(name)
 
-                if self.auto_close:
-                    if name.startswith('newuser'):
-                        self.send_close_user_msg(name)
+                # TODO: We need to confirm if this is still possible or not.
+                # elif avon_user.btype in ['android', 'ios']:
+                #     if pinylib.CONFIG.B_BAN_MOBILES and avon_user is not None:
+                #         self.send_ban_msg(name, uid)
+                #         if pinylib.CONFIG.B_FORGIVE_AUTO_BANS:
+                #             self.send_forgive_msg(uid)
+                #         else:
+                #             self.send_close_user_msg(name)
 
-                    elif name.startswith('guest-'):
-                        self.send_close_user_msg(name)
+                return
 
-                    elif user.device_type in ['android', 'ios']:
-                        if self.ban_mobiles:
-                            self.send_ban_msg(name, uid)
-                            # Remove next line to keep ban.
-                            self.send_forgive_msg(uid)
-                        else:
-                            self.send_close_user_msg(name)
-                    return
-
-            if len(self.welcome_broadcast_msg) is not 0:
+            # Handle welcome messages with a new broadcaster.
+            if pinylib.CONFIG.B_GREET_BROADCAST:
                 if len(name) is 2:
                     name = unicode_catalog.NO_WIDTH + name + unicode_catalog.NO_WIDTH
-                self.send_bot_msg('%s *%s*' % (self.welcome_broadcast_msg, name), self._is_client_mod)
+                self.send_bot_msg(unicode_catalog.NOTIFICATION + pinylib.CONFIG.B_GREET_BROADCAST_MESSAGE + '*' +
+                                  unicode_catalog.NO_WIDTH + name + unicode_catalog.NO_WIDTH + '*')
 
             self.console_write(pinylib.COLOR['cyan'], '%s:%s is broadcasting.' % (name, uid))
 
-    # TODO: Add docstring information.
     def on_nick(self, old, new, uid):
         """
-        Overrides handling the 'nick' command when users change their nicknames.
-
-        :param old: str
-        :param new: str
-        :param uid: str
+        Overrides
+        :param old:
+        :param new:
+        :param uid:
         """
-        if uid != self._client_id:
-            old_info = self.find_user_info(old)
-            old_info.nick = new
-            if old in self._room_users.keys():
-                del self._room_users[old]
-                self._room_users[new] = old_info
-
-            # Fetch latest information regarding the user.
-            user = self.find_user_info(new)
-
-            # TODO: Commented re-instating botters when their nickname has changed.
-            # Transfer temporary botter privileges on a nick change.
-            # if old in self.botters:
-            #     self.botters.remove(old)
-            #     self.botters.append(new)
-
-            if not user.is_owner or user.is_mod or user.has_power:
-                if new.startswith('guest-') and not self.is_guest_nicks_allowed:
-                    if self._is_client_mod:
-                        self.send_ban_msg(new, uid)
-                        # Remove next line to keep ban.
-                        self.send_forgive_msg(uid)
-                        self.send_bot_msg(unicode_catalog.TOXIC + ' *Auto-Banned:* (bot nick detected)')
-                        return
-
-                elif new.startswith('newuser') and not self.is_newusers_allowed:
-                    if self._is_client_mod:
-                            self.send_ban_msg(new, uid)
-                            self.send_bot_msg(unicode_catalog.TOXIC + ' *Auto-Banned:* (new-user nick detected)')
-                            return
-
-            if old.startswith('guest-'):
-                # TODO: Confirm this works and reads the file correctly.
-                bn = pinylib.fh.file_reader(self.config_path(), CONFIG['nick_bans'])
-
-                if bn is not None and new in bn:
-                    if self._is_client_mod:
-                        self.send_ban_msg(new, uid)
-                        if CONFIG['bnforgive']:
-                            self.send_forgive_msg(uid)
-                        self.send_bot_msg(unicode_catalog.TOXIC + ' *Auto-Banned:* (bad nick)')
+        if uid == self._client_id:
+            self.nickname = new
+            self.console_write(pinylib.COLOR['bright_cyan'],
+                               'Received confirmation of setting client nickname. Set to: %s' % self.nickname)
+        old_info = self.users.search(old)
+        old_info.nick = new
+        if not self.users.change(old, new, old_info):
+            log.error('failed to change nick for user: %s' % new)
+        if self.check_nick(old, old_info):
+            if pinylib.CONFIG.B_FORGIVE_AUTO_BANS:
+                self.send_forgive_msg(uid)
+        elif uid != self._client_id:
+            if pinylib.CONFIG.B_GREET:
+                if old_info.account:
+                    if len(pinylib.CONFIG.B_GREET_MESSAGE) is 0:
+                        self.send_bot_msg(unicode_catalog.NOTIFICATION + '*Welcome* %s:%s:%s' %
+                                          (new, uid, old_info.account))
+                    else:
+                        # TODO: Add in replace content method here to allow the {user} and {roomname} info.
+                        # to be placed into the string.
+                        self.send_bot_msg(unicode_catalog.NOTIFICATION + pinylib.CONFIG.B_GREET_MESSAGE)
                 else:
-                    if user is not None:
-                        if self.welcome_user:
-                            # TODO: Welcome user owner message if an account is present,
-                            #       otherwise it is an undercover message.
-                            if user.account:
-                                # Greet user with account name/message.
-                                self.send_bot_msg(unicode_catalog.NOTIFICATION + ' Welcome to ' + self._roomname +
-                                                  ': *' + unicode_catalog.NO_WIDTH + new + unicode_catalog.NO_WIDTH +
-                                                  '* (' + user.account + ')')
-                            else:
-                                self.send_undercover_msg(user.nick, 'Welcome to %s: *%s*' %
-                                                         (self._roomname, user.account))
+                    self.send_bot_msg('*Welcome* %s:%s' % (new, uid))
 
-                    if self.media_timer_thread is not None and self.media_timer_thread.is_alive():
-                        if not self.media_manager.is_mod_playing:
-                            # Play the media at the correct start time when the user has set their nick name.
-                            self.send_media_broadcast_start(self.media_manager.track().type,
-                                                            self.media_manager.track().id,
-                                                            time_point=self.media_manager.elapsed_track_time(),
-                                                            private_nick=new)
+            if self.media_manager.has_active_track():
+                if not self.media_manager.is_mod_playing:
+                    self.send_media_broadcast_start(self.media_manager.track().type,
+                                                    self.media_manager.track().id,
+                                                    time_point=self.media_manager.elapsed_track_time(),
+                                                    private_nick=new)
 
-                    # Send any private messages set to be sent once their nickname has been set.
-                    if self.auto_pm and len(self.pm_msg) is not 0:
-                        self.send_auto_pm(new)
+        # TODO: Add the AUTO PM function.
+        # if pinylib.CONFIG.B_GREET_PRIVATE:
+        #     self.send_auto_pm(new)
 
-            self.console_write(pinylib.COLOR['bright_cyan'], '%s:%s changed nick to: %s' % (old, uid, new))
+        self.console_write(pinylib.COLOR['bright_cyan'], '%s:%s changed nick to: %s' % (old, uid, new))
 
-    # TODO: Add docstring information.
-    def on_kick(self, uid, nickname):
+    # TODO: We could add in the do_kick, do_quit functions here and tidy_exit for botters, botteraccounts
+    #       and blocked broadcasts.
+
+    # TODO: Do the docstring for this function.
+    def on_reported(self, nick, uid):
         """
-        Overrides handling the 'kick' command when users are banned from the room.
-
-        :param uid: str
-        :param nickname: str
+        Overrides handling the 'reported' private message when a user reports the client.
+        :param nick: str the nickname of the user who reported the bot.
+        :param uid: str the user id of the user in the room.
         """
-        if uid != self._client_id:
-            user = self.find_user_info(nickname)
-            # TODO: Commented handling autoforgive when users are banned from the room.
-            # if user.account in self.autoforgive:
-            #     self.send_forgive_msg(user.id)
-            #     self.console_write(pinylib.COLOR['bright_red'], '%s:%s was kicked and was automatically forgiven.' %
-            #                        (name, uid))
-            # else:
-
-            self.console_write(pinylib.COLOR['bright_red'], '%s:%s was banned.' % (nickname, uid))
-            self.send_banlist_msg()
-
-    # TODO: Add docstring information.
-    def on_quit(self, uid, nickname):
-        """
-        Overrides handling the 'quit' command when users quit from the room.
-
-        :param uid: str
-        :param nickname: str
-        """
-        if uid is not self._client_id:
-            if nickname in self._room_users.keys():
-                # Execute the tidying method before deleting the user from our records.
-                self.tidy_exit(nickname)
-                del self._room_users[nickname]
-
-                if self.join_quit_notifications:
-                    self.console_write(pinylib.COLOR['cyan'], '%s:%s left the room.' % (name, uid))
-
-    # TODO: Add docstring information.
-    def tidy_exit(self, nickname):
-        """
-        Events to process when a user exists from the room, e.g. removing their nickname or account from botter status
-        or removing their name from the blocked camera broadcasts.
-
-        :param nickname: str
-        """
-        user = self.find_user_info(nickname)
-        # TODO: Commented removing users from the botter and botteraccounts list.
-        # Delete user from botters/botteraccounts if they were instated.
-        # if user.nick in self.botters:
-        #     self.botters.remove(user.nick)
-        # if user.account:
-        #     if user.account in self.botteraccounts:
-        #         self.botteraccounts.remove(user.account)
-
-        # Delete the nickname from the cam blocked list if the user was in it.
-        if user.nick in self.cam_blocked:
-            self.cam_blocked.remove(user.nick)
-
-    # TODO: Add docstring information.
-    def on_reported(self, uid, nickname):
-        """
-        Overrides handling the 'reported' private message when a user reports the bot.
-
-        :param uid: str
-        :param nickname: str
-        """
-        self.console_write(pinylib.COLOR['bright_red'], 'The bot was reported by %s:%s.' % (nickname, uid))
-        if self.bot_report_kick:
-            self.send_ban_msg(nickname, uid)
-            self.send_bot_msg('*Auto-Banned:* (reporting the bot)', self._is_client_mod)
-            # Remove next line to keep ban.
-            self.send_forgive_msg(uid)
+        self.console_write(pinylib.COLOR['bright_red'], 'You were reported by: %s:%s' % (nick, uid))
+        if pinylib.CONFIG.B_BOT_REPORT_KICK:
+            self.send_ban_msg(nick, uid)
+            self.send_bot_msg('*Auto-Banned*: (reporting bot)')
+            if pinylib.CONFIG.B_FORGIVE_AUTO_BANS:
+                self.send_forgive_msg(uid)
 
     # Media Events.
     def on_media_broadcast_start(self, media_type, video_id, usr_nick):
         """
         A user started a media broadcast.
-
-        :param media_type: str the type of media, youTube or soundCloud.
+        :param media_type: str the type of media. youTube or soundCloud.
         :param video_id: str the YouTube ID or SoundCloud track ID.
         :param usr_nick: str the user name of the user playing media.
         """
         self.cancel_media_event_timer()
 
         if media_type == 'youTube':
-            _youtube = youtube.youtube_time(video_id, check=False)
+            _youtube = apis.youtube.video_details(video_id, check=False)
             if _youtube is not None:
-                self.media_manager.mb_start(self.user.nick, _youtube)
+                self.media_manager.mb_start(self.active_user.nick, _youtube)
 
         elif media_type == 'soundCloud':
-            _soundcloud = soundcloud.soundcloud_track_info(video_id)
+            _soundcloud = apis.soundcloud.track_info(video_id)
             if _soundcloud is not None:
-                self.media_manager.mb_start(self.user.nick, _soundcloud)
+                self.media_manager.mb_start(self.active_user.nick, _soundcloud)
 
         self.media_event_timer(self.media_manager.track().time)
-        self.console_write(pinylib.COLOR['bright_magenta'], '%s is playing %s %s' % (usr_nick, media_type, video_id))
+        self.console_write(pinylib.COLOR['bright_magenta'], '%s is playing %s %s' %
+                           (usr_nick, media_type, video_id))
 
     def on_media_broadcast_close(self, media_type, usr_nick):
         """
         A user closed a media broadcast.
-
-        :param media_type: str the type of media, youTube or soundCloud.
+        :param media_type: str the type of media (youTube or soundCloud).
         :param usr_nick: str the user name of the user closing the media.
         """
         self.cancel_media_event_timer()
@@ -456,8 +284,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     def on_media_broadcast_paused(self, media_type, usr_nick):
         """
         A user paused the media broadcast.
-
-        :param media_type: str the type of media being paused, youTube or soundCloud.
+        :param media_type: str the type of media being paused (youTube or soundCloud).
         :param usr_nick: str the user name of the user pausing the media.
         """
         self.cancel_media_event_timer()
@@ -467,8 +294,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     def on_media_broadcast_play(self, media_type, time_point, usr_nick):
         """
         A user resumed playing a media broadcast.
-
-        :param media_type: str the media type, youTube or soundCloud.
+        :param media_type: str the media type. youTube or soundCloud.
         :param time_point: int the time point in the tune in milliseconds.
         :param usr_nick: str the user resuming the tune.
         """
@@ -482,7 +308,6 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     def on_media_broadcast_skip(self, media_type, time_point, usr_nick):
         """
         A user time searched a tune.
-
         :param media_type: str the media type. youTube or soundCloud.
         :param time_point: int the time point in the tune in milliseconds.
         :param usr_nick: str the user time searching the tune.
@@ -499,9 +324,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     def send_media_broadcast_start(self, media_type, video_id, time_point=0, private_nick=None):
         """
         Starts a media broadcast.
-        NOTE: This method replaces play_youtube and play_soundcloud.
-
-        :param media_type: str 'youTube' or 'soundCloud'.
+        :param media_type: str 'youTube' or 'soundCloud'
         :param video_id: str the media video ID.
         :param time_point: int where to start the media from in milliseconds.
         :param private_nick: str if not None, start the media broadcast for this username only.
@@ -517,9 +340,13 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         """
         Send a chat message to the room.
 
+        NOTE: If the client is moderator, send_owner_run_msg will be used.
+        If the client is not a moderator, send_chat_msg will be used.
+        Setting use_chat_msg to True, forces send_chat_msg to be used.
+
         :param msg: str the message to send.
-        :param use_chat_msg: boolean (default: False) use normal chat messages/send messages
-                             depending on whether or not the client is a moderator.
+        :param use_chat_msg: boolean True, use normal chat messages.
+        False, send messages depending on weather or not the client is mod.
         """
         if use_chat_msg:
             self.send_chat_msg(msg)
@@ -527,775 +354,928 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             if self._is_client_mod:
                 self.send_owner_run_msg(msg)
             else:
-                print('Sending as a chat message.')
                 self.send_chat_msg(msg)
 
-        if CONFIG['bot_msg_to_console']:
-            self.console_write(pinylib.COLOR['white'], msg)
-
-    def message_handler(self, msg_sender, decoded_msg):
+    # Command Handler.
+    def message_handler(self, decoded_msg):
         """
         Custom command handler.
 
-        NOTE: Any method using an API should be started in a new thread.
-        :param msg_sender: str the user sending the message.
-        :param decoded_msg: str the message.
+        NOTE: Any method using a online API will be started in a new thread.
+        :param decoded_msg: str the message sent by the current user.
         """
         # Spam checks to prevent any text from spamming the room chat and being parsed by the bot.
-        if self.spam_prevention:
-            if not self.user.is_owner and not self.user.is_super and not self.user.is_mod \
-                    and not self.user.has_power:
-
-                # Start the spam check.
-                spam_potential = self.sanitize_message(msg_sender, self.raw_msg)
+        if self._is_client_mod:
+            if pinylib.CONFIG.B_SANITIZE_MESSAGES and self.active_user.user_level > 4:
+                # Start sanitizing the message.
+                spam_potential = self.sanitize_message(decoded_msg)
                 # TODO: See spam potential without being a moderator, to reduce spam in console(?)
                 if spam_potential:
                     self.console_write(pinylib.COLOR['bright_red'], 'Spam inbound - halt handling.')
                     return
 
-            # If auto URL has been switched on, run, in a new the thread, the automatic URL header retrieval.
-            if self.auto_url_mode:
+            # If Auto URL has been switched on, run, in a new the thread, the automatic URL header retrieval.
+            # This should only be run in the case that we have message sanitation turned on.
+            if pinylib.CONFIG.B_AUTO_URL_MODE:
                 threading.Thread(target=self.do_auto_url, args=(decoded_msg,)).start()
 
-        # TODO: Move CleverBot message handler to elsewhere.
-        # TODO: Add function call to the clever-bot message handler.
-
+        prefix = pinylib.CONFIG.B_PREFIX
         # Is this a custom command?
-        if decoded_msg.startswith(CONFIG['prefix']):
-            # Split the message into parts.
+        if decoded_msg.startswith(prefix):
+            # Split the message in to parts.
             parts = decoded_msg.split(' ')
             # parts[0] is the command.
             cmd = parts[0].lower().strip()
-            # The rest is the command argument.
+            # The rest is a command argument.
             cmd_arg = ' '.join(parts[1:]).strip()
 
-            print('2')
+            # Owner and super mod commands.
+            if self.has_level(1):
 
-            # TODO: This is quite untidy.
-            # TODO: Maybe use the public_cmds option instead of this?
-            # TODO: Review permission control - focus of permissions changes, miscellaneous grouping?
-            # Waive handling messages to normal users if the bot listening is set to False and the user
-            # is not owner/super mod/mod/botter.
-            if not self.bot_listen:
-                if cmd == CONFIG['prefix'] + 'pmme':
-                    print('entering pmme.')
-                    self.do_pmme()
-                else:
-                    self.console_write(pinylib.COLOR['bright_red'], '%s:%s [Not handled - sleeping]' %
-                                       (self.user.nick, decoded_msg))
-                return
+                # Only possible if bot is using the room owner account.
+                if self._is_client_owner:
 
-            print('3')
+                    if cmd == prefix + 'mod':
+                        threading.Thread(target=self.do_make_mod, args=(cmd_arg,)).start()
 
-            # Super mod commands:
-            if self.user.is_super:
-                if cmd == CONFIG['prefix'] + 'mod':
-                    threading.Thread(target=self.do_make_mod, args=(cmd_arg,)).start()
+                    elif cmd == prefix + 'rmod':
+                        threading.Thread(target=self.do_remove_mod, args=(cmd_arg,)).start()
 
-                elif cmd == CONFIG['prefix'] + 'rmod':
-                    threading.Thread(target=self.do_remove_mod, args=(cmd_arg,)).start()
+                    elif cmd == prefix + 'dir':
+                        threading.Thread(target=self.do_directory).start()
 
-                elif cmd == CONFIG['prefix'] + 'dir':
-                    threading.Thread(target=self.do_directory).start()
+                    elif cmd == prefix + 'p2t':
+                        threading.Thread(target=self.do_push2talk).start()
 
-                elif cmd == CONFIG['prefix'] + 'p2t':
-                    threading.Thread(target=self.do_push2talk).start()
+                    elif cmd == prefix + 'gr':
+                        threading.Thread(target=self.do_green_room).start()
 
-                elif cmd == CONFIG['prefix'] + 'gr':
-                    threading.Thread(target=self.do_green_room).start()
+                    elif cmd == prefix + 'crb':
+                        threading.Thread(target=self.do_clear_room_bans).start()
 
-                elif cmd == CONFIG['prefix'] + 'crb':
-                    threading.Thread(target=self.do_clear_room_bans).start()
-
-            print('4')
-
-            # Owner and super mod commands:
-            if self.user.is_owner or self.user.is_super:
-                if cmd == CONFIG['prefix'] + 'kill':
+                if cmd == prefix + 'kill':
                     self.do_kill()
 
-            # Owner and bot controller commands:
-            if self.user.is_owner or self.user.is_super or self.user.has_power:
-                if cmd == CONFIG['prefix'] + 'mi':
-                    self.do_media_info()
-
-            print('5')
-
-            # Mod and bot controller commands:
-            # - Lower-level commands (toggles):
-            if self.user.is_owner or self.user.is_super or \
-                    self.user.is_mod or self.user.has_power:
-
-                if cmd == CONFIG['prefix'] + 'rs':
-                    self.do_room_settings()
-
-                elif cmd == CONFIG['prefix'] + 'sleep':
-                    self.do_sleep()
-
-                elif cmd == CONFIG['prefix'] + 'reboot':
+                elif cmd == prefix + 'reboot':
                     self.do_reboot()
 
-                # TODO: Change command name and functions.
-                elif cmd == CONFIG['prefix'] + 'spam':
-                    self.do_text_spam_prevention()
+            # Bot controller commands.
+            if self.has_level(2):
 
-                # TODO: Change command name and functions.
-                elif cmd == CONFIG['prefix'] + 'snap':
-                    self.do_snapshot()
+                if cmd == prefix + 'mi':
+                    self.do_media_info()
 
-                elif cmd == CONFIG['prefix'] + 'camblock':
-                    self.do_camblock(cmd_arg)
+            # Mod commands.
+            if self.has_level(3):
 
-                elif cmd == CONFIG['prefix'] + 'autoclose':
-                    self.do_autoclose()
+                if cmd == prefix + 'op':
+                    self.do_op_user(cmd_arg)
 
-                elif cmd == CONFIG['prefix'] + 'mobiles':
-                    self.do_ban_mobiles()
+                elif cmd == prefix + 'deop':
+                    self.do_deop_user(cmd_arg)
 
-                elif cmd == CONFIG['prefix'] + 'autourl':
-                    self.do_auto_url_mode()
+                elif cmd == prefix + 'up':
+                    self.do_cam_up()
 
-                elif cmd == CONFIG['prefix'] + 'playlist':
-                    self.do_playlist_mode()
+                elif cmd == prefix + 'down':
+                    self.do_cam_down()
 
-                elif cmd == CONFIG['prefix'] + 'publicmedia':
-                    self.do_public_media()
+                elif cmd == prefix + 'nocam':
+                    self.do_nocam()
 
-                elif cmd == CONFIG['prefix'] + 'guests':
-                    self.do_guest_nick_ban()
+                elif cmd == prefix + 'noguest':
+                    self.do_guests()
 
-                elif cmd == CONFIG['prefix'] + 'newuser':
-                    self.do_newuser_ban()
+                elif cmd == prefix + 'lurkers':
+                    self.do_lurkers()
 
-                elif cmd == CONFIG['prefix'] + 'mute':
-                    threading.Thread(target=self.do_mute).start()
+                elif cmd == prefix + 'guestnick':
+                    self.do_guest_nicks()
 
-                elif cmd == CONFIG['prefix'] + 'p2tnow':
-                    self.do_instant_push2talk()
+                elif cmd == prefix + 'newusers':
+                    self.do_newusers()
 
-                elif cmd == CONFIG['prefix'] + 'autopm':
-                    self.do_auto_pm()
+                elif cmd == prefix + 'greet':
+                    self.do_greet()
 
-                # elif cmd == CONFIG['prefix'] + 'privateroom':
-                #     self.do_private_room()
+                elif cmd == prefix + 'pub':
+                    self.do_public_cmds()
 
-                # TODO: Add in cleverbot enable toggles.
-                elif cmd == CONFIG['prefix'] + 'cleverbot':
-                    self.do_cleverbot_state()
+                if cmd == prefix + 'rs':
+                    self.do_room_settings()
 
-                # - Higher-level commands:
-                elif cmd == CONFIG['prefix'] + 'botter':
-                    threading.Thread(target=self.do_botter, args=(cmd_arg,)).start()
-
-                elif cmd == CONFIG['prefix'] + 'protect':
-                    threading.Thread(target=self.do_autoforgive, args=(cmd_arg,)).start()
-
-                elif cmd == CONFIG['prefix'] + 'cam':
-                    self.do_cam_approve(cmd_arg)
-
-                elif cmd == CONFIG['prefix'] + 'close':
-                    self.do_close_broadcast(cmd_arg)
-
-                elif cmd == CONFIG['prefix'] + 'clr':
-                    self.do_clear()
-
-                elif cmd == CONFIG['prefix'] + 'nick':
-                    self.do_nick(cmd_arg)
-
-                elif cmd == CONFIG['prefix'] + 'topic':
-                    self.do_topic(cmd_arg)
-
-                elif cmd == CONFIG['prefix'] + 'topicis':
-                    threading.Thread(target=self.do_current_topic).start()
-
-                elif cmd == CONFIG['prefix'] + 'kick':
-                    self.do_kick(cmd_arg)
-
-                elif cmd == CONFIG['prefix'] + 'ban':
-                    self.do_kick(cmd_arg, True)
-
-                elif cmd == CONFIG['prefix'] + 'forgive':
-                    threading.Thread(target=self.do_forgive, args=(cmd_arg,)).start()
-
-                elif cmd == CONFIG['prefix'] + 'bn':
-                    threading.Thread(target=self.do_bad_nick, args=(cmd_arg,)).start()
-
-                elif cmd == CONFIG['prefix'] + 'rmbn':
-                    self.do_remove_bad_nick(cmd_arg)
-
-                elif cmd == CONFIG['prefix'] + 'bs':
-                    threading.Thread(target=self.do_bad_string, args=(cmd_arg,)).start()
-
-                elif cmd == CONFIG['prefix'] + 'rmbs':
-                    self.do_remove_bad_string(cmd_arg)
-
-                elif cmd == CONFIG['prefix'] + 'ba':
-                    threading.Thread(target=self.do_bad_account, args=(cmd_arg,)).start()
-
-                elif cmd == CONFIG['prefix'] + 'rmba':
-                    self.do_remove_bad_account(cmd_arg)
-
-                elif cmd == CONFIG['prefix'] + 'list':
-                    self.do_list_info(cmd_arg)
-
-                elif cmd == CONFIG['prefix'] + 'uinfo':
-                    threading.Thread(target=self.do_user_info, args=(cmd_arg,)).start()
-
-                # Standard media commands:
-                elif cmd == CONFIG['prefix'] + 'yt':
-                    threading.Thread(target=self.do_play_youtube, args=(cmd_arg,)).start()
-
-                elif cmd == CONFIG['prefix'] + 'sc':
-                    threading.Thread(target=self.do_play_soundcloud, args=(cmd_arg,)).start()
-
-                elif cmd == CONFIG['prefix'] + 'syt':
-                    threading.Thread(target=self.do_youtube_search, args=(cmd_arg,)).start()
-
-                elif cmd == CONFIG['prefix'] + 'psyt':
-                    threading.Thread(target=self.do_play_youtube_search, args=(cmd_arg,)).start()
-
-                elif cmd == CONFIG['prefix'] + 'a':
-                    threading.Thread(target=self.do_media_request_choice, args=(True,)).start()
-
-                elif cmd == CONFIG['prefix'] + 'd':
-                    threading.Thread(target=self.do_media_request_choice, args=(False,)).start()
-
-                # TODO: Media manager now linked to commands and their respective functions.
-                elif cmd == CONFIG['prefix'] + 'pause':
-                    self.do_media_pause()
-
-                elif cmd == CONFIG['prefix'] + 'resume':
-                    self.do_media_resume()
-
-                elif cmd == CONFIG['prefix'] + 'seek':
-                    self.do_media_seek(cmd_arg)
-
-                elif cmd == CONFIG['prefix'] + 'skip':
-                     self.do_media_skip()
-
-                elif cmd == CONFIG['prefix'] + 'replay':
-                    self.do_media_replay()
-
-                elif cmd == CONFIG['prefix'] + 'stop':
-                    self.do_media_stop()
-
-                # Playlist media commands:
-                elif cmd == CONFIG['prefix'] + 'pl':
-                    threading.Thread(target=self.do_youtube_playlist_videos, args=(cmd_arg,)).start()
-
-                elif cmd == CONFIG['prefix'] + 'plsh':
-                    threading.Thread(target=self.do_youtube_playlist_search, args=(cmd_arg,)).start()
-
-                elif cmd == CONFIG['prefix'] + 'pladd':
-                    threading.Thread(target=self.do_youtube_playlist_search_choice, args=(cmd_arg,)).start()
-
-                # Specific media control commands:
-                # TODO: Requires new media handling class.
-                # TODO: Issue when replaying, current time point continues and does not reset/becomes zero (this issue
-                #       could be persistent in the majority of functions.
-                # TODO: Check all of the media_manager module.
-
-                # TODO: API checks complete.
-                elif cmd == CONFIG['prefix'] + 'top40':
-                    threading.Thread(target=self.do_charts).start()
-
-                elif cmd == CONFIG['prefix'] + 'top':
+                elif cmd == prefix + 'top':
                     threading.Thread(target=self.do_lastfm_chart, args=(cmd_arg,)).start()
 
-                elif cmd == CONFIG['prefix'] + 'ran':
+                elif cmd == prefix + 'ran':
                     threading.Thread(target=self.do_lastfm_random_tunes, args=(cmd_arg,)).start()
 
-                elif cmd == CONFIG['prefix'] + 'tag':
-                    threading.Thread(target=self.search_lastfm_by_tag, args=(cmd_arg,)).start()
+                elif cmd == prefix + 'tag':
+                    threading.Thread(target=self.do_search_lastfm_by_tag, args=(cmd_arg,)).start()
 
-                elif cmd == CONFIG['prefix'] + 'rm':
+                elif cmd == prefix + 'pls':
+                    threading.Thread(target=self.do_youtube_playlist_search, args=(cmd_arg,)).start()
+
+                elif cmd == prefix + 'plp':
+                    threading.Thread(target=self.do_play_youtube_playlist, args=(cmd_arg,)).start()
+
+                elif cmd == prefix + 'ssl':
+                    self.do_show_search_list()
+
+            if self.has_level(4):
+
+                if cmd == prefix + 'close':
+                    self.do_close_broadcast(cmd_arg)
+
+                elif cmd == prefix + 'clr':
+                    self.do_clear()
+
+                elif cmd == prefix + 'skip':
+                    self.do_skip()
+
+                elif cmd == prefix + 'del':
                     self.do_delete_playlist_item(cmd_arg)
 
-                elif cmd == CONFIG['prefix'] + 'cpl':
+                elif cmd == prefix + 'replay':  # rpl
+                    self.do_media_replay()
+
+                elif cmd == prefix + 'resume':  # mbpl
+                    self.do_play_media()
+
+                elif cmd == prefix + 'pause':  # mbpa
+                    self.do_media_pause()
+
+                elif cmd == prefix + 'seek':
+                    self.do_seek_media(cmd_arg)
+
+                elif cmd == prefix + 'stop':  # cm
+                    self.do_close_media()
+
+                elif cmd == prefix + 'cpl':
                     self.do_clear_playlist()
 
-            print('6')
+                elif cmd == prefix + 'spl':
+                    self.do_playlist_info()
 
-            # Public commands:
-            if self.is_cmds_public or self.user.is_owner or self.user.is_super or \
-                    self.user.is_mod or self.user.has_power:
+                elif cmd == prefix + 'nick':
+                    self.do_nick(cmd_arg)
 
-                print('7')
+                elif cmd == prefix + 'topic':
+                    self.do_topic(cmd_arg)
 
-                if cmd == CONFIG['prefix'] + 'v':
-                    threading.Thread(target=self.do_version).start()
+                elif cmd == prefix + 'kick':
+                    self.do_kick(cmd_arg)
 
-                elif cmd == CONFIG['prefix'] + 'help':
-                    threading.Thread(target=self.do_help).start()
-                    print('8')
+                elif cmd == prefix + 'ban':
+                    self.do_ban(cmd_arg)
 
-                elif cmd == CONFIG['prefix'] + 'uptime':
-                    threading.Thread(target=self.do_uptime).start()
+                elif cmd == prefix + 'bn':
+                    self.do_bad_nick(cmd_arg)
 
-                elif cmd == CONFIG['prefix'] + 'pmme':
-                    print('entering pmme normally')
+                elif cmd == prefix + 'rmbn':
+                    self.do_remove_bad_nick(cmd_arg)
+
+                elif cmd == prefix + 'bs':
+                    self.do_bad_string(cmd_arg)
+
+                elif cmd == prefix + 'rmbs':
+                    self.do_remove_bad_string(cmd_arg)
+
+                elif cmd == prefix + 'ba':
+                    self.do_bad_account(cmd_arg)
+
+                elif cmd == prefix + 'rmba':
+                    self.do_remove_bad_account(cmd_arg)
+
+                elif cmd == prefix + 'list':
+                    self.do_list_info(cmd_arg)
+
+                elif cmd == prefix + 'uinfo':
+                    self.do_user_info(cmd_arg)
+
+                elif cmd == prefix + 'yts':
+                    threading.Thread(target=self.do_youtube_search, args=(cmd_arg,)).start()
+
+                elif cmd == prefix + 'pyts':
+                    self.do_play_youtube_search(cmd_arg)
+
+                # TODO: Implement greenroom reading information function.
+                # elif cmd == prefix + 'cam':
+                #     threading.Thread(target=self.do_cam_approve).start()
+
+            # Public commands (if enabled).
+            if (pinylib.CONFIG.B_PUBLIC_CMD and self.has_level(5)) or self.active_user.user_level < 5:
+
+                if cmd == prefix + 'fs':
+                    self.do_full_screen(cmd_arg)
+
+                elif cmd == prefix + 'wp':
+                    self.do_who_plays()
+
+                # TODO: Update version information.
+                elif cmd == prefix + 'v':
+                    self.do_version()
+
+                elif cmd == prefix + 'help':
+                    self.do_help()
+
+                elif cmd == prefix + 't':  # uptime
+                    self.do_uptime()
+
+                elif cmd == prefix + 'pmme':
                     self.do_pmme()
 
-                elif cmd == CONFIG['prefix'] + 'fs':
-                    threading.Thread(target=self.do_full_screen, args=(cmd_arg,)).start()
+                elif cmd == prefix + 'q':
+                    self.do_playlist_status()
 
-                elif cmd == CONFIG['prefix'] + 'reqyt':
-                    threading.Thread(target=self.do_media_request, args=(self.yt_type, cmd_arg,)).start()
+                elif cmd == prefix + 'next':  # n
+                    self.do_next_tune_in_playlist()
 
-                elif cmd == CONFIG['prefix'] + 'reqsc':
-                    threading.Thread(target=self.do_media_request, args=(self.sc_type, cmd_arg,)).start()
+                elif cmd == prefix + 'now':  # now
+                    self.do_now_playing()
 
-                # TODO: 'now' command is 'np'.
-                elif cmd == CONFIG['prefix'] + 'np':
-                    threading.Thread(target=self.do_now_playing).start()
+                elif cmd == prefix + 'yt':
+                    threading.Thread(target=self.do_play_youtube, args=(cmd_arg,)).start()
 
-                # TODO: Who plays command.
-                elif cmd == CONFIG['prefix'] + 'wp':
-                    threading.Thread(target=self.do_who_plays).start()
+                elif cmd == prefix + 'ytme':  # pyt
+                    threading.Thread(target=self.do_play_private_youtube, args=(cmd_arg,)).start()
 
-                elif cmd == CONFIG['prefix'] + 'pls':
-                    threading.Thread(target=self.do_playlist_status).start()
+                elif cmd == prefix + 'sc':
+                    threading.Thread(target=self.do_play_soundcloud, args=(cmd_arg,)).start()
 
-                elif cmd == CONFIG['prefix'] + 'next':
-                    threading.Thread(target=self.do_next_tune_in_playlist).start()
+                elif cmd == prefix + 'scme':  # psc
+                    threading.Thread(target=self.do_play_private_soundcloud, args=(cmd_arg,)).start()
 
-                # - Private media commands:
-                elif cmd == CONFIG['prefix'] + 'ytme':
-                    threading.Thread(target=self.do_play_private_media, args=(self.yt_type, cmd_arg,)).start()
-
-                elif cmd == CONFIG['prefix'] + 'scme':
-                    threading.Thread(target=self.do_play_private_media, args=(self.sc_type, cmd_arg,)).start()
-
-                elif cmd == CONFIG['prefix'] + 'stopme':
-                    threading.Thread(target=self.do_stop_private_media).start()
-
-                elif cmd == CONFIG['prefix'] + 'sync':
-                    threading.Thread(target=self.do_sync_media, args=(cmd_arg,)).start()
-
-                # API commands:
-                # - Tinychat API commands:
-                elif cmd == CONFIG['prefix'] + 'spy':
+                # Tinychat API commands.
+                elif cmd == prefix + 'spy':
                     threading.Thread(target=self.do_spy, args=(cmd_arg,)).start()
 
-                elif cmd == CONFIG['prefix'] + 'acspy':
+                elif cmd == prefix + 'acspy':
                     threading.Thread(target=self.do_account_spy, args=(cmd_arg,)).start()
 
-                # - Other API commands:
-                elif cmd == CONFIG['prefix'] + 'urb':
+                # Other API commands.
+                elif cmd == prefix + 'urb':
                     threading.Thread(target=self.do_search_urban_dictionary, args=(cmd_arg,)).start()
 
-                elif cmd == CONFIG['prefix'] + 'wea':
+                elif cmd == prefix + 'wea':
                     threading.Thread(target=self.do_weather_search, args=(cmd_arg,)).start()
 
-                elif cmd == CONFIG['prefix'] + 'ip':
-                    threading.Thread(target=self.do_whois_ip, args=(cmd_arg,)).start()
+                elif cmd == prefix + 'ip':
+                    threading.Thread(target=self.do_who_is_ip, args=(cmd_arg,)).start()
 
-                elif cmd == CONFIG['prefix'] + 'm5c':
-                    threading.Thread(target=self.do_md5_hash_cracker, args=(cmd_arg,)).start()
-
-                # TODO: Test the module.
-                elif cmd == CONFIG['prefix'] + 'ddg':
-                    threading.Thread(target=self.do_duckduckgo_search, args=(cmd_arg,)).start()
-
-                # TODO: Removed Wikipedia module usage.
-
-                elif cmd == CONFIG['prefix'] + 'imdb':
-                    threading.Thread(target=self.do_omdb_search, args=(cmd_arg,)).start()
-
-                elif cmd == CONFIG['prefix'] + 'ety':
-                    threading.Thread(target=self.do_etymonline_search, args=(cmd_arg,)).start()
-
-                # Entertainment/alternative media commands:
-                elif cmd == CONFIG['prefix'] + 'cb':
-                    threading.Thread(target=self.do_cleverbot, args=(cmd_arg,)).start()
-
-                elif cmd == CONFIG['prefix'] + 'cn':
+                # Just for fun.
+                elif cmd == prefix + 'cn':
                     threading.Thread(target=self.do_chuck_norris).start()
 
-                elif cmd == CONFIG['prefix'] + '8ball':
+                elif cmd == prefix + '8ball':
                     self.do_8ball(cmd_arg)
 
-                elif cmd == CONFIG['prefix'] + 'yomama':
-                    threading.Thread(target=self.do_yo_mama_joke).start()
-
-                elif cmd == CONFIG['prefix'] + 'advice':
-                    threading.Thread(target=self.do_advice).start()
-
-                elif cmd == CONFIG['prefix'] + 'joke':
-                    threading.Thread(target=self.do_one_liner, args=(cmd_arg,)).start()
-
-                # TODO: Re-write how we use the time API, below is what we need to include.
-                # TODO: Allow 'non-military' time conversion (24 hr --> 12 hr with AM/PM) via argument(?)
-                # TODO: Place these two function into one and provide variable to determine the use of one.
-
-                else:
-                    # TODO: This code is not tidy, tidy it up - it is in the incorrect place (if the requested command
-                    #       is in another branch then it might request this if the user does not have privileges.
-                    # Main call to check if the command is an ASCII command.
-                    if self.ascii_chars:
-                        ascii_result = self.do_ascii(cmd)
-                        if ascii_result:
-                            return
+            # Handle extra commands if they are not handled by the default ones.
+            self.custom_message_handler(cmd, cmd_arg)
 
             # Print command to console.
-            self.console_write(pinylib.COLOR['yellow'], msg_sender + ': ' + cmd + ' ' + cmd_arg)
+            self.console_write(pinylib.COLOR['yellow'], self.active_user.nick + ': ' + cmd + ' ' + cmd_arg)
         else:
-            self.console_write(pinylib.COLOR['green'], self.user.nick + ': ' + decoded_msg)
+            # TODO: CleverBot will only work now if it is not given a command and the client's name is mentioned in
+            #       the message.
+            if pinylib.CONFIG.B_CLEVERBOT:
+                self.cleverbot_message_handler(decoded_msg)
 
-        # Add msg to user object last_msg attribute.
-        self.user.last_msg = decoded_msg
+            #  Print chat message to console.
+            self.console_write(pinylib.COLOR['green'], self.active_user.nick + ': ' + decoded_msg)
 
-    # TODO: Removed the usage of 'is_client_mod'/'_is_client_mod' to just the message we want to send.
-    # TODO: Look at who has permission to access each function.
+            # TODO: Moved this to sanitize message procedure.
+            # Only check chat msg for ban string if we are mod.
+            # if self._is_client_mod and self.active_user.user_level > 4:
+            #     threading.Thread(target=self.check_msg, args=(decoded_msg,)).start()
 
-    # == Super Mod Commands Methods. ==
+        self.active_user.last_msg = decoded_msg
+
+    # Custom Message Command Handler.
+    def custom_message_handler(self, cmd, cmd_arg):
+        """
+        The custom message handler is where all extra commands that have been added to tinybot/pinybot is to be kept.
+        This will include the use of other external API's and basic ones, all new commands should be added here
+        and linked to it's function below.
+
+        :param cmd: str
+        :param cmd_arg: str the command argument that we received.
+        """
+        print('(Custom message handler) Received command, command argument:', cmd, cmd_arg)
+        prefix = pinylib.CONFIG.B_PREFIX
+
+        if self.has_level(1):
+            pass
+
+        if self.has_level(2):
+
+            # TODO: Option to toggle sanitizing messages on/off.
+            if cmd == prefix + 'sanitize':
+                self.do_set_sanitize_message()
+
+            # TODO: Be cautious with this command, we do not really know what it does.
+            elif cmd == prefix + 'privateroom':
+                self.do_set_private_room()
+
+        if self.has_level(3):
+
+            if cmd == prefix + 'snapshots':
+                self.do_set_allow_snapshots()
+
+            # TODO: Re-do this function.
+            # elif cmd == prefix + 'camblock':
+            #     self.do_camblock(cmd_arg)
+
+            elif cmd == prefix + 'autoclose':
+                self.do_set_auto_close()
+
+            elif cmd == prefix + 'mobiles':
+                self.do_set_ban_mobiles()
+
+            elif cmd == prefix + 'autourl':
+                self.do_set_auto_url_mode()
+
+            elif cmd == prefix + 'cleverbot':
+                self.do_set_cleverbot()
+
+            # TODO: Adjust how auto pm works.
+            elif cmd == prefix + 'greetpm':
+                self.do_set_greet_pm()
+
+            elif cmd == prefix + 'publiclimit':
+                self.do_set_media_limit_public()
+
+            elif cmd == prefix + 'playlistlimit':
+                self.do_set_media_limit_playlist()
+
+            elif cmd == prefix + 'limit':
+                self.do_media_limit_duration(cmd_arg)
+
+            elif cmd == prefix + 'allowradio':
+                self.do_set_allow_radio()
+
+            # TODO: We may not need these functions anymore.
+            # elif cmd == prefix + 'pl':
+            #     threading.Thread(target=self.do_youtube_playlist_videos, args=(cmd_arg,)).start()
+
+            # elif cmd == prefix + 'plsh':
+            #     threading.Thread(target=self.do_youtube_playlist_search, args=(cmd_arg,)).start()
+
+            # elif cmd == prefix + 'pladd':
+            #     threading.Thread(target=self.do_youtube_playlist_search_choice, args=(cmd_arg,)).start()
+
+        if self.has_level(4):
+
+            # if cmd == prefix + 'a':
+            #     self.do_request_media_accept()
+
+            # elif cmd == prefix + 'd':
+            #     self.do_request_media_decline()
+
+            if cmd == prefix + 'playlist':
+                self.do_set_playlist_mode()
+
+            elif cmd == prefix + 'publicmedia':
+                self.do_set_public_media_mode()
+
+            elif cmd == prefix + 'mute':
+                self.do_mute()
+
+            elif cmd == prefix + 'p2tnow':
+                self.do_instant_push2talk()
+
+            elif cmd == prefix + 'top40':
+                threading.Thread(target=self.do_top40_charts).start()
+
+            elif cmd == prefix + 'startradio':
+                self.do_start_radio_auto_play()
+
+            elif cmd == prefix + 'stopradio':
+                self.do_stop_radio_auto_play()
+
+        if (pinylib.CONFIG.B_PUBLIC_CMD and self.has_level(5)) or self.active_user.user_level < 5:
+
+            # if cmd == prefix + 'reqyt':
+            #     threading.Thread(target=self.do_media_request, args=(cmd_arg,)).start()
+
+            # elif cmd == prefix + 'reqsc':
+            #     threading.Thread(target=self.do_media_request, args=(cmd_arg,)).start()
+
+            # elif cmd == prefix + 'sync':
+            #     threading.Thread(target=self.do_sync_media, args=(cmd_arg,)).start()
+
+            # elif cmd == prefix + 'stopme':
+            #     threading.Thread(target=self.do_stop_private_media).start()
+
+            if cmd == prefix + 'ddg':
+                threading.Thread(target=self.do_duckduckgo_search, args=(cmd_arg,)).start()
+
+            elif cmd == prefix + 'imdb':
+                threading.Thread(target=self.do_imdb_search, args=(cmd_arg,)).start()
+
+            elif cmd == prefix + 'joke':
+                threading.Thread(target=self.do_one_liner, args=(cmd_arg,)).start()
+
+            elif cmd == prefix + 'advice':
+                threading.Thread(target=self.do_advice).start()
+
+            elif cmd == prefix + 'cb':
+                threading.Thread(target=self.do_cleverbot, args=(cmd_arg,)).start()
+
+            elif cmd == prefix + 'ety':
+                threading.Thread(target=self.do_etymology_search, args=(cmd_arg,)).start()
+
+        # TODO: No support for unicode/ascii symbols yet.
+
     def do_make_mod(self, account):
         """
         Make a Tinychat account a room moderator.
-        :param account: str the account to make a moderator.
+        :param account str the account to make a moderator.
         """
         if self._is_client_owner:
-            if self.user.is_super:
-                if len(account) is 0:
-                    self.send_bot_msg('*Missing account name.*')
-                else:
-                    tc_user = self.privacy_settings.make_moderator(account)
-                    if tc_user is None:
-                        self.send_bot_msg('*The account is invalid.*')
-                    elif not tc_user:
-                        self.send_bot_msg('*The account is already a moderator.*')
-                    elif tc_user:
-                        self.send_bot_msg('*' + account + ' was made a room moderator.*')
+            if len(account) is 0:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Missing account name.')
+            else:
+                tc_user = self.privacy_settings.make_moderator(account)
+                if tc_user is None:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' *The account is invalid.*')
+                elif not tc_user:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' *%s* is already a moderator.' % account)
+                elif tc_user:
+                    self.send_bot_msg(unicode_catalog.STATE + ' *%s* was made a room moderator.' % account)
 
     def do_remove_mod(self, account):
         """
         Removes a Tinychat account from the moderator list.
-        :param account: str the account to remove from the moderator list.
+        :param account str the account to remove from the moderator list.
         """
         if self._is_client_owner:
-            if self.user.is_super:
-                if len(account) is 0:
-                    self.send_bot_msg('*Missing account name.*')
-                else:
-                    tc_user = self.privacy_settings.remove_moderator(account)
-                    if tc_user:
-                        self.send_bot_msg('*' + account + ' is no longer a room moderator.*')
-                    elif not tc_user:
-                        self.send_bot_msg('*' + account + ' is not a room moderator.*')
+            if len(account) is 0:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Missing account name.')
+            else:
+                tc_user = self.privacy_settings.remove_moderator(account)
+                if tc_user:
+                    self.send_bot_msg(unicode_catalog.STATE + ' *%s* is no longer a room moderator.' % account)
+                elif not tc_user:
+                    self.send_bot_msg(unicode_catalog.STATE + ' *%s* is not a room moderator.' % account)
 
     def do_directory(self):
         """ Toggles if the room should be shown on the directory. """
         if self._is_client_owner:
             if self.privacy_settings.show_on_directory():
-                self.send_bot_msg('*Room IS shown on the directory.*')
+                self.send_bot_msg(unicode_catalog.STATE + ' *Room IS shown on the directory.*')
             else:
-                self.send_bot_msg('*Room is NOT shown on the directory.*')
+                self.send_bot_msg(unicode_catalog.STATE + ' *Room is NOT shown on the directory.*')
 
     def do_push2talk(self):
         """ Toggles if the room should be in push2talk mode. """
         if self._is_client_owner:
             if self.privacy_settings.set_push2talk():
-                self.send_bot_msg('Push2Talk is *enabled*.')
+                self.send_bot_msg(unicode_catalog.STATE + ' *Push2Talk is enabled.*')
             else:
-                self.send_bot_msg('Push2Talk is *disabled*.')
+                self.send_bot_msg(unicode_catalog.STATE + ' *Push2Talk is disabled.*')
 
     def do_green_room(self):
         """ Toggles if the room should be in greenroom mode. """
         if self._is_client_owner:
             if self.privacy_settings.set_greenroom():
-                self.send_bot_msg('Green room is *enabled*.')
-                self._greenroom = True
+                self.send_bot_msg(unicode_catalog.STATE + ' *Green room is enabled.*')
+                self.rtmp_parameter['greenroom'] = True
             else:
-                self.send_bot_msg('Green room is *disabled*.')
-                self._greenroom = False
+                self.send_bot_msg(unicode_catalog.STATE + ' *Green room is disabled.*')
+                self.rtmp_parameter['greenroom'] = False
 
     def do_clear_room_bans(self):
         """ Clear all room bans. """
         if self._is_client_owner:
             if self.privacy_settings.clear_bans():
-                self.send_bot_msg('*All room bans was cleared.*')
+                self.send_bot_msg(unicode_catalog.STATE + ' *All room bans was cleared.*')
 
-    # == Owner And Super Mod Command Methods. ==
     def do_kill(self):
         """ Kills the bot. """
         self.disconnect()
-        # TODO: We want the whole program to exit, not hang.
-        # Exit normally.
-        sys.exit(0)
 
-    # == Owner And Mod Command Methods. ==
     def do_reboot(self):
         """ Reboots the bot. """
+        self.send_bot_msg(unicode_catalog.RELOAD + ' *Reconnecting to the room.*')
         self.reconnect()
 
-    # == Owner/ Super Mod/ Mod/ Power users Command Methods. ==
     def do_media_info(self):
         """ Shows basic media info. """
         if self._is_client_mod:
+            self.send_owner_run_msg('*Playlist Length:* ' + str(len(self.media_manager.track_list)))
             self.send_owner_run_msg('*Track List Index:* ' + str(self.media_manager.track_list_index))
-            self.send_owner_run_msg('*Playlist Length*: ' + str(len(self.media_manager.track_list)))
-            self.send_owner_run_msg('*Current Time Point:* ' +
+            self.send_owner_run_msg('*Elapsed Track Time:* ' +
                                     self.format_time(self.media_manager.elapsed_track_time()))
+            self.send_owner_run_msg('*Active Track:* ' + str(self.media_manager.has_active_track()))
             self.send_owner_run_msg('*Active Threads:* ' + str(threading.active_count()))
-            self.send_owner_run_msg('*Is Mod Playing:* ' + str(self.media_manager.is_mod_playing))
+
+    def do_op_user(self, user_name):
+        """
+        Lets the room owner, a mod or a bot controller make another user a bot controller.
+        :param user_name: str the user to op.
+        """
+        if self._is_client_mod:
+            if len(user_name) is 0:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Missing username.')
+            else:
+                _user = self.users.search(user_name)
+                if _user is not None:
+                    _user.user_level = 4
+                    self.send_bot_msg(unicode_catalog.BLACK_STAR + ' *%s* is now a bot controller (L4)' % user_name)
+                else:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' No user named: %s' % user_name)
+
+    def do_deop_user(self, user_name):
+        """
+        Lets the room owner, a mod or a bot controller remove a user from being a bot controller.
+        :param user_name: str the user to deop.
+        """
+        if self._is_client_mod:
+            if len(user_name) is 0:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Missing username.')
+            else:
+                _user = self.users.search(user_name)
+                if _user is not None:
+                    _user.user_level = 5
+                    self.send_bot_msg(unicode_catalog.WHITE_STAR + ' *%s* is not a bot controller anymore (L5)' %
+                                      user_name)
+                else:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' No user named: %s' % user_name)
+
+    def do_cam_up(self):
+        """ Makes the bot cam up. """
+        self.send_bauth_msg()
+        self.connection.createstream()
+
+    def do_cam_down(self):
+        """ Makes the bot cam down. """
+        self.connection.closestream()
+
+    def do_nocam(self):
+        """ Toggles if broadcasting is allowed or not. """
+        pinylib.CONFIG.B_ALLOW_BROADCASTS = not pinylib.CONFIG.B_ALLOW_BROADCASTS
+        self.send_bot_msg('*Allow Broadcasts:* %s' % pinylib.CONFIG.B_ALLOW_BROADCASTS)
+
+    def do_guests(self):
+        """ Toggles if guests are allowed to join the room or not. """
+        pinylib.CONFIG.B_ALLOW_GUESTS = not pinylib.CONFIG.B_ALLOW_GUESTS
+        self.send_bot_msg('*Allow Guests:* %s' % pinylib.CONFIG.B_ALLOW_GUESTS)
+
+    def do_lurkers(self):
+        """ Toggles if lurkers are allowed or not. """
+        pinylib.CONFIG.B_ALLOW_LURKERS = not pinylib.CONFIG.B_ALLOW_LURKERS
+        self.send_bot_msg('*Allow Lurkers:* %s' % pinylib.CONFIG.B_ALLOW_LURKERS)
+
+    def do_guest_nicks(self):
+        """ Toggles if guest nicks are allowed or not. """
+        pinylib.CONFIG.B_ALLOW_GUESTS_NICKS = not pinylib.CONFIG.B_ALLOW_GUESTS_NICKS
+        self.send_bot_msg('*Allow Guest Nicks:* %s' % pinylib.CONFIG.B_ALLOW_GUESTS_NICKS)
+
+    def do_newusers(self):
+        """ Toggles if newusers are allowed to join the room or not. """
+        pinylib.CONFIG.B_ALLOW_NEWUSERS = not pinylib.CONFIG.B_ALLOW_NEWUSERS
+        self.send_bot_msg('*Allow Newusers:* %s' % pinylib.CONFIG.B_ALLOW_NEWUSERS)
+
+    def do_greet(self):
+        """ Toggles if users should be greeted on entry. """
+        pinylib.CONFIG.B_GREET = not pinylib.CONFIG.B_GREET
+        self.send_bot_msg('*Greet Users:* %s' % pinylib.CONFIG.B_GREET)
+
+    def do_public_cmds(self):
+        """ Toggles if public commands are public or not. """
+        pinylib.CONFIG.B_PUBLIC_CMD = not pinylib.CONFIG.B_PUBLIC_CMD
+        self.send_bot_msg('*Public Commands Enabled:* %s' % pinylib.CONFIG.B_PUBLIC_CMD)
 
     def do_room_settings(self):
         """ Shows current room settings. """
         if self._is_client_owner:
             settings = self.privacy_settings.current_settings()
-            self.send_undercover_msg(self.user.nick, '*Broadcast Password:* ' + settings['broadcast_pass'])
-            self.send_owner_run_msg('*Room Password:* ' + settings['room_pass'])
-            self.send_owner_run_msg('*Login Type:* ' + settings['allow_guests'])
-            self.send_owner_run_msg('*Directory:* ' + settings['show_on_directory'])
-            self.send_owner_run_msg('*Push2Talk:* ' + settings['push2talk'])
-            self.send_owner_run_msg('*Greenroom:* ' + settings['greenroom'])
+            self.send_undercover_msg(self.active_user.nick, '*Broadcast Password:* %s' % settings['broadcast_pass'])
+            self.send_undercover_msg(self.active_user.nick, '*Room Password:* %s' % settings['room_pass'])
+            self.send_owner_run_msg('*Login Type:* %s' % settings['allow_guest'])
+            self.send_owner_run_msg('*Directory:* %s' % settings['show_on_directory'])
+            self.send_owner_run_msg('*Push2Talk:* %s' % settings['push2talk'])
+            self.send_owner_run_msg('*Greenroom:* %s' % settings['greenroom'])
 
-    # TODO: Possible sleep mode/night/inactive/low-power mode; allow hibernation activities/features.
-    def do_sleep(self):
-        """ Sets the bot to sleep so commands from everyone will be ignored until it is woken up by a PM. """
-        self.bot_listen = False
-        self.send_bot_msg('*Bot listening set to*: %s' % self.bot_listen)
-
-    def do_text_spam_prevention(self):
-        """ Toggles spam prevention """
-        self.spam_prevention = not self.spam_prevention
-        self.send_bot_msg('*Text Spam Prevention*: %s' % self.spam_prevention)
-
-    def do_snapshot(self):
-        """ Toggles 'snapshot' prevention. """
-        self.snapshot_spam = not self.snapshot_spam
-        self.send_bot_msg('*Snapshot Prevention*: %s' % self.snapshot_spam)
-
-    def do_autoclose(self):
-        """ Toggles autoclose. """
-        self.auto_close = not self.auto_close
-        self.send_bot_msg('*Auto closing mobiles/guests/newusers*: %s' % self.auto_close)
-
-    def do_ban_mobiles(self):
-        """ Toggles ban on all recognised, broadcasting mobile devices. """
-        self.ban_mobiles = not self.ban_mobiles
-        self.send_bot_msg('*Banning mobile users on cam*: %s' % self.ban_mobiles)
-
-    def do_auto_url_mode(self):
-        """ Toggles auto url mode. """
-        self.auto_url_mode = not self.auto_url_mode
-        self.send_bot_msg('*Auto-Url Mode*: %s' % self.auto_url_mode)
-
-    # TODO: Media timer issue when adding songs to the playlist after turning it off and turning it on;
-    #       instantly played media stops after a while.
-    def do_playlist_mode(self):
-        """ Toggles playlist mode. """
-        self.playlist_mode = not self.playlist_mode
-        self.send_bot_msg('*Playlist Mode*: %s' % self.playlist_mode)
-
-    def do_public_media(self):
+    def do_lastfm_chart(self, chart_items):
         """
-        Toggles public media mode which allows the public to add media to the playlist or play media.
-        NOTE: Playlist mode will be automatically enforced when public media is turned on. This is to prevent the
-              spamming of media plays in the room. Playlist mode will have to be turned off manually if it is not
-              going to be used if public media is going to be disabled.
+        Makes a playlist from the currently most played tunes on last.fm
+        :param chart_items: int the amount of tunes we want.
         """
-        self.public_media = not self.public_media
-        if self.public_media:
-            self.playlist_mode = True
-        self.send_bot_msg('*Public Media Mode*: %s' % self.public_media)
-
-    def do_guest_nick_ban(self):
-        """ Toggles guest nickname banning. """
-        self.is_guest_nicks_allowed = not self.is_guest_nicks_allowed
-        self.send_bot_msg('*"guests-" allowed*: %s' % self.is_guest_nicks_allowed)
-
-    def do_newuser_ban(self):
-        """ Toggles new user banning. """
-        self.is_newusers_allowed = not self.is_newusers_allowed
-        self.send_bot_msg('*"newuser"\'s allowed*: %s' % self.is_newusers_allowed)
-
-    def do_camblock(self, on_block):
-        """
-        Adds a user to the cam-blocked list to prevent them from broadcasting temporarily.
-        :param: on_block: str the nick name of the user who may or may not be in the blocked list.
-        """
-        if len(on_block) is 0:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' Please state a user to cam block.')
-        else:
-            user = self.find_user_info(on_block)
-            if user is not None:
-                if user.nick not in self.cam_blocked:
-                    self.cam_blocked.append(user.nick)
-                    self.send_close_user_msg(user.nick)
-                    self.send_bot_msg(unicode_catalog.TICK_MARK + ' *' + unicode_catalog.NO_WIDTH +
-                                      user.nick + unicode_catalog.NO_WIDTH + '* is now cam blocked.')
-                else:
-                    self.cam_blocked.remove(user.nick)
-                    self.send_bot_msg(unicode_catalog.CROSS_MARK + ' *' + unicode_catalog.NO_WIDTH +
-                                      user.nick + unicode_catalog.NO_WIDTH + '* is no longer cam blocked.')
-            else:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' The user you stated does not exist.')
-
-    def do_mute(self):
-        """ Sends a room mute microphone message to all broadcasting users. """
-        self.send_mute_msg()
-
-    def do_instant_push2talk(self):
-        """ Sets microphones broadcasts to 'push2talk'. """
-        self.send_push2talk_msg()
-
-    def do_auto_pm(self):
-        """ Toggles on the automatic room private message. """
-        if len(self.pm_msg) is not 0:
-            self.auto_pm = not self.auto_pm
-            self.send_bot_msg('*Auto-P.M.*: %s' % self.auto_pm)
-        else:
-            self.send_bot_msg('There is *no private message set* in the configuration file.')
-
-    # TODO: Commented out private room function for now, if we need it again we can use it.
-    # def do_private_room(self):
-    #     """" Sets room to private room. """
-    #     if self._is_client_mod:
-    #         self.send_private_room_msg()
-    #         self.private_room = not self.private_room
-    #         self.send_bot_msg('*Private Room* is now set to: %s' % self.private_room)
-    #     else:
-    #         self.send_bot_msg('Command not enabled.')
-
-    def do_cleverbot_state(self):
-        """ Sets CleverBot to function in the room (as an instant call or via command). """
-        self.cleverbot_enable = not self.cleverbot_enable
-        self.send_bot_msg('*CleverBot enabled*: %s' % self.cleverbot_enable)
-
-    # TODO: Make a class for handling botters and types.
-    # TODO: Levels of botters - maybe just media users.
-    # def do_botter(self, new_botter):
-    #     """
-    #     Adds a new botter to allow control over the bot and appends the user to the list
-    #     of botters, and IF they are signed, in to the botter accounts list and save their
-    #     account to file as well.
-    #     :param new_botter: str the nick name of the user to bot.
-    #     """
-    #     if len(new_botter) is 0:
-    #         self.send_bot_msg(unicode_catalog.INDICATE + ' Please state a nickname to bot.')
-    #     else:
-    #         bot_user = self.find_user_info(new_botter)
-    #         if bot_user is not None:
-    #             if not bot_user.is_owner or not bot_user.is_mod:
-    #                 # Adding new botters.
-    #                 if bot_user.account and bot_user.account not in self.botteraccounts:
-    #                     self.botteraccounts.append(bot_user.account)
-    #                     writer = pinylib.fh.file_writer(CONFIG['path'], CONFIG['botteraccounts'], bot_user.account)
-    #                     if writer:
-    #                         bot_user.has_power = True
-    #                         self.send_bot_msg(unicode_catalog.BLACK_STAR + ' *%s* was added as a verified botter.' %
-    #                                           new_botter)
-    #
-    #                 elif not bot_user.account and bot_user.nick not in self.botters:
-    #                     self.botters.append(bot_user.nick)
-    #                     bot_user.has_power = True
-    #                     self.send_bot_msg(unicode_catalog.BLACK_STAR + ' *%s* was added as a temporary botter.' %
-    #                                       new_botter)
-    #
-    #                 else:
-    #                     # Removing existing botters or verified botters.
-    #                     remove = False
-    #
-    #                     if bot_user.account:
-    #                         for x in range(len(self.botteraccounts)):
-    #                             if self.botteraccounts[x] == bot_user.account:
-    #                                 del self.botteraccounts[x]
-    #                                 remove = pinylib.fh.remove_from_file(CONFIG['path'], CONFIG['botteraccounts'],
-    #                                                                      bot_user.account)
-    #                                 break
-    #                     else:
-    #                         for x in range(len(self.botters)):
-    #                             if self.botters[x] == bot_user.nick:
-    #                                 del self.botters[x]
-    #                                 remove = True
-    #                                 break
-    #
-    #                     if remove:
-    #                         bot_user.has_power = False
-    #                         self.send_bot_msg(unicode_catalog.WHITE_STAR + ' *' + new_botter +
-    #                                           '* was removed from botting.')
-    #             else:
-    #                 self.send_bot_msg(unicode_catalog.INDICATE + ' This user already has privileges. No need to bot.')
-    #         else:
-    #             self.send_bot_msg(unicode_catalog.INDICATE + ' No user named: ' + new_botter)
-
-    # def do_autoforgive(self, new_autoforgive):
-    #     """
-    #     Adds a new autoforgive user, IF the user is logged in, to the autoforgive file;
-    #     all users in this file be automatically forgiven if they are banned.
-    #     :param new_autoforgive: str the nick name of the user to add to autoforgive.
-    #     """
-    #     if len(new_autoforgive) is not 0:
-    #         autoforgive_user = self.find_user_info(new_autoforgive)
-    #         if autoforgive_user is not None:
-    #             if autoforgive_user.account and autoforgive_user.account not in self.autoforgive:
-    #                 self.autoforgive.append(autoforgive_user.account)
-    #                 self.send_bot_msg(unicode_catalog.BLACK_HEART + ' *' + unicode_catalog.NO_WIDTH + new_autoforgive +
-    #                                   unicode_catalog.NO_WIDTH + '*' + ' is now protected.')
-    #                 pinylib.fh.file_writer(CONFIG['path'], CONFIG['autoforgive'], autoforgive_user.account)
-    #             elif not autoforgive_user.account:
-    #                 self.send_bot_msg(unicode_catalog.INDICATE +
-    #                                   ' Protection is only available to users with accounts.')
-    #             else:
-    #                 for x in range(len(self.autoforgive)):
-    #                     if self.autoforgive[x] == autoforgive_user.account:
-    #                         del self.autoforgive[x]
-    #                         pinylib.fh.remove_from_file(CONFIG['path'], CONFIG['autoforgive'],
-    #                                                     autoforgive_user.account)
-    #                         self.send_bot_msg(unicode_catalog.WHITE_HEART + ' *' + unicode_catalog.NO_WIDTH +
-    #                                           new_autoforgive + unicode_catalog.NO_WIDTH + '* is no longer protected.')
-    #                         break
-    #         else:
-    #             self.send_bot_msg(unicode_catalog.INDICATE + ' No user named: ' + new_autoforgive)
-    #     else:
-    #         self.send_bot_msg(unicode_catalog.INDICATE + ' Please state a nickname to protect.')
-
-    def do_cam_approve(self, nick_name):
-        """ Send a cam approve message to a user. """
         if self._is_client_mod:
-            if self._b_password is None:
-                conf = pinylib.tinychat.get_roomconfig_xml(self._roomname, self.room_pass, proxy=self._proxy)
-                self._b_password = conf['bpassword']
-                self._greenroom = conf['greenroom']
-            if self._greenroom:
-                if len(nick_name) is 0:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' Missing nickname to approve.')
+            if chart_items is 0 or chart_items is None:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Please specify the amount of tunes you want.')
+            else:
+                try:
+                    _items = int(chart_items)
+                except ValueError:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' Only numbers allowed.')
                 else:
-                    user = self.find_user_info(nick_name)
-                    if user is not None:
-                        self.send_cam_approve_msg(user.id, user.nick)
+                    if 0 < _items < 30:
+                        self.send_bot_msg(unicode_catalog.STATE + ' *Please wait* while creating a playlist...')
+                        last = apis.lastfm.chart(_items)
+                        if last is not None:
+                            self.media_manager.add_track_list(self.active_user.nick, last)
+                            self.send_bot_msg(unicode_catalog.PENCIL + ' *Added:* ' + str(len(last)) +
+                                              ' *tunes from last.fm chart.*')
+                            if not self.media_manager.has_active_track():
+                                track = self.media_manager.get_next_track()
+                                self.send_media_broadcast_start(track.type, track.id)
+                                self.media_event_timer(track.time)
+                        else:
+                            self.send_bot_msg(unicode_catalog.INDICATE + ' Failed to retrieve a result from last.fm.')
                     else:
-                        self.send_bot_msg(unicode_catalog.INDICATE + ' No nickname called: %s' % nick_name)
+                        self.send_bot_msg(unicode_catalog.INDICATE + ' No more than 30 tunes.')
 
-    def do_close_broadcast(self, nick_name):
+    def do_lastfm_random_tunes(self, max_tunes):
+        """
+        Creates a playlist from what other people are listening to on last.fm.
+        :param max_tunes: int the max amount of tunes.
+        """
+        if self._is_client_mod:
+            if max_tunes is 0 or max_tunes is None:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Please specify the max amount of tunes you want.')
+            else:
+                try:
+                    _items = int(max_tunes)
+                except ValueError:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' Only numbers allowed.')
+                else:
+                    if 0 < _items < 50:
+                        self.send_bot_msg(unicode_catalog.INDICATE + ' Please wait while creating a playlist...')
+                        last = apis.lastfm.listening_now(max_tunes)
+                        if last is not None:
+                            self.media_manager.add_track_list(self.active_user.nick, last)
+                            self.send_bot_msg(unicode_catalog.PENCIL + ' *Added:* ' + str(len(last)) +
+                                              ' *tunes from last.fm*')
+                            if not self.media_manager.has_active_track():
+                                track = self.media_manager.get_next_track()
+                                self.send_media_broadcast_start(track.type, track.id)
+                                self.media_event_timer(track.time)
+                        else:
+                            self.send_bot_msg(unicode_catalog.INDICATE + ' Failed to retrieve a result from last.fm.')
+                    else:
+                        self.send_bot_msg(unicode_catalog.INDICATE + ' No more than 50 tunes.')
+
+    def do_search_lastfm_by_tag(self, search_str):
+        """
+        Searches last.fm for tunes matching the search term and creates a playlist from them.
+        :param search_str: str the search term to search for.
+        """
+        if self._is_client_mod:
+            if len(search_str) is 0:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Missing search tag.')
+            else:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Please wait while creating playlist..')
+                last = apis.lastfm.tag_search(search_str)
+                if last is not None:
+                    self.media_manager.add_track_list(self.active_user.nick, last)
+                    self.send_bot_msg(unicode_catalog.PENCIL + ' *Added:* ' + str(len(last)) + ' *tunes from last.fm*')
+                    if not self.media_manager.has_active_track():
+                        track = self.media_manager.get_next_track()
+                        self.send_media_broadcast_start(track.type, track.id)
+                        self.media_event_timer(track.time)
+                else:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' Failed to retrieve a result from last.fm.')
+
+    def do_youtube_playlist_search(self, search_term):
+        """
+        Searches youtube for a play list matching the search term.
+        :param search_term: str the search to search for.
+        """
+        if self._is_client_mod:
+            if len(search_term) is 0:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Missing search term.')
+            else:
+                self.search_list = apis.youtube.playlist_search(search_term)
+                if len(self.search_list) is not 0:
+                    self.is_search_list_youtube_playlist = True
+                    for i in range(0, len(self.search_list)):
+                        self.send_owner_run_msg('(%s) *%s*' % (i, self.search_list[i]['playlist_title']))
+                else:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' Failed to find playlist matching search term: %s' %
+                                      search_term)
+
+    def do_play_youtube_playlist(self, int_choice):
+        """
+        Finds the videos from the youtube playlist search.
+        :param int_choice: int the index of the play list on the search_list.
+        """
+        if self._is_client_mod:
+            if self.is_search_list_youtube_playlist:
+                try:
+                    index_choice = int(int_choice)
+                except ValueError:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' Only numbers allowed.')
+                else:
+                    if 0 <= index_choice <= len(self.search_list) - 1:
+                        self.send_bot_msg(unicode_catalog.STATE + ' Please wait while creating playlist..')
+                        tracks = apis.youtube.playlist_videos(self.search_list[index_choice]['playlist_id'])
+                        if len(tracks) is not 0:
+                            self.media_manager.add_track_list(self.active_user.nick, tracks)
+                            self.send_bot_msg(unicode_catalog.PENCIL + ' *Added:* %s *tracks from youtube playlist.*' %
+                                              len(tracks))
+                            if not self.media_manager.has_active_track():
+                                track = self.media_manager.get_next_track()
+                                self.send_media_broadcast_start(track.type, track.id)
+                                self.media_event_timer(track.time)
+                        else:
+                            self.send_bot_msg(unicode_catalog.INDICATE + ' Failed to retrieve videos from youtube '
+                                                                         'playlist.')
+                    else:
+                        self.send_bot_msg(unicode_catalog.INDICATE + ' Please make a choice between 0-%s' %
+                                          str(len(self.search_list) - 1))
+            else:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' The search list does not contain any youtube playlist '
+                                                             'id\'s.')
+
+    def do_close_broadcast(self, user_name):
         """
         Close a user broadcasting.
-        :param nick_name: str the nickname to close.
+        :param user_name: str the username to close.
         """
         if self._is_client_mod:
-            if len(nick_name) is 0:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' Missing nickname.')
+            if len(user_name) is 0:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Missing username.')
             else:
-                user = self.find_user_info(nick_name)
-                if user is not None:
-                    self.send_close_user_msg(nick_name)
+                if self.users.search(user_name) is not None:
+                    self.send_close_user_msg(user_name)
                 else:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' No nickname called: %s' % nick_name)
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' No user named: ' + user_name)
 
-    # TODO: Updated _send_command to follow calls.
     def do_clear(self):
-        """ Clears the chat-box. """
+        """ Clears the chat box. """
         if self._is_client_mod:
             for x in range(0, 29):
                 self.send_owner_run_msg(' ')
         else:
             clear = '133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133' \
                     '133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133'
-            # self._send_command('privmsg', [clear, u'#262626,en'])
-            self.net_connection.messages.call('privmsg', [clear, u'#262626,en'])
+            self._send_command('privmsg', [clear, u'#262626,en'])
 
-        self.send_bot_msg(unicode_catalog.STATE + ' *The chat was cleared by ' + str(self.user.nick) + '*')
+    def do_skip(self):
+        """ Play the next item in the playlist. """
+        if self._is_client_mod:
+            if self.media_manager.is_last_track():
+                self.send_bot_msg(unicode_catalog.STATE + ' This is the *last tune in the playlist*.')
+            elif self.media_manager.is_last_track() is None:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' *No tunes* to skip. The *playlist is empty*.')
+            else:
+                self.cancel_media_event_timer()
+                current_type = self.media_manager.track().type
+                next_track = self.media_manager.get_next_track()
+                if current_type != next_track.type:
+                    self.send_media_broadcast_close(media_type=current_type)
+                self.send_media_broadcast_start(next_track.type, next_track.id)
+                self.media_event_timer(next_track.time)
+
+    def do_delete_playlist_item(self, to_delete):
+        """
+        Delete item(s) from the playlist by index.
+        :param to_delete: str index(es) to delete.
+        """
+        if self._is_client_mod:
+            if len(self.media_manager.track_list) is 0:
+                self.send_bot_msg(unicode_catalog.STATE + ' The track list is *empty*.')
+            elif len(to_delete) is 0:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' No indexes to delete provided.')
+            else:
+                indexes = None
+                by_range = False
+
+                try:
+                    if ':' in to_delete:
+                        range_indexes = map(int, to_delete.split(':'))
+                        temp_indexes = range(range_indexes[0], range_indexes[1] + 1)
+                        if len(temp_indexes) > 1:
+                            by_range = True
+                    else:
+                        temp_indexes = map(int, to_delete.split(','))
+                except ValueError as ve:
+                    log.error('wrong format: %s' % ve)
+                    # self.send_undercover_msg(self.user.nick, 'Wrong format (ValueError).')
+                else:
+                    indexes = []
+                    for i in temp_indexes:
+                        if i < len(self.media_manager.track_list) and i not in indexes:
+                            indexes.append(i)
+
+                if indexes is not None and len(indexes) > 0:
+                    result = self.media_manager.delete_by_index(indexes, by_range)
+                    if result is not None:
+                        if by_range:
+                            self.send_bot_msg(unicode_catalog.SCISSORS + ' *Deleted from index:* %s *to index:* %s' %
+                                              (result['from'], result['to']))
+                        elif result['deleted_indexes_len'] is 1:
+                            self.send_bot_msg(unicode_catalog.SCISSORS + ' *Deleted* %s' % result['track_title'])
+                        else:
+                            self.send_bot_msg(unicode_catalog.SCISSORS + ' *Deleted tracks at index:* %s' %
+                                              ', '.join(result['deleted_indexes']))
+                    else:
+                        self.send_bot_msg(unicode_catalog.INDICATE + ' Nothing was deleted.')
+
+    def do_media_replay(self):
+        """ Replays the last played media."""
+        if self._is_client_mod:
+            if self.media_manager.track() is not None:
+                self.cancel_media_event_timer()
+                self.media_manager.we_play(self.media_manager.track())
+                self.send_media_broadcast_start(self.media_manager.track().type,
+                                                self.media_manager.track().id)
+                self.media_event_timer(self.media_manager.track().time)
+
+    def do_play_media(self):
+        """ Resumes a track in pause mode. """
+        if self._is_client_mod:
+            track = self.media_manager.track()
+            if track is not None:
+                if self.media_manager.has_active_track():
+                    self.cancel_media_event_timer()
+                if self.media_manager.is_paused:
+                    ntp = self.media_manager.mb_play(self.media_manager.elapsed_track_time())
+                    self.send_media_broadcast_play(track.type, self.media_manager.elapsed_track_time())
+                    self.media_event_timer(ntp)
+
+    def do_media_pause(self):
+        """ Pause the media playing. """
+        if self._is_client_mod:
+            track = self.media_manager.track()
+            if track is not None:
+                if self.media_manager.has_active_track():
+                    self.cancel_media_event_timer()
+                self.media_manager.mb_pause()
+                self.send_media_broadcast_pause(track.type)
+
+    def do_close_media(self):
+        """ Closes the active media broadcast."""
+        if self._is_client_mod:
+            if self.media_manager.has_active_track():
+                self.cancel_media_event_timer()
+                self.media_manager.mb_close()
+                self.send_media_broadcast_close(self.media_manager.track().type)
+
+    def do_seek_media(self, time_point):
+        """
+        Seek on a media playing.
+        :param time_point str the time point to skip to.
+        """
+        if self._is_client_mod:
+            if ('h' in time_point) or ('m' in time_point) or ('s' in time_point):
+                mls = pinylib.string_util.convert_to_millisecond(time_point)
+                if mls is 0:
+                    self.console_write(pinylib.COLOR['bright_red'], 'invalid seek time.')
+                else:
+                    track = self.media_manager.track()
+                    if track is not None:
+                        if 0 < mls < track.time:
+                            if self.media_manager.has_active_track():
+                                self.cancel_media_event_timer()
+                            new_media_time = self.media_manager.mb_skip(mls)
+                            if not self.media_manager.is_paused:
+                                self.media_event_timer(new_media_time)
+                            self.send_media_broadcast_skip(track.type, mls)
+
+    def do_clear_playlist(self):
+        """ Clear the playlist. """
+        if self._is_client_mod:
+            if len(self.media_manager.track_list) > 0:
+                pl_length = str(len(self.media_manager.track_list))
+                self.media_manager.clear_track_list()
+                self.send_bot_msg(unicode_catalog.SCISSORS + ' *Deleted* ' + pl_length + ' *items in the playlist.*')
+            else:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' *The playlist is empty, nothing to delete.*')
+
+    def do_playlist_info(self):
+        """ Shows the next 5 tracks in the track list. """
+        if self._is_client_mod:
+            if len(self.media_manager.track_list) > 0:
+                tracks = self.media_manager.get_track_list()
+                if tracks is not None:
+                    i = 0
+                    for pos, track in tracks:
+                        if i == 0:
+                            self.send_owner_run_msg('(%s) *Next track: %s* %s' %
+                                                    (pos, track.title, self.format_time(track.time)))
+                        else:
+                            self.send_owner_run_msg('(%s) *%s* %s' % (pos, track.title, self.format_time(track.time)))
+                        i += 1
+            else:
+                self.send_owner_run_msg(unicode_catalog.INDICATE + ' *No tracks in the playlist.*')
+
+    def do_show_search_list(self):
+        """ Shows what is in the search list. """
+        if len(self.search_list) is 0:
+            self.send_bot_msg(unicode_catalog.INDICATE + ' No items in the search list.')
+        elif self.is_search_list_youtube_playlist:
+            self.send_bot_msg('*Youtube Playlist\'s.*')
+            for i in range(0, len(self.search_list)):
+                self.send_bot_msg('(%s) *%s*' % (i, self.search_list[i]['playlist_title']))
+        else:
+            self.send_bot_msg('*Youtube Tracks:*')
+            for i in range(0, len(self.search_list)):
+                self.send_bot_msg('(%s) *%s* %s' %
+                                  (i, self.search_list[i]['video_title'], self.search_list[i]['video_time']))
 
     def do_nick(self, new_nick):
         """
@@ -1303,11 +1283,11 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         :param new_nick: str the new nick.
         """
         if len(new_nick) is 0:
-            self.client_nick = string_utili.create_random_string(5, 25)
+            self.nickname = pinylib.string_util.create_random_string(5, 25)
             self.set_nick()
         else:
             if re.match('^[][{}a-zA-Z0-9_]{1,25}$', new_nick):
-                self.client_nick = new_nick
+                self.nickname = new_nick
                 self.set_nick()
 
     def do_topic(self, topic):
@@ -1318,408 +1298,236 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         if self._is_client_mod:
             if len(topic) is 0:
                 self.send_topic_msg('')
-                self.send_bot_msg('Topic was *cleared*.')
+                self.send_bot_msg(unicode_catalog.STATE + ' Topic was *cleared*.')
             else:
                 self.send_topic_msg(topic)
                 self.send_bot_msg(unicode_catalog.STATE + ' The *room topic* was set to: ' + topic)
         else:
-            self.send_bot_msg('Command not enabled.')
+            self.send_bot_msg(unicode_catalog.INDICATE + ' Command not enabled')
 
-    def do_current_topic(self):
-        """ Replies to the user what the current room topic is. """
-        self.send_undercover_msg(self.user.nick, 'The *current topic* is: %s' % self._topic_msg)
-
-    # TODO: Tidy up this function.
-    def do_kick(self, nick_name, ban=False, discrete=False):
+    def do_kick(self, user_name):
         """
-        Kick/ban a user out of the room.
-        :param nick_name: str the nickname to kick or ban.
-        :param ban: boolean True/False respectively if the user should be banned or not.
-        :param discrete: boolean True/False respectively if the user to kick/ban should not produce any further
-                         notices from the bot.
+        Kick a user out of the room.
+        :param user_name: str the username to kick.
         """
         if self._is_client_mod:
-            if len(nick_name) is 0:
-                if not discrete:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' Missing nickname.')
-            elif nick_name == self.client_nick:
-                if not discrete:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' Action not allowed.')
+            if len(user_name) is 0:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Missing username.')
+            elif user_name == self.nickname:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Action not allowed.')
             else:
-                user = self.find_user_info(nick_name)
-
-                # TODO: Re-assess this logic.
-                # TODO: We should not be allowing the banning of any moderators.
-                if user is not None:
-                    if user.is_owner or user.is_super or user.is_mod and not self.user.is_owner:
-                        if not discrete:
-                            self.send_bot_msg(unicode_catalog.INDICATE + ' You cannot kick/ban a user with privileges.')
-                        return
-
-                    if not self.user.is_owner or not self.user.is_super or not self.user.is_mod:
-                        if user.nick in self.botters:
-                            if not discrete:
-                                self.send_bot_msg(unicode_catalog.INDICATE + ' You cannot kick/ban another botter.')
-                            return
-                        # TODO: Accounts in botteraccounts will not be included until we have the class working.
-                        # elif user.account:
-                            # if user.account in self.botteraccounts:
-                            #     if not discrete:
-                            #         self.send_bot_msg(unicode_catalog.INDICATE +
-                            #                           ' You cannot kick/ban another verified botter.')
-                            #     return
-
-                    self.send_ban_msg(user.nick, user.id)
-                    if not ban:
-                        self.send_forgive_msg(user.id)
-
+                _user = self.users.search(user_name)
+                if _user is None:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' No user named: *%s*' % user_name)
+                elif _user.user_level < self.active_user.user_level:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' Not allowed.')
                 else:
-                    if not discrete:
-                        self.send_bot_msg(unicode_catalog.INDICATE + ' No user named: *' + unicode_catalog.NO_WIDTH +
-                                          nick_name + unicode_catalog.NO_WIDTH + '*')
+                    self.send_ban_msg(user_name, _user.id)
+                    self.send_forgive_msg(_user.id)
         else:
-            if not discrete:
-                self.send_bot_msg('Command not enabled.')
+            self.send_bot_msg(unicode_catalog.INDICATE + ' Command not enabled.')
 
-    # TODO: Allow un-ban of users who were not banned by the bot; this will mean the bot will have to read bans from
-    #       moderators and request the new ban list accordingly. Maybe we can get initial ban list and store temporary
-    #       one and work from there.
-    def do_forgive(self, nick_name):
+    def do_ban(self, user_name):
         """
-        Forgive a user based on if their user id (uid) is found in the room's ban list.
-        :param nick_name: str the nick name of the user that was banned.
+        Ban a user from the room.
+        :param user_name: str the username to ban.
         """
-        if self.user.is_owner or self.user.is_super or self.user.is_mod or self.user.has_power:
-            if len(self._room_banlist) > 0:
-                if len(nick_name) is not 0:
-                    if nick_name in self._room_banlist:
-                        uid = self._room_banlist[nick_name]
-                        self.send_forgive_msg(str(uid))
-                        self.send_bot_msg('*' + unicode_catalog.NO_WIDTH + nick_name + unicode_catalog.NO_WIDTH +
-                                          '* has been forgiven.')
-                    else:
-                        self.send_bot_msg(unicode_catalog.INDICATE + ' The user was not found in the banlist.')
-                else:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' Please state a nick to forgive from the ban list.')
+        if self._is_client_mod:
+            if len(user_name) is 0:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Missing username.')
+            elif user_name == self.nickname:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Action not allowed.')
             else:
-                self.send_bot_msg('The *banlist is empty*. No one to forgive.')
+                _user = self.users.search(user_name)
+                if _user is None:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' No user named: *%s*' % user_name)
+                elif _user.user_level < self.active_user.user_level:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' Not allowed.')
+                else:
+                    self.send_ban_msg(user_name, _user.id)
 
     def do_bad_nick(self, bad_nick):
         """
-        Adds a bad nickname to the bad nicks file.
-        :param bad_nick: str the bad nick to write to the file.
+        Adds a username to the nicks bans file.
+        :param bad_nick: str the bad nick to write to file.
         """
         if self._is_client_mod:
             if len(bad_nick) is 0:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' Missing nickname.')
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Missing username.')
+            elif bad_nick in pinylib.CONFIG.B_NICK_BANS:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' *%s* is already in list.' % bad_nick)
             else:
-                # TODO: Performance tweaks.
-                badnicks = pinylib.fh.file_reader(self.config_path(), CONFIG['nick_bans'])
-                if badnicks is None:
-                    pinylib.fh.file_writer(self.config_path(), CONFIG['nick_bans'], bad_nick)
-                else:
-                    if bad_nick in badnicks:
-                        self.send_bot_msg(bad_nick + ' is already in the list.')
-                    else:
-                        pinylib.fh.file_writer(self.config_path(), CONFIG['nick_bans'], bad_nick)
-                        # TODO: States type of file the name was added to.
-                        self.send_bot_msg('*' + bad_nick + '* was added to *nick bans*.')
-
-                        # Ban the nickname if it is present in the room.
-                        if bad_nick in self._room_users.keys():
-                            bn_user = self.find_user_info(bad_nick)
-                            threading.Thread(target=self.send_ban_msg, args=(bn_user.nick, bn_user.id,)).start()
+                pinylib.file_handler.file_writer(self.config_path(),
+                                                 pinylib.CONFIG.B_NICK_BANS_FILE_NAME, bad_nick)
+                self.send_bot_msg('*%s* was added to file.' % bad_nick)
+                self.load_list(nicks=True)
 
     def do_remove_bad_nick(self, bad_nick):
         """
-        Removes a bad nick from bad nicks file.
-        :param bad_nick: str the bad nick to remove from the file.
+
+        :param bad_nick: str6
         """
         if self._is_client_mod:
             if len(bad_nick) is 0:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' Missing nickname.')
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Missing username')
             else:
-                # TODO: Performance tweaks.
-                rem = pinylib.fh.remove_from_file(self.config_path(), CONFIG['nick_bans'], bad_nick)
-                if rem:
-                    self.send_bot_msg(bad_nick + ' was removed.')
+                if bad_nick in pinylib.CONFIG.B_NICK_BANS:
+                    rem = pinylib.file_handler.remove_from_file(self.config_path(),
+                                                                pinylib.CONFIG.B_NICK_BANS_FILE_NAME, bad_nick)
+                    if rem:
+                        self.send_bot_msg('*%s* was removed.' % bad_nick)
+                        self.load_list(nicks=True)
 
-    # TODO: Bad strings can still ban mods and anyone else with power.
     def do_bad_string(self, bad_string):
         """
-        Adds a bad string to the bad strings file.
-        :param bad_string: str the bad string to add to the file.
+        Adds a string to the strings bans file.
+        :param bad_string: str the bad string to add to file.
         """
         if self._is_client_mod:
             if len(bad_string) is 0:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' Bad string can\'t be blank.')
-            elif len(bad_string) < 3:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' Bad string too short: ' + str(len(bad_string)))
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Ban string can\'t be blank.')
+            # elif len(bad_string) < 3:
+            #     self.send_bot_msg('Ban string to short: ' + str(len(bad_string)))
+            elif bad_string in pinylib.CONFIG.B_STRING_BANS:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' *%s* is already in list.' % bad_string)
             else:
-                # TODO: Performance tweaks.
-                bad_strings = pinylib.fh.file_reader(self.config_path(), CONFIG[''])
-                if bad_strings is None:
-                    # TODO: Need output information here.
-                    pinylib.fh.file_writer(self.config_path(), CONFIG['ban_strings'], bad_string)
-                else:
-                    if bad_string in bad_strings:
-                        self.send_bot_msg(bad_string + ' is already in the list.')
-                    else:
-                        pinylib.fh.file_writer(self.config_path(), CONFIG['ban_strings'], bad_string)
-                        self.send_bot_msg('*' + bad_string + '* was added to *ban strings*.')
+                pinylib.file_handler.file_writer(self.config_path(),
+                                                 pinylib.CONFIG.B_STRING_BANS_FILE_NAME, bad_string)
+                self.send_bot_msg('*%s* was added to file.' % bad_string)
+                self.load_list(strings=True)
 
     def do_remove_bad_string(self, bad_string):
         """
-        Removes a bad string from the bad strings file.
-        :param bad_string: str the bad string to remove from the file.
+        Removes a string from the strings bans file.
+        :param bad_string: str the bad string to remove from file.
         """
         if self._is_client_mod:
             if len(bad_string) is 0:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Missing word string.')
             else:
-                rem = pinylib.fh.remove_from_file(self.config_path(), CONFIG['ban_strings'], bad_string)
-                if rem:
-                    self.send_bot_msg(bad_string + ' was removed.')
+                if bad_string in pinylib.CONFIG.B_STRING_BANS:
+                    rem = pinylib.file_handler.remove_from_file(self.config_path(),
+                                                                pinylib.CONFIG.B_STRING_BANS_FILE_NAME, bad_string)
+                    if rem:
+                        self.send_bot_msg('*%s* was removed.' % bad_string)
+                        self.load_list(strings=True)
 
-    # TODO: Bad account can still ban mods and anyone else with power.
     def do_bad_account(self, bad_account_name):
         """
-        Adds a bad account name to the bad accounts file.
-        :param bad_account_name: str the bad account name to the file.
+        Adds an account name to the accounts bans file.
+        :param bad_account_name: str the bad account name to add to file.
         """
         if self._is_client_mod:
             if len(bad_account_name) is 0:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Account can\'t be blank.')
-            # TODO: Removed account name is too short as names can be below 3 characters previously.
+            # elif len(bad_account_name) < 3:
+            #     self.send_bot_msg('Account to short: ' + str(len(bad_account_name)))
+            elif bad_account_name in pinylib.CONFIG.B_ACCOUNT_BANS:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' %s is already in list.' % bad_account_name)
             else:
-                bad_accounts = pinylib.fh.file_reader(self.config_path(), CONFIG['account_bans'])
-                if bad_accounts is None:
-                    # TODO: Need output information here.
-                    pinylib.fh.file_writer(self.config_path(), CONFIG['account_bans'], bad_account_name)
-                else:
-                    if bad_account_name in bad_accounts:
-                        self.send_bot_msg(bad_account_name + ' is already in list.')
-                    else:
-                        pinylib.fh.file_writer(self.config_path(), CONFIG['account_bans'], bad_account_name)
-                        self.send_bot_msg('*' + bad_account_name + '* was added to *account bans*.')
-
-                        # Bans the account name if the account is currently in the room.
-                        for nickname in self._room_users.keys():
-                            user = self.find_user_info(nickname)
-                            if user.account == bad_account_name:
-                                threading.Thread(target=self.send_ban_msg, args=(user.nick, user.id,)).start()
-                                break
+                pinylib.file_handler.file_writer(self.config_path(),
+                                                 pinylib.CONFIG.B_ACCOUNT_BANS_FILE_NAME, bad_account_name)
+                self.send_bot_msg('*%s* was added to file.' % bad_account_name)
+                self.load_list(accounts=True)
 
     def do_remove_bad_account(self, bad_account):
         """
-        Removes a bad account from the bad accounts file.
-        :param bad_account: str the bad account name to remove from the file.
+        Removes an account from the accounts bans file.
+        :param bad_account: str the badd account name to remove from file.
         """
         if self._is_client_mod:
             if len(bad_account) is 0:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Missing account.')
             else:
-                rem = pinylib.fh.remove_from_file(self.config_path(), CONFIG['account_bans'], bad_account)
-                if rem:
-                    self.send_bot_msg(bad_account + ' was removed.')
+                if bad_account in pinylib.CONFIG.B_ACCOUNT_BANS:
+                    rem = pinylib.file_handler.remove_from_file(self.config_path(),
+                                                                pinylib.CONFIG.B_ACCOUNT_BANS_FILE_NAME, bad_account)
+                    if rem:
+                        self.send_bot_msg('*%s* was removed.' % bad_account)
+                        self.load_list(accounts=True)
 
     def do_list_info(self, list_type):
         """
-        Shows info. of different lists/files.
+        Shows info of different lists/files.
         :param list_type: str the type of list to find info for.
         """
         if self._is_client_mod:
             if len(list_type) is 0:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Missing list type.')
             else:
-                # TODO: Specify type of list on the 'no items' response.
                 if list_type.lower() == 'bn':
-                    bad_nicks = pinylib.fh.file_reader(self.config_path(), CONFIG['nick_bans'])
-                    if bad_nicks is None:
-                        self.send_bot_msg(unicode_catalog.INDICATE + ' No items in the ban nicks list.')
+                    if len(pinylib.CONFIG.B_NICK_BANS) is 0:
+                        self.send_bot_msg(unicode_catalog.INDICATE + ' No items in this list.')
                     else:
-                        self.send_bot_msg(str(len(bad_nicks)) + ' bad nicks in list.')
+                        self.send_bot_msg('%s *bad nicks in list.*' % len(pinylib.CONFIG.B_NICK_BANS))
 
                 elif list_type.lower() == 'bs':
-                    bad_strings = pinylib.fh.file_reader(self.config_path(), CONFIG['ban_strings'])
-                    if bad_strings is None:
-                        self.send_bot_msg(unicode_catalog.INDICATE + ' No items in the ban strings list.')
+                    if len(pinylib.CONFIG.B_STRING_BANS) is 0:
+                        self.send_bot_msg(unicode_catalog.INDICATE + ' No items in this list.')
                     else:
-                        self.send_bot_msg(str(len(bad_strings)) + ' bad strings in list.')
+                        self.send_bot_msg('%s *string bans in list.*' % pinylib.CONFIG.B_STRING_BANS)
 
                 elif list_type.lower() == 'ba':
-                    bad_accounts = pinylib.fh.file_reader(self.config_path(), CONFIG['account_bans'])
-                    if bad_accounts is None:
-                        self.send_bot_msg(unicode_catalog.INDICATE + ' No items in the bad accounts list.')
+                    if len(pinylib.CONFIG.B_ACCOUNT_BANS) is 0:
+                        self.send_bot_msg(unicode_catalog.INDICATE + ' No items in this list.')
                     else:
-                        self.send_bot_msg(str(len(bad_accounts)) + ' bad accounts in list.')
-
-                elif list_type.lower() == 'pl':
-                    if len(self.media_manager.track_list) > 0:
-                        tracks = self.media_manager.get_track_list()
-                        if tracks is not None:
-                            i = 0
-                            for pos, track in tracks:
-                                if i == 0:
-                                    self.send_owner_run_msg('(%s) *Next track: %s* %s' %
-                                                            (pos, track.title, self.format_time(track.time)))
-                                else:
-                                    self.send_owner_run_msg('(%s) *%s* %s' %
-                                                            (pos, track.title, self.format_time(track.time)))
-                                i += 1
-                    else:
-                        self.send_owner_run_msg(unicode_catalog.INDICATE + ' No items in the playlist.')
+                        self.send_bot_msg('%s *bad accounts in list.*' % pinylib.CONFIG.B_ACCOUNT_BANS)
 
                 elif list_type.lower() == 'mods':
-                    if self._is_client_owner and self.user.is_super:
+                    if self._is_client_owner:
                         if len(self.privacy_settings.room_moderators) is 0:
-                            self.send_bot_msg('*There are currently no moderators for this room.*')
+                            self.send_bot_msg(unicode_catalog.STATE +
+                                              ' *There is currently no moderators for this room.*')
                         elif len(self.privacy_settings.room_moderators) is not 0:
                             mods = ', '.join(self.privacy_settings.room_moderators)
                             self.send_bot_msg('*Moderators:* ' + mods)
 
-    def do_user_info(self, nick_name):
+    def do_user_info(self, user_name):
         """
-        Shows user object info. for a given nick name.
-        :param nick_name: str the nick name of the user to show the information for.
+        Shows user object info for a given user name.
+        :param user_name: str the user name of the user to show the info for.
         """
         if self._is_client_mod:
-            if len(nick_name) is 0:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' Missing nickname.')
+            if len(user_name) is 0:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Missing username.')
             else:
-                user = self.find_user_info(nick_name)
-                if user is None:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' No user named: ' + nick_name)
+                _user = self.users.search(user_name)
+                if _user is None:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' No user named: %s' % user_name)
                 else:
-                    if user.account and user.tinychat_id is None:
-                        user_info = pinylib.tinychat.tinychat_user_info(user.account)
+                    if _user.account and _user.tinychat_id is None:
+                        user_info = pinylib.core.tinychat_user_info(_user.account)
                         if user_info is not None:
-                            user.tinychat_id = user_info['tinychat_id']
-                            user.last_login = user_info['last_active']
+                            _user.tinychat_id = user_info['tinychat_id']
+                            _user.last_login = user_info['last_active']
+                    self.send_owner_run_msg('*User Level:* %s' % _user.user_level)
+                    online_time = (pinylib.time.time() - _user.join_time) * 1000
+                    self.send_owner_run_msg('*Online Time:* %s' % self.format_time(online_time))
 
-                    self.send_owner_run_msg('*ID:* %s' % user.id)
-                    self.send_owner_run_msg('*Owner:* %s' % user.is_owner)
-                    # self.send_owner_run_msg('*Is Mod:* %s' % user.is_mod)
-                    self.send_owner_run_msg('*Device Type:* %s' % user.btype)
-                    self.send_owner_run_msg('*User Account Type:* %s' % str(user.stype))
-                    self.send_owner_run_msg('*User Account Gift Points:* %d' % user.gp)
-
-                    # TODO: Change attribute name.
-                    if not user.is_owner and not user.is_mod:
-                        if user.nick or user.account in self.botters or self.botteraccounts:
-                            self.send_owner_run_msg('*Sudo:* %s' % user.is_super)
-                            self.send_owner_run_msg('*Bot Controller:* %s' % user.has_power)
-
-                    # TODO: Change attribute names.
-                    self.send_undercover_msg(self.user.nick, '*Account:* ' + str(user.account))
-                    self.send_undercover_msg(self.user.nick, '*Tinychat ID:* ' + str(user.tinychat_id))
-                    self.send_undercover_msg(self.user.nick, '*Last login:* ' + user.last_login)
-                    self.send_owner_run_msg('*Last message:* ' + str(user.last_msg))
-
-                    # TODO: Overall speed enhancement when playing youtube videos.
-
-    # TODO: Added public media and playlist mode.
-    # TODO: Removed do_play_media - was extremely long and prone to errors.
-    # TODO: Allow multiple videos to be added to the playlist (if playlist mode is enabled).
-    # TODO: Separated to do_play_youtube again for ease of editing - quite a long function.
-    def do_play_youtube(self, search):
-        """
-        Plays a YouTube video matching the search term.
-        :param search:
-        """
-        log.info('User: %s:%s is searching youtube: %s' % (self.user.nick, self.user.id, search))
-        if self._is_client_mod:
-
-            # TODO: Place public media handling in the appropriate place.
-            # if self.public_media:
-
-            if len(search) is 0:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' Please specify *YouTube title, id or link*.')
-            else:
-                # TODO: Make searches more accurate - direct video id search instead or URL search.
-                # Try checking the search term to see if matches our URL regex pattern.
-                # If so, we can extract the video id from the URL.
-                match_url = self.youtube_pattern.match(search)
-                if match_url is not None:
-                    video_id = match_url.group(1)
-                    _media = youtube.youtube_time(video_id)
-                else:
-                    _media = youtube.youtube_search(search)
-
-                if _media is None:
-                    log.warning('Media search returned: %s' % _media)
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' Could not find media: ' + search)
-                else:
-                    # TODO: If the playlist was '!stop' then it will not show the media as having been added since
-                    #       the media timer thread is not alive if the media was paused.
-                    if self.media_timer_thread is not None and self.media_timer_thread.is_alive() \
-                            and self.playlist_mode:
-                        self.media_manager.add_track(self.user.nick, _media)
-                        self.send_bot_msg(unicode_catalog.PENCIL + ' ' + unicode_catalog.MUSICAL_NOTE + ' *' +
-                                          str(_media['video_title']) + ' ' + unicode_catalog.MUSICAL_NOTE +
-                                          ' at #' + str(len(self.media_manager.track_list)) + '*')
-                    else:
-                        self.media_manager.add_track(self.user.nick, _media)
-                        track = self.media_manager.get_next_track()
-                        self.send_media_broadcast_start(track.type, track.id)
-                        self.media_event_timer(track.time)
-        else:
-            self.send_bot_msg('Not enabled right now.')
-
-    # TODO: Separated to do_play_soundcloud again for ease of editing - quite a long function.
-    def do_play_soundcloud(self, search):
-        """
-        Plays a SoundCloud track matching the search term.
-        :param search: str
-        """
-        log.info('User: %s:%s is searching soundcloud: %s' % (self.user.nick, self.user.id, search))
-        if self._is_client_mod:
-
-            # TODO: Place public media handling in the appropriate place.
-            # if self.public_media:
-
-            if len(search) is 0:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' Please specify *SoundCloud title or link*.')
-            else:
-                _media = soundcloud.soundcloud_search(search)
-
-                if _media is None:
-                    log.warning('Media search returned: %s' % _media)
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' Could not find media: ' + search)
-                else:
-                    # TODO: If the playlist was '!stop' then it will not show the media as having been added since
-                    #       the media timer thread is not alive if the media was paused.
-                    if self.media_timer_thread is not None and self.media_timer_thread.is_alive() \
-                            and self.playlist_mode:
-                        self.media_manager.add_track(self.user.nick, _media)
-                        self.send_bot_msg(unicode_catalog.PENCIL + ' ' + unicode_catalog.MUSICAL_NOTE + ' *' +
-                                          str(_media['video_title']) + ' ' + unicode_catalog.MUSICAL_NOTE +
-                                          ' at #' + str(len(self.media_manager.track_list)) + '*')
-                    else:
-                        self.media_manager.add_track(self.user.nick, _media)
-                        track = self.media_manager.get_next_track()
-                        self.send_media_broadcast_start(track.type, track.id)
-                        self.media_event_timer(track.time)
-        else:
-            self.send_bot_msg('Not enabled right now.')
+                    if _user.tinychat_id is not None:
+                        self.send_owner_run_msg('*Account:* ' + str(_user.account))
+                        self.send_owner_run_msg('*Tinychat ID:* ' + str(_user.tinychat_id))
+                        self.send_owner_run_msg('*Last login:* ' + str(_user.last_login))
+                    self.send_owner_run_msg('*Last message:* ' + str(_user.last_msg))
 
     def do_youtube_search(self, search_str):
         """
-        Searches youtube for a given search term, and adds the results to a list.
+        Searches youtube for a given search term, and returns a list of candidates.
         :param search_str: str the search term to search for.
         """
         if self._is_client_mod:
             if len(search_str) is 0:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Missing search term.')
             else:
-                self.search_list = youtube.youtube_search_list(search_str, results=5)
+                self.search_list = apis.youtube.search_list(search_str, results=5)
                 if len(self.search_list) is not 0:
+                    self.is_search_list_youtube_playlist = False
                     for i in range(0, len(self.search_list)):
                         v_time = self.format_time(self.search_list[i]['video_time'])
                         v_title = self.search_list[i]['video_title']
                         self.send_owner_run_msg('(%s) *%s* %s' % (i, v_title, v_time))
                 else:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' Could not find: ' + search_str)
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' Could not find: %s' % search_str)
 
     def do_play_youtube_search(self, int_choice):
         """
@@ -1727,692 +1535,253 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         :param int_choice: int the index in the search list to play.
         """
         if self._is_client_mod:
-            if len(self.search_list) > 0:
-                try:
-                    index_choice = int(int_choice)
-                    if 0 <= index_choice <= 4:
-                        if self.media_timer_thread is not None and self.media_timer_thread.is_alive()\
-                                and self.playlist_mode:
-                            track = self.media_manager.add_track(self.user.nick, self.search_list[index_choice])
-                            self.send_bot_msg('(' + str(self.media_manager.last_track_index()) + ') Added:*' +
-                                              track.title + '* to playlist ' + track.time)
-                        else:
-                            track = self.media_manager.mb_start(self.user.nick,
-                                                                self.search_list[index_choice], mod_play=False)
-                            self.send_media_broadcast_start(track.type, track.id)
-                            self.media_event_timer(track.time)
-                    else:
-                        self.send_bot_msg(unicode_catalog.INDICATE + ' Please make a choice between 0-4.')
-                except ValueError:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' Only numbers allowed.')
-
-                    # TODO: Possibly add tags to show who requested the media as a room message.
-
-    # TODO: Allow multiple media requests?
-    def do_media_request_choice(self, request_choice):
-        """
-        Allows owners/super mods/moderators/botters to accept/decline any temporarily stored media requests.
-        :param request_choice: bool True/False if the media request was accepted or declined by the privileged user.
-        """
-        if self._is_client_mod:
-            # TODO: We could integrate media requests into the media manager.
-            if self.media_request is not None:
-                if request_choice is True:
-                    # TODO: Media requests do not get added to the playlist.
-                    if self.media_timer_thread is not None and self.media_timer_thread.is_alive() \
-                            and self.playlist_mode:
-                        # TODO: This will state whoever accepted the request, not who requested it.
-                        self.media_manager.add_track(self.user.nick, self.media_request)
-                        self.media_manager.get_next_track().was_request = True
-                        self.send_bot_msg(unicode_catalog.ARROW_STREAK +
-                                          ' The media request was *accepted*. Added media to the playlist.')
-                    else:
-                        self.media_manager.add_track(self.user.nick, self.media_request)
-                        requested_track = self.media_manager.get_next_track()
-                        requested_track.was_request = True
-                        self.send_media_broadcast_start(requested_track.type, requested_track.id)
-                        self.media_event_timer(requested_track.pause_time)
-                        self.send_bot_msg(unicode_catalog.ARROW_SIDEWAYS +
-                                          ' This was a *media request* submitted by %s.' % requested_track.nick)
-                    self.media_request = None
-                else:
-                    self.send_bot_msg(unicode_catalog.ITALIC_CROSS +
-                                      ' The media request was *declined*. New media requests can be made.')
-            else:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' *No pending media request* to review.')
-        else:
-            self.send_bot_msg('Not enabled right now.')
-
-    def do_media_pause(self):
-        """ Pause the media playing. """
-        track = self.media_manager.track()
-        if track is not None:
-            if self.media_timer_thread is not None and self.media_timer_thread.is_alive():
-                self.cancel_media_event_timer()
-            self.media_manager.mb_pause()
-            self.send_media_broadcast_pause(track.type)
-
-    def do_media_resume(self):
-        """ Resumes a track in pause mode. """
-        track = self.media_manager.track()
-        if track is not None:
-            if self.media_timer_thread is not None and self.media_timer_thread.is_alive():
-                self.cancel_media_event_timer()
-            if self.media_manager.is_paused:
-                ntp = self.media_manager.mb_play(self.media_manager.elapsed_track_time())
-                self.send_media_broadcast_play(track.type, self.media_manager.elapsed_track_time())
-                self.media_event_timer(ntp)
-
-    # TODO: Seeking when paused sets the time point incorrectly, however sends the request correctly.
-    # TODO: Need an error statement if there is no seek times present.
-    def do_media_seek(self, time_point):
-        """
-        Seek on a media broadcast playing.
-        :param time_point: str the time point to skip to.
-        """
-        if ('h' in time_point) or ('m' in time_point) or ('s' in time_point):
-            mls = string_utili.convert_to_millisecond(time_point)
-            if mls is 0:
-                self.console_write(pinylib.COLOR['bright_red'], 'Invalid seek time: %s.' % time_point)
-            else:
-                track = self.media_manager.track()
-                if track is not None:
-                    if 0 < mls < track.time:
-                        if self.media_timer_thread is not None and self.media_timer_thread.is_alive():
-                            self.cancel_media_event_timer()
-                        new_media_time = self.media_manager.mb_skip(mls)
-                        if not self.media_manager.is_paused:
-                            self.media_event_timer(new_media_time)
-                        self.send_media_broadcast_skip(track.type, mls)
-
-    # TODO: Issue.
-    def do_media_skip(self):
-        """ Play the next item in the playlist. """
-        if self.media_manager.is_last_track():
-            self.send_bot_msg(unicode_catalog.INDICATE + ' This is the *last tune* in the playlist.')
-        elif self.media_manager.is_last_track() is None:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' *No tunes to skip. The playlist is empty.*')
-        else:
-            # TODO: Handle the event in which the media we are skipping to is not of the same type.
-            #       This is to ensure the previous media type stops playing.
-            # TODO: Replace get_next_track with next_track_info so we can get the next track information.
-            pos, next_track = self.media_manager.next_track_info()
-            self.cancel_media_event_timer()
-
-            self.media_manager.we_play(next_track)
-            self.send_media_broadcast_start(next_track.type, next_track.id)
-            self.media_event_timer(next_track.time)
-
-    def do_media_replay(self):
-        """ Replays the last played media. """
-        if self.media_manager.track() is not None:
-            self.cancel_media_event_timer()
-            self.media_manager.we_play(self.media_manager.track())
-            self.send_media_broadcast_start(self.media_manager.track().type, self.media_manager.track().id)
-            self.media_event_timer(self.media_manager.track().time)
-
-    # TODO: if two media broadcasts are playing, only the most recent is monitored and closed.
-    def do_media_stop(self):
-        """ Closes the active media broadcast. """
-        if self.media_timer_thread is not None and self.media_timer_thread.is_alive():
-            self.cancel_media_event_timer()
-        self.media_manager.mb_close()
-        self.send_media_broadcast_close(self.media_manager.track().type)
-
-    def do_youtube_playlist_videos(self, playlist):
-        """
-        Retrieves and adds video IDs of songs from a playlist.
-        Add all the videos from the given playlist.
-        :param: playlist: str the playlist or playlist ID.
-        """
-        if self._is_client_mod:
-            if self.playlist_mode:
-                if len(playlist) is 0:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter a playlist url or playlist ID.')
-                else:
-                    # TODO: Make this more efficient.
-                    # Get only the playlist ID from the provided link.
-                    playlist_id = ''
-                    if '=' in playlist:
-                        location_equal = playlist.index('=')
-                        playlist_id = playlist[location_equal + 1:len(playlist)]
-                    else:
-                        if 'http' or 'www' or 'youtube' not in playlist:
-                            playlist_id = playlist
-
-                    self.send_bot_msg(unicode_catalog.STATE +
-                                      ' *Just a minute* while we fetch the videos in the playlist...')
-
-                    video_list, non_public = youtube.youtube_playlist_all_videos(playlist_id)
-                    if len(video_list) is 0:
-                        self.send_bot_msg(unicode_catalog.INDICATE + ' No videos in playlist or none were found.')
-                    else:
-                        if non_public > 0:
-                            playlist_message = unicode_catalog.PENCIL + ' Added *' + str(len(video_list)) +\
-                                               ' videos* to the playlist. ' + 'There were *' + \
-                                               unicode_catalog.NO_WIDTH + str(non_public) + \
-                                               unicode_catalog.NO_WIDTH + '* non-public videos.'
-                        else:
-                            playlist_message = unicode_catalog.PENCIL + ' Added *' + str(len(video_list)) +\
-                                               ' videos* to the playlist.'
-
-                        if self.media_timer_thread is not None and self.media_timer_thread.is_alive():
-                            self.media_manager.add_track_list(self.user.nick, video_list)
-                            self.send_bot_msg(playlist_message)
-                        else:
-                            self.media_manager.add_track_list(self.user.nick, video_list)
-                            track = self.media_manager.get_next_track()
-                            self.send_media_broadcast_start(track.type, track.id)
-                            self.media_event_timer(track.time)
-                            self.send_bot_msg(playlist_message)
-            else:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' Turn on *playlist mode* to use this feature.')
-
-    def do_youtube_playlist_search(self, playlist_search):
-        """
-        Retrieves search results for a youtube playlist search.
-        :param playlist_search: str the name of the playlist you want to search.
-        """
-        log.info('User %s:%s is searching a YouTube playlist: %s' % (self.user.nick, self.user.id, playlist_search))
-        if self._is_client_mod:
-            if self.playlist_mode:
-                if len(playlist_search) is 0:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter a playlist search query.')
-                else:
-                    self.search_play_lists = youtube.youtube_playlist_search(playlist_search, results=4)
-                    if self.search_play_lists is None:
-                        log.warning('The search returned an error.')
-                        self.send_bot_msg(unicode_catalog.INDICATE +
-                                          ' There was an error while fetching the results.')
-                    elif len(self.search_play_lists) is 0:
-                        self.send_bot_msg(unicode_catalog.INDICATE + ' The search returned no results.')
-                    else:
-                        log.info('YouTube playlists were found: %s' % self.search_play_lists)
-                        for x in range(len(self.search_play_lists)):
-                            self.send_undercover_msg(self.user.nick, '*' + str(x + 1) + '. ' +
-                                                     self.search_play_lists[x]['playlist_title'] + ' - ' +
-                                                     self.search_play_lists[x]['playlist_id'] + '*')
-                            pinylib.time.sleep(0.2)
-            else:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' Turn on *playlist mode* to use this feature.')
-
-    def do_youtube_playlist_search_choice(self, index_choice):
-        """
-        Starts a playlist from the search list.
-        :param index_choice: int the index in the play lists to start.
-        """
-        if self.playlist_mode:
-            if len(self.search_play_lists) is 0:
-                self.send_bot_msg(unicode_catalog.INDICATE +
-                                  ' No previous playlist search committed to confirm ID. Please do *!plsh*.')
-            elif len(index_choice) is 0:
-                self.send_bot_msg(unicode_catalog.INDICATE +
-                                  ' Please choose your selection from the playlist IDs,  e.g. *!pladd 2*')
-            else:
-                if 0 <= int(index_choice) <= 4:
-                    threading.Thread(target=self.do_youtube_playlist_videos,
-                                     args=(self.search_play_lists[int(index_choice) - 1]['playlist_id'],)).start()
-        else:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' Turn on *playlist mode* to use this feature.')
-
-    def do_charts(self):
-        """ Retrieves the Top40 songs list and adds the songs to the playlist. """
-        if self._is_client_mod:
-            if self.playlist_mode:
-                self.send_bot_msg(unicode_catalog.STATE + ' *Hang on* while we retrieve the Top40 songs...')
-
-                songs_list = other.top40()
-                top40_list = list(reversed(songs_list))
-                if songs_list is None:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' We could not fetch the Top40 songs list.')
-                elif len(songs_list) is 0:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' No songs were found.')
-                else:
-                    video_list = []
-                    for x in range(len(top40_list)):
-                        search_str = top40_list[x][0] + ' - ' + top40_list[x][1]
-                        _youtube = youtube.youtube_search(search_str)
-                        if _youtube is not None:
-                            video_list.append(_youtube)
-
-                    if len(video_list) > 0:
-                        self.send_bot_msg(unicode_catalog.PENCIL + ' *Added Top40* songs (40 --> 1) to playlist.')
-                        if self.media_timer_thread is not None and self.media_timer_thread.is_alive():
-                            self.media_manager.add_track_list(self.user.nick, video_list)
-                        else:
-                            self.media_manager.add_track_list(self.user.nick, video_list)
-                            track = self.media_manager.get_next_track()
-                            self.send_media_broadcast_start(track.type, track.id)
-                            self.media_event_timer(track.time)
-            else:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' Turn on *playlist mode* to use this feature.')
-
-    def do_lastfm_chart(self, chart_items):
-        """
-        Makes a playlist from the currently most played tunes on Last.fm.
-        :param chart_items: int the amount of tunes we want.
-        """
-        if self._is_client_mod:
-            if self.playlist_mode:
-                if chart_items is 0 or chart_items is None:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' Please specify the amount of tunes you want.')
-                else:
+            if not self.is_search_list_youtube_playlist:
+                if len(self.search_list) > 0:
                     try:
-                        _items = int(chart_items)
+                        index_choice = int(int_choice)
                     except ValueError:
                         self.send_bot_msg(unicode_catalog.INDICATE + ' Only numbers allowed.')
                     else:
-                        # TODO: "No more than 30" --> smaller or equal to 30.
-                        if 0 < _items <= 30:
-                            self.send_bot_msg(unicode_catalog.STATE + ' *Please wait* while we create a playlist...')
-                            last = lastfm.get_lastfm_chart(_items)
-                            if last is not None:
-                                if self.media_timer_thread is not None and self.media_timer_thread.is_alive():
-                                    self.media_manager.add_track_list(self.user.nick, last)
-                                    self.send_bot_msg(unicode_catalog.PENCIL + '*Added:* ' + str(len(last)) +
-                                                      ' *tunes from last.fm chart.*')
-                                else:
-                                    self.media_manager.add_track_list(self.user.nick, last)
-                                    self.send_bot_msg(unicode_catalog.PENCIL + '*Added:* ' + str(len(last)) +
-                                                      ' *tunes from last.fm chart.*')
-                                    track = self.media_manager.get_next_track()
-                                    self.send_media_broadcast_start(track.type, track.id)
-                                    self.media_event_timer(track.time)
+                        if 0 <= index_choice <= len(self.search_list) - 1:
+                            if self.media_manager.has_active_track():
+                                track = self.media_manager.add_track(self.active_user.nick,
+                                                                     self.search_list[index_choice])
+                                self.send_bot_msg(unicode_catalog.PENCIL + ' *Added* (%s) *%s* %s' %
+                                                  (self.media_manager.last_track_index(), track.title, track.time))
                             else:
-                                self.send_bot_msg(unicode_catalog.INDICATE +
-                                                  ' Failed to retrieve a result from last.fm.')
+                                track = self.media_manager.mb_start(self.active_user.nick,
+                                                                    self.search_list[index_choice], mod_play=False)
+                                self.send_media_broadcast_start(track.type, track.id)
+                                self.media_event_timer(track.time)
                         else:
-                            self.send_bot_msg(unicode_catalog.INDICATE + ' No more than 30 tunes.')
-            else:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' Turn on *playlist mode* to use this feature.')
-        else:
-            self.send_bot_msg('Not enabled right now.')
-
-    def do_lastfm_random_tunes(self, max_tunes):
-        """
-        Creates a playlist from what other people are listening to on Last.fm.
-        :param max_tunes: int the maximum amount of tunes.
-        """
-        if self._is_client_mod:
-            if self.playlist_mode:
-                if max_tunes is 0 or max_tunes is None:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' Please specify the max amount of tunes you want.')
+                            self.send_bot_msg(unicode_catalog.INDICATE + ' Please make a choice between 0-%s' %
+                                              str(len(self.search_list) - 1))
                 else:
-                    try:
-                        _items = int(max_tunes)
-                    except ValueError:
-                        self.send_bot_msg(unicode_catalog.INDICATE + ' Only numbers allowed.')
-                    else:
-                        # TODO: "No more than 50" --> smaller or equal to 50.
-                        if 0 < _items <= 50:
-                            self.send_bot_msg(unicode_catalog.STATE + ' *Please wait* while we create a playlist...')
-                            last = lastfm.lastfm_listening_now(max_tunes)
-                            if last is not None:
-                                if self.media_timer_thread is not None and self.media_timer_thread.is_alive():
-                                    self.media_manager.add_track_list(self.user.nick, last)
-                                    self.send_bot_msg(unicode_catalog.PENCIL + ' Added *' + str(len(last)) +
-                                                      '* tunes from *last.fm*')
-                                else:
-                                    self.media_manager.add_track_list(self.user.nick, last)
-                                    self.send_bot_msg(unicode_catalog.PENCIL + ' Added *' + str(len(last)) +
-                                                      ' * tunes from *last.fm*')
-                                    track = self.media_manager.get_next_track()
-                                    self.send_media_broadcast_start(track.type, track.id)
-                                    self.media_event_timer(track.time)
-                            else:
-                                self.send_bot_msg(unicode_catalog.INDICATE +
-                                                  ' Failed to retrieve a result from last.fm.')
-                        else:
-                            self.send_bot_msg(unicode_catalog.INDICATE + ' No more than 50 tunes.')
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' No youtube track id\'s in the search list.')
             else:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' Turn on *playlist mode* to use this feature.')
-        else:
-            self.send_bot_msg('Not enabled right now.')
-
-    def search_lastfm_by_tag(self, search_str):
-        """
-        Searches Last.fm for tunes matching the search term and creates a playlist from them.
-        :param search_str: str the search term to search for.
-        """
-        if self._is_client_mod:
-            if self.playlist_mode:
-                if len(search_str) is 0:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' Missing search tag.')
-                else:
-                    self.send_bot_msg(unicode_catalog.STATE + ' *Please wait* while we create a playlist...')
-                    last = lastfm.search_lastfm_by_tag(search_str)
-                    if last is not None:
-                        if self.media_timer_thread is not None and self.media_timer_thread.is_alive():
-                            self.media_manager.add_track_list(self.user.nick, last)
-                            self.send_bot_msg(unicode_catalog.PENCIL + ' Added *' + str(len(last)) +
-                                              '* tunes from *last.fm*')
-                        else:
-                            self.media_manager.add_track_list(self.user.nick, last)
-                            self.send_bot_msg(unicode_catalog.PENCIL + ' Added *' + str(len(last)) +
-                                              '* tunes from *last.fm*')
-                            track = self.media_manager.get_next_track()
-                            self.send_media_broadcast_start(track.type, track.id)
-                            self.media_event_timer(track.time)
-                    else:
-                        self.send_bot_msg(unicode_catalog.INDICATE +
-                                          ' Failed to retrieve a result from last.fm.')
-            else:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' Turn on *playlist mode* to use this feature.')
-        else:
-            self.send_bot_msg('Not enabled right now.')
-
-    # TODO: Index search to true length from list.
-    def do_delete_playlist_item(self, to_delete):
-        """
-        Delete item(s) from the playlist by index.
-        :param to_delete: str index(es) to delete.
-        """
-        if len(self.media_manager.track_list) is 0:
-            self.send_bot_msg('The track list is empty.')
-        elif len(to_delete) is 0:
-            self.send_bot_msg('No indexes to delete provided.')
-        else:
-            indexes = None
-            by_range = False
-
-            try:
-                if ':' in to_delete:
-                    range_indexes = map(int, to_delete.split(':'))
-                    temp_indexes = range(range_indexes[0], range_indexes[1] + 1)
-                    if len(temp_indexes) > 1:
-                        by_range = True
-                else:
-                    temp_indexes = map(int, to_delete.split(','))
-            except ValueError:
-                # Add logging here?
-                self.send_undercover_msg(self.user.nick, 'Wrong format.')
-            else:
-                indexes = []
-                for i in temp_indexes:
-                    if i < len(self.media_manager.track_list) and i not in indexes:
-                        indexes.append(i)
-
-            if indexes is not None and len(indexes) > 0:
-                result = self.media_manager.delete_by_index(indexes, by_range)
-                if result is not None:
-                    if by_range:
-                        self.send_bot_msg(
-                            '*Deleted from index:* %s *to index:* %s' % (result['from'], result['to']))
-                    elif result['deleted_indexes_len'] is 1:
-                        self.send_bot_msg('*Deleted*: %s' % result['track_title'])
-                    else:
-                        self.send_bot_msg('*Deleted tracks at index:* %s' % ', '.join(result['deleted_indexes']))
-                else:
-                    self.send_bot_msg('Nothing was deleted.')
-
-    def do_clear_playlist(self):
-        """ Clear the playlist. """
-        if len(self.media_manager.track_list) > 0:
-            # TODO: Move this to outer.
-            pl_length = str(len(self.media_manager.track_list))
-            self.media_manager.clear_track_list()
-            self.send_bot_msg(unicode_catalog.SCISSORS + ' *Deleted* ' + pl_length + ' *items* in the playlist.')
-        else:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' The playlist is empty, *nothing to clear*.')
+                self.send_bot_msg(unicode_catalog.INDICATE + ' The search list only contains youtube playlist id\'s.')
 
     # == Public Command Methods. ==
-    # TODO: Make use of sys.version & sys.platform (possibly as command information).
-    def do_version(self):
-        """ Replies with relevant version information concerning the bot. """
-        self.send_undercover_msg(self.user.nick, '*pinybot* %s, *code name:* %s, *pinylib version*: %s' %
-                                 (__version__, build_name, pinylib.about.__version__))
-        self.send_undercover_msg(self.user.nick, '*Repository/Editor:* ' + author_info)
-        self.send_undercover_msg(self.user.nick, '*Platform:* %s *Runner:* %s' % (sys.platform, sys.version_info[0:4]))
-
-    def do_help(self):
-        """ Posts a link to a GitHub README/Wiki about the bot commands. """
-        # self.send_bot_msg('*Commands:* https://github.com/GoelBiju/pinybot/wiki/Features/'
-        #                   '\n*README:* https://github.com/GoelBiju/pinybot/blob/master/README.md')
-        self.send_chat_msg('Commands: https://github.com/GoelBiju/pinybot/wiki/Features/ README: https://github.com/GoelBiju/pinybot/blob/master/README.md')
-        print('Sent')
-
-    def do_uptime(self):
-        """ Shows the bots uptime. """
-        self.send_bot_msg(unicode_catalog.TIME + ' *Uptime:* ' + self.format_time(self.get_runtime()) +
-                          ' *Reconnect Delay:* ' + self.format_time(self._reconnect_delay * 1000))
-
-    def do_pmme(self):
-        """ Opens a PM session with the bot. """
-        print('in function')
-        self.send_private_msg('hello', 't3ch')
-
     def do_full_screen(self, room_name):
         """
         Post a full screen link.
         :param room_name: str the room name you want a full screen link for.
         """
-        if len(room_name) is 0:
-            self.send_undercover_msg(self.user.nick, 'http://tinychat.com/embed/Tinychat-11.1-1.0.0.' +
-                                     pinylib.CONFIG['swf_version'] + '.swf?target=client&key=tinychat&room=' +
-                                     self._roomname)
+        if not room_name:
+            self.send_undercover_msg(self.active_user.nick, 'http://tinychat.com/embed/Tinychat-11.1-1.0.0.' +
+                                     pinylib.CONFIG.SWF_VERSION + '.swf?target=client&key=tinychat&room=' +
+                                     self.roomname)
         else:
-            self.send_undercover_msg(self.user.nick, 'http://tinychat.com/embed/Tinychat-11.1-1.0.0.' +
-                                     pinylib.CONFIG['swf_version'] + '.swf?target=client&key=tinychat&room=' +
+            self.send_undercover_msg(self.active_user.nick, 'http://tinychat.com/embed/Tinychat-11.1-1.0.0.' +
+                                     pinylib.CONFIG.SWF_VERSION + '.swf?target=client&key=tinychat&room=' +
                                      room_name)
 
-    # == Media Related Status Methods. ==
-    def do_media_request(self, request_type, request_search):
-        """
-        Allows user's to make media requests for both YouTube and SoundCloud and requests the media to
-        be accepted/declined by a owner/super mod/moderator/botter.
-        :param request_type: str the type of media it is YouTube/SoundCloud.
-        :param request_search: str the item to request for link/id/title.
-        """
-        if self._is_client_mod:
-            if self.media_request is None:
-                # Set up the type of media to be added to the playlist/played.
-                type_reply = str
-                if request_type == self.yt_type:
-                    type_reply = 'YouTube'
-                elif request_type == self.sc_type:
-                    type_reply = 'SoundCloud'
-
-                if len(request_search) is 0:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' Please specify *' + type_reply +
-                                      ' title, id or link to make a media request.*')
-                else:
-                    # Search for the specified media.
-                    _media = None
-                    # TODO: Support link regex here?
-                    if request_type == self.yt_type:
-                        _media = youtube.youtube_search(request_search)
-                    elif request_type == self.sc_type:
-                        _media = soundcloud.soundcloud_search(request_search)
-
-                    # Handle starting media playback.
-                    if _media is None:
-                        self.send_bot_msg(unicode_catalog.INDICATE + ' Could not find media: ' + request_search)
-                    else:
-                        self.media_request = _media
-                        self.send_bot_msg(unicode_catalog.ARROW_SIDEWAYS + ' Media request has been *submitted*. ' +
-                                          'Please wait until the request is accepted/declined.')
-            else:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' Please wait until a privileged user decides on the '
-                                                             'current media request.')
-        else:
-            self.send_bot_msg('Not enabled right now.')
-
-    def do_now_playing(self):
-        """ Shows the currently playing media title to the user. """
-        if self._is_client_mod:
-            if self.media_timer_thread is not None and self.media_timer_thread.is_alive() or \
-                    self.media_manager.is_paused:
-                track = self.media_manager.track()
-                if len(self.media_manager.track_list) > 0:
-                    # TODO: Owner_run_msg - appropriate unicode - list image?
-                    self.send_undercover_msg(self.user.nick, '*%s* (%s)' % (track.title, self.format_time(track.time)))
-                    # TODO: Shows the respective media URLs.
-                    if track.type == self.yt_type:
-                        self.send_undercover_msg(self.user.nick, '*YouTube link:* https://youtube.com/watch?v=' +
-                                                 str(track.id))
-                    elif track.type == self.sc_type:
-                        track_info = soundcloud.soundcloud_track_info(track.id)
-                        track_link = track_info['permalink_url']
-                        self.send_undercover_msg(self.user.nick, '*SoundCloud link:* ' + str(track_link))
-                else:
-                    self.send_undercover_msg(self.user.nick, '*' + track.title + '* ' + self.format_time(track.time))
-            else:
-                self.send_undercover_msg(self.user.nick, '*No track is playing.*')
-
     def do_who_plays(self):
-        """ Shows who is played/requested the track. """
-        if self.media_timer_thread is not None and self.media_timer_thread.is_alive() or self.media_manager.is_paused:
+        """ shows who is playing the track. """
+        if self.media_manager.has_active_track():
             track = self.media_manager.track()
-            time_since_request = self.format_time(int(pinylib.time.time() - track.rq_time) * 1000)
-            self.send_undercover_msg(self.user.nick, '*%s* played/requested this track: *%s ago*.' %
-                                     (track.nick, time_since_request))
+            time_elapsed = self.format_time(int(pinylib.time.time() - track.rq_time) * 1000)
+            self.send_bot_msg(unicode_catalog.STATE + ' *' + track.owner + '* added this track: ' + time_elapsed +
+                              ' ago.')
         else:
-            self.send_undercover_msg(self.user.nick, 'No track is playing.')
+            self.send_bot_msg(unicode_catalog.INDICATE + ' *No track playing*.')
 
-    # TODO: Issue.
+    def do_version(self):
+        """ Show version information. """
+        self.send_undercover_msg(self.active_user.nick, '*pinybot*: %s (%s - %s) *pinylib*: %s' %
+                                 (__version__, __version_name__, __status__, pinylib.__version__))
+        self.send_undercover_msg(self.active_user.nick, '*Repository/Authors*: %s' % __authors_information__)
+        self.send_undercover_msg(self.active_user.nick, '*Platform:* %s, *Runner*: %s' %
+                                 (sys.platform, sys.version_info[0:3]))
+
+    def do_help(self):
+        """ Posts a link to GitHub README/wiki or other page about the bot commands. """
+        self.send_undercover_msg(self.active_user.nick, '*Help:* https://github.com/nortxort/tinybot/wiki/commands')
+
+    def do_uptime(self):
+        """ Shows the bots uptime. """
+        self.send_bot_msg('*Uptime:* ' + self.format_time(self.get_runtime()) +
+                          ' *Reconnect Delay:* ' + self.format_time(self._reconnect_delay * 1000))
+
+    def do_pmme(self):
+        """ Opens a PM session with the bot. """
+        self.send_private_msg('How can I help you *' + unicode_catalog.NO_WIDTH + self.active_user.nick +
+                              unicode_catalog.NO_WIDTH + '*?', self.active_user.nick)
+
+    #  == Media Related Command Methods. ==
     def do_playlist_status(self):
         """ Shows info about the playlist. """
         if self._is_client_mod:
             if len(self.media_manager.track_list) is 0:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' The playlist is *empty*.')
+                self.send_bot_msg('*The playlist is empty.*')
             else:
                 in_queue = self.media_manager.queue()
                 if in_queue is not None:
-                    self.send_bot_msg(str(in_queue[0]) + ' *item(s) in the playlist.* ' +
+                    self.send_bot_msg(str(in_queue[0]) + ' *items in the playlist.* ' +
                                       str(in_queue[1]) + ' *Still in queue.*')
         else:
-            self.send_bot_msg('Not enabled right now.')
+            self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now..')
 
-    # TODO: Issue.
     def do_next_tune_in_playlist(self):
         """ Shows next item in the playlist. """
         if self._is_client_mod:
             if self.media_manager.is_last_track():
-                self.send_bot_msg(unicode_catalog.INDICATE + ' This is the *last tune* in the playlist.')
+                self.send_bot_msg(unicode_catalog.STATE + ' This is the *last track* in the playlist.')
             elif self.media_manager.is_last_track() is None:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' *No tunes* in the playlist.')
+                self.send_bot_msg(unicode_catalog.STATE + ' *No tracks in the playlist.*')
             else:
                 pos, next_track = self.media_manager.next_track_info()
                 if next_track is not None:
-                    self.send_bot_msg(unicode_catalog.STATE + ' (%s) *%s* (%s)' % (str(pos), next_track.title,
-                                                                                   self.format_time(next_track.time)))
+                    self.send_bot_msg('(' + str(pos) + ') *' + next_track.title + '* ' +
+                                      self.format_time(next_track.time))
         else:
-            self.send_bot_msg('Not enabled right now.')
+            self.send_bot_msg(unicode_catalog.INDICATE + 'Not enabled right now..')
 
-    # TODO: Private media handling via media manager?
-    def do_play_private_media(self, media_type, search):
+    def do_now_playing(self):
+        """ Shows the currently playing media title. """
+        if self._is_client_mod:
+            if self.media_manager.has_active_track():
+                track = self.media_manager.track()
+                if len(self.media_manager.track_list) > 0:
+                    self.send_undercover_msg(self.active_user.nick, 'Now playing (' +
+                                             str(self.media_manager.current_track_index() + 1) + '): *' + track.title +
+                                             '* (' + self.format_time(track.time) + ')')
+                else:
+                    self.send_undercover_msg(self.active_user.nick, 'Now playing: *' + track.title + '* (' +
+                                             self.format_time(track.time) + ')')
+            else:
+                self.send_undercover_msg(self.active_user.nick, '*No track playing.*')
+
+    def do_play_youtube(self, search_video):
         """
-        Plays a youTube or soundCloud matching the search term privately.
-        :param media_type: str youTube or soundCloud depending on the type of media to play privately.
-        :param search: str the search term.
+        Plays a YouTube video matching the search term.
+        :param search_video: str the video to search for.
+        """
+        log.info('User: %s:%s is searching youtube: %s' % (self.active_user.nick, self.active_user.id, search_video))
+        if self._is_client_mod:
+            if len(search_video) is 0:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Please specify *YouTube* title, ID or link.')
+            else:
+                # Try checking the search term to see if matches our URL regex pattern.
+                # If so, we can extract the video id from the URL. Many thanks to Aida (Autotonic) for this feature.
+                match_url = self._youtube_pattern.match(search_video)
+                if match_url is not None:
+                    video_id = match_url.group(1)
+                    _youtube = apis.youtube.video_details(video_id)
+                else:
+                    _youtube = apis.youtube.search(search_video)
+
+                if _youtube is None:
+                    log.warning('Youtube request returned: %s' % _youtube)
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' Could not find video: ' + search_video)
+                else:
+                    log.info('Youtube found: %s' % _youtube)
+                    if self.media_manager.has_active_track() and pinylib.CONFIG.B_PLAYLIST_MODE:
+                        track = self.media_manager.add_track(self.active_user.nick, _youtube)
+                        self.send_bot_msg(unicode_catalog.PENCIL + ' *' + track.title + '* (' +
+                                          self.format_time(track.time) + ')')
+                    else:
+                        track = self.media_manager.mb_start(self.active_user.nick, _youtube, mod_play=False)
+                        self.send_media_broadcast_start(track.type, track.id)
+                        self.media_event_timer(track.time)
+        else:
+            self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now..')
+
+    def do_play_private_youtube(self, search_video):
+        """
+        Plays a YouTube matching the search term privately.
         NOTE: The video will only be visible for the message sender.
+        :param search_video: str the video to search for.
         """
         if self._is_client_mod:
-            type_reply = str
-            if media_type == self.yt_type:
-                type_reply = 'YouTube'
-            elif media_type == self.sc_type:
-                type_reply = 'SoundCloud'
-
-            if len(type_reply) is 0:
-                self.send_undercover_msg(self.user.nick, self.user.nick + ', please specify *' + type_reply +
-                                         ' title, id or link.*')
+            if len(search_video) is 0:
+                self.send_undercover_msg(self.active_user.nick, 'Please specify *YouTube* title, id or link.')
             else:
-                _media = None
-                if media_type == self.yt_type:
-                    _media = youtube.youtube_search(search)
-                elif media_type == self.sc_type:
-                    _media = soundcloud.soundcloud_search(search)
-
-                if _media is None:
-                    self.send_undercover_msg(self.user.nick, 'Could not find video: ' + search)
+                _youtube = apis.youtube.search(search_video)
+                if _youtube is None:
+                    self.send_undercover_msg(self.active_user.nick, 'Could not find video: %s' % search_video)
                 else:
-                    self.user.private_media = media_type
-                    self.send_media_broadcast_start(media_type, _media['video_id'], private_nick=self.user.nick)
+                    self.send_media_broadcast_start(_youtube['type'], _youtube['video_id'],
+                                                    private_nick=self.active_user.nick)
         else:
-            self.send_bot_msg('Not enabled right now.')
+            self.send_bot_msg('Not enabled right now..')
 
-    def do_stop_private_media(self):
+    def do_play_soundcloud(self, search_track):
         """
-        Stops a users private media (youTube or soundCloud) using a user attribute.
-        If the attribute is not available, then both media are forcibly stopped.
-        """
-        # Close the private media depending if the attribute(s) exist.
-        if hasattr(self.user, 'yt_type'):
-            self.send_media_broadcast_close(self.yt_type, self.user.nick)
-        elif hasattr(self.user, 'sc_type'):
-            self.send_media_broadcast_close(self.sc_type, self.user.nick)
-        else:
-            # If none or both exist then issue a close media broadcast
-            # for both types of media (YouTube and SoundCloud).
-            self.send_media_broadcast_close(self.yt_type, self.user.nick)
-            self.send_media_broadcast_close(self.sc_type, self.user.nick)
-
-    # TODO: Split these into smaller functions.
-    # TODO: Allow sync to capture media pause/resume states.
-    # TODO: Should sync all be an option?
-    def do_sync_media(self, nick_to_sync):
-        """
-        Sync a user with the media that is currently being played within the room.
-        NOTE: We do not handle events in which two media events are occurring simultaneously.
-
-        :param nick_to_sync: str the nickname to send the sync request to.
+        Plays a SoundCloud matching the search term.
+        :param search_track: str the track to search for.
         """
         if self._is_client_mod:
-            if self.media_timer_thread is not None and self.media_timer_thread.is_alive() or \
-                    self.media_manager.is_paused:
-                if len(nick_to_sync) is 0:
-                    sync_nick = self.user.nick
-                else:
-                    sync_nick = self.find_user_info(nick_to_sync).nick
-
-                if sync_nick is not None:
-                    # Send the initial media, then proceed to send paused request if the media is in a paused state.
-                    self.send_media_broadcast_start(self.media_manager.track().type, self.media_manager.track().id,
-                                                    self.media_manager.elapsed_track_time(), private_nick=sync_nick)
-
-                    # TODO: Shall we start playing then skip and pause at the paused section?
-                    # TODO: Should we handle in the event that a media seek is issued at a specific point whilst issuing
-                    #       a sync request (the seek/pause/close/play event is the only issue that will not be handled
-                    #       in this case.
-                    if self.media_manager.is_paused:
-                        # TODO: Can we avoid sending this sleep time.
-                        # Small delay to make sure the pause request is not sent prior to the start media request.
-                        pinylib.time.sleep(0.1)
-                        self.send_media_broadcast_pause(self.media_manager.track().type, private_nick=sync_nick)
-                else:
-                    self.send_undercover_msg(self.user.nick, 'The user you tried to send a *sync* to doesn\'t exist.')
+            if len(search_track) is 0:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Please specify *SoundCloud* title or id.')
             else:
-                self.send_undercover_msg(self.user.nick, '*No media is playing* to sync to at the moment.')
+                _soundcloud = apis.soundcloud.search(search_track)
+                if _soundcloud is None:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' Could not find SoundCloud: %s' % search_track)
+                else:
+                    if self.media_manager.has_active_track() and pinylib.CONFIG.B_PLAYLIST_MODE:
+                        track = self.media_manager.add_track(self.active_user.nick, _soundcloud)
+                        self.send_bot_msg(unicode_catalog.PENCIL + ' *' + track.title + '* (' +
+                                          self.format_time(track.time) + ')')
+                    else:
+                        track = self.media_manager.mb_start(self.active_user.nick, _soundcloud, mod_play=False)
+                        self.send_media_broadcast_start(track.type, track.id)
+                        self.media_event_timer(track.time)
+        else:
+            self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now..')
+
+    def do_play_private_soundcloud(self, search_track):
+        """
+        Plays a SoundCloud matching the search term privately.
+        NOTE: The video will only be visible for the message sender.
+        :param search_track: str the track to search for.
+        """
+        if self._is_client_mod:
+            if len(search_track) is 0:
+                self.send_undercover_msg(self.active_user.nick, 'Please specify *SoundCloud* title or id.')
+            else:
+                _soundcloud = apis.soundcloud.search(search_track)
+                if _soundcloud is None:
+                    self.send_undercover_msg(self.active_user.nick, 'Could not find video: ' + search_track)
+                else:
+                    self.send_media_broadcast_start(_soundcloud['type'], _soundcloud['video_id'],
+                                                    private_nick=self.active_user.nick)
+        else:
+            self.send_bot_msg('Not enabled right now..')
+
+    def do_cam_approve(self):
+        """ Send a cam approve message to a user. """
+        if self._is_client_mod:
+            if self._b_password is None:
+                conf = pinylib.core.get_roomconfig_xml(self.roomname, self.room_pass, proxy=self._proxy)
+                self._b_password = conf['bpassword']
+                self.rtmp_parameter['greenroom'] = conf['greenroom']
+            if self.rtmp_parameter['greenroom']:
+                self.send_cam_approve_msg(self.active_user.id, self.active_user.nick)
 
     # == Tinychat API Command Methods. ==
-    def do_spy(self, roomname):
+    def do_spy(self, room_name):
         """
         Shows info for a given room.
-        :param roomname: str the room name to find info for.
+        :param room_name: str the room name to find info for.
         """
         if self._is_client_mod:
-            if len(roomname) is 0:
-                self.send_undercover_msg(self.user.nick, 'Missing room name.')
+            if len(room_name) is 0:
+                self.send_undercover_msg(self.active_user.nick, 'Missing room name.')
             else:
-                spy_info = pinylib.tinychat.spy_info(roomname)
+                spy_info = pinylib.core.spy_info(room_name)
                 if spy_info is None:
-                    self.send_undercover_msg(self.user.nick, 'The room is empty.')
+                    self.send_undercover_msg(self.active_user.nick, 'The room is empty.')
                 elif spy_info == 'PW':
-                    self.send_undercover_msg(self.user.nick, 'The room is password protected.')
-                # TODO: Added 'CLOSED' option to the reply.
-                elif spy_info == 'CLOSED':
-                    self.send_undercover_msg(self.user.nick, 'The room is closed.')
+                    self.send_undercover_msg(self.active_user.nick, 'The room is password protected.')
                 else:
-                    self.send_undercover_msg(self.user.nick,
+                    self.send_undercover_msg(self.active_user.nick,
                                              '*mods:* ' + spy_info['mod_count'] +
                                              ' *Broadcasters:* ' + spy_info['broadcaster_count'] +
                                              ' *Users:* ' + spy_info['total_count'])
-                    if self.user.is_owner or self.user.is_mod or self.user.has_power:
+                    if self.has_level(3):
                         users = ', '.join(spy_info['users'])
-                        self.send_undercover_msg(self.user.nick, '*' + users + '*')
-        else:
-            self.send_bot_msg('Not enabled right now.')
+                        self.send_undercover_msg(self.active_user.nick, '*' + users + '*')
 
     def do_account_spy(self, account):
         """
@@ -2421,180 +1790,70 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         """
         if self._is_client_mod:
             if len(account) is 0:
-                self.send_undercover_msg(self.user.nick, 'Missing account name to search for.')
+                self.send_undercover_msg(self.active_user.nick, 'Missing username to search for.')
             else:
-                tc_usr = pinylib.tinychat.tinychat_user_info(account)
+                tc_usr = pinylib.core.tinychat_user_info(account)
                 if tc_usr is None:
-                    self.send_undercover_msg(self.user.nick, 'Could not find Tinychat info for: ' + account)
+                    self.send_undercover_msg(self.active_user.nick, 'Could not find Tinychat info for: ' + account)
                 else:
-                    self.send_undercover_msg(self.user.nick, '*ID:* ' + tc_usr['tinychat_id'] +
-                                             ', *Last login:* ' + tc_usr['last_active'])
-        else:
-            self.send_bot_msg('Not enabled right now.')
+                    self.send_undercover_msg(self.active_user.nick, 'ID: ' + tc_usr['tinychat_id'] +
+                                             ', Last login: ' + tc_usr['last_active'])
 
     # == Other API Command Methods. ==
-    def do_search_urban_dictionary(self, search):
+    def do_search_urban_dictionary(self, search_term):
         """
-        Shows "Urban Dictionary" definition of search string.
-        :param search: str the search term to look up a definition for.
+        Shows Urban-Dictionary definition of search string.
+        :param search_term: str the search term to look up a definition for.
         """
         if self._is_client_mod:
-            if len(search) is 0:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' Please specify a search term for *Urban-Dictionary*.')
+            if len(search_term) is 0:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Please specify something to look up.')
             else:
-                urban_definition = other.urban_dictionary_search(search)
-                if urban_definition is None:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' Could not find a definition for: ' + search)
+                urban = apis.other.urbandictionary_search(search_term)
+                if urban is None:
+                    self.send_bot_msg('Could not find a definition for: ' + search_term)
                 else:
-                    if len(urban_definition) > 70:
-                        chunks = string_utili.chunk_string(urban_definition, 70)
+                    if len(urban) > 70:
+                        chunks = pinylib.string_util.chunk_string(urban, 70)
                         for i in range(0, 2):
                             self.send_bot_msg(chunks[i])
                     else:
-                        self.send_bot_msg(urban_definition)
+                        self.send_bot_msg(urban)
 
-    def do_weather_search(self, search_str):
+    def do_weather_search(self, location):
         """
         Shows weather info for a given search string.
-        :param search_str: str the search string to find weather data for.
+        :param location: str the location to find weather data for.
         """
-        if len(search_str) is 0:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' Please specify a location to retrieve weather information.')
+        if len(location) is 0:
+            self.send_bot_msg(unicode_catalog.INDICATE + ' Please specify a city to search for.')
         else:
-            weather = other.weather_search(search_str)
+            weather = apis.other.weather_search(location)
             if weather is None:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' Could not find weather data for: ' + search_str)
-            elif not weather:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' Missing API key.')
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Could not find weather data for: %s' % location)
             else:
                 self.send_bot_msg(weather)
 
-    def do_whois_ip(self, ip_str):
+    def do_who_is_ip(self, ip_address):
         """
-        Shows whois info for a given IP address.
-        :param ip_str: str the IP address to find info for.
+        Shows who-is info for a given ip address.
+        :param ip_address: str the ip address to find info for.
         """
-        if len(ip_str) is 0:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' Please provide an I.P. address.')
+        if len(ip_address) is 0:
+            self.send_bot_msg(unicode_catalog.INDICATE + ' Please provide an IP address.')
         else:
-            whois = other.who_is(ip_str)
-            if whois is None:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' No information found for: ' + ip_str)
+            who_is = apis.other.who_is(ip_address)
+            if who_is is None:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' *No information found for*: %s' % ip_address)
             else:
-                self.send_bot_msg(whois)
-
-    def do_md5_hash_cracker(self, hash_str):
-        """
-        Shows the attempt to crack an MD5 hash with the http://md5cracker.org/ API.
-        :param hash_str: str the 32 character long hash.
-        """
-        if len(hash_str) is 0:
-            self.send_bot_msg('Missing MD5 hash.')
-        elif len(hash_str) is 32:
-            result = other.hash_cracker(hash_str)
-            if result is not None:
-                if result['status']:
-                    self.send_bot_msg(hash_str + ' = *' + unicode_catalog.NO_WIDTH + result['result'] +
-                                      unicode_catalog.NO_WIDTH + '*')
-                elif not result['status']:
-                    self.send_bot_msg(result['message'])
-        else:
-            self.send_bot_msg('An MD5 *hash is exactly 32 characters* in length.')
-
-    def do_duckduckgo_search(self, search):
-        """
-        Shows definitions/information relating to a particular DuckDuckGo search query.
-        :param search: str the search query.
-        """
-        if len(search) is 0:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter a *DuckDuckGo* search term.')
-        else:
-            definitions = other.duck_duck_go_search(search)
-            if definitions is not None:
-                for x in range(len(definitions)):
-                    # TODO: String utility implementation here.
-                    if len(definitions[x]) > 160:
-                        sentence = definitions[x][0:159] + '\n ' + definitions[x][159:]
-                    else:
-                        sentence = definitions[x]
-                    self.send_bot_msg(str(x + 1) + ' *' + sentence + '*')
-
-    def do_omdb_search(self, search):
-        """
-        Post information retrieved from OMDb (serving IMDB data) API.
-        :param search: str the IMDB entertainment search.
-        """
-        if len(search) is 0:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' Please specify a *movie or television show*.')
-        else:
-            omdb = other.omdb_search(search)
-            if omdb is None:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' *Error or title does not exist.*')
-            else:
-                self.send_bot_msg(omdb)
-
-    def do_etymonline_search(self, search):
-        """
-        Search http://etymonline.com/ to reply with etymology for particular search term.
-        :param search: str the term you want its etymology for.
-        """
-        if len(search) is 0:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter a *search term* to lookup on *Etymonline*.')
-        else:
-            etymology = other.etymonline(search)
-            if etymology is None:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' We could not retrieve the etymology for your term.')
-            else:
-                # TODO: String utility implementation here.
-                if len(etymology) > 295:
-                    etymology = etymology[:294] + ' ...'
-                self.send_bot_msg(etymology)
+                self.send_bot_msg(who_is)
 
     # == Just For Fun Command Methods. ==
-    # TODO: When instant is used initially without using !cb to initialise the session,
-    # the instant message is not printed.
-    def do_cleverbot(self, query, instant=False):
-        """
-        Shows the reply from the online self-learning A.I. CleverBot.
-        :param query: str the statement/question to ask CleverBot.
-        :param instant: bool True/False whether the request was from when a user typed in the client's nickname or
-                       manually requested a response.
-        """
-        if self.cleverbot_enable:
-            if len(query) is not 0:
-                if self.cleverbot_session is None:
-                    # Open a new connection to CleverBot in the event we do not already have one set up.
-                    self.cleverbot_session = clever_client_bot.CleverBot()
-                    # Start CleverBot message timer.
-                    threading.Thread(target=self.cleverbot_timer).start()
-                    if not instant:
-                        self.send_bot_msg(unicode_catalog.VICTORY_HAND + ' *Waking up* ' + self.client_nick)
-
-                if self.cleverbot_session is not None:
-                    # Request the response from the server and send it as a normal user message.
-                    response = self.cleverbot_session.converse(query)
-                    if not instant:
-                        self.send_bot_msg('*CleverBot* %s: %s' % (unicode_catalog.STATE, response))
-                    else:
-                        self.send_bot_msg(response, use_chat_msg=True)
-
-                    self.console_write(pinylib.COLOR['green'], '[CleverBot]: ' + response)
-
-                # Record the time at which the response was sent.
-                self.cleverbot_msg_time = int(pinylib.time.time())
-            else:
-                if not instant:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter a statement/question.')
-        else:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' Please enable CleverBot to use this function.')
-
     def do_chuck_norris(self):
-        """ Shows a Chuck Norris joke/quote. """
-        chuck = other.chuck_norris()
+        """ Shows a chuck norris joke/quote. """
+        chuck = apis.other.chuck_norris()
         if chuck is not None:
-            self.send_bot_msg('*' + chuck + '*')
-        else:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' Unable to retrieve from server.')
+            self.send_bot_msg(chuck)
 
     def do_8ball(self, question):
         """
@@ -2602,197 +1861,419 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         :param question: str the yes/no question.
         """
         if len(question) is 0:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' Provide a *yes* or *no* question.')
+            self.send_bot_msg(unicode_catalog.INDICATE + ' Please ask a *yes or no question* to get a reply.')
         else:
-            self.send_bot_msg('*8Ball:* ' + locals.eight_ball())
+            self.send_bot_msg('*8Ball* %s' % apis.locals.eight_ball())
 
-    def do_yo_mama_joke(self):
-        """ Shows the reply from a 'Yo Mama' joke API. """
-        yo_mama = str(other.yo_mama_joke())
-        if yo_mama is not None:
-            self.send_bot_msg('*' + unicode_catalog.NO_WIDTH + self.user.nick + unicode_catalog.NO_WIDTH +
-                              '* says ' + yo_mama.lower())
+    # Custom command handling functions:
+    def do_set_sanitize_message(self):
+        """
+
+        """
+        pinylib.CONFIG.B_SANITIZE_MESSAGES = not pinylib.CONFIG.B_SANITIZE_MESSAGES
+        self.send_bot_msg('*Sanitize messages*: %s' % pinylib.CONFIG.B_SANITIZE_MESSAGES)
+
+    # TODO: Handle private room commands.
+    def do_set_private_room(self):
+        """
+
+        """
+        if self._is_client_mod:
+            self.send_private_room_msg(not self._private_room)
+            self.send_bot_msg(unicode_catalog.STATE + 'Private room was sent as: *%s*' % (not self._private_room))
         else:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' Unable to retrieve from server.')
+            self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now..')
+
+    def do_set_allow_snapshots(self):
+        """
+
+        """
+        pinylib.CONFIG.B_ALLOW_SNAPSHOTS = not pinylib.CONFIG.B_ALLOW_SNAPSHOTS
+        self.send_bot_msg('*Allow snapshots*: %s' % pinylib.CONFIG.B_ALLOW_SNAPSHOTS)
+
+    def do_set_auto_close(self):
+        """
+
+        """
+        pinylib.CONFIG.B_AUTO_CLOSE = not pinylib.CONFIG.B_AUTO_CLOSE
+        self.send_bot_msg('*Auto-close*: %s' % pinylib.CONFIG.B_AUTO_CLOSE)
+
+    def do_set_ban_mobiles(self):
+        """
+
+        """
+        pinylib.CONFIG.B_BAN_MOBILES = not pinylib.CONFIG.B_BAN_MOBILES
+        self.send_bot_msg('*Ban mobiles*: %s' % pinylib.CONFIG.B_BAN_MOBILES)
+
+    def do_set_auto_url_mode(self):
+        """
+
+        """
+        pinylib.CONFIG.B_AUTO_URL_MODE = not pinylib.CONFIG.B_AUTO_URL_MODE
+        self.send_bot_msg('*Auto URL*: %s' % pinylib.CONFIG.B_AUTO_URL_MODE)
+
+    def do_set_cleverbot(self):
+        """
+
+        """
+        pinylib.CONFIG.B_CLEVERBOT = not pinylib.CONFIG.B_CLEVERBOT
+        self.send_bot_msg('*CleverBot*: %s' % pinylib.CONFIG.B_CLEVERBOT)
+
+    def do_set_playlist_mode(self):
+        """
+
+        """
+        pinylib.CONFIG.B_PLAYLIST_MODE = not pinylib.CONFIG.B_PLAYLIST_MODE
+        self.send_bot_msg('*Playlist Mode*: %s' % pinylib.CONFIG.B_PLAYLIST_MODE)
+
+    def do_set_public_media_mode(self):
+        """
+
+        """
+        pinylib.CONFIG.B_PUBLIC_MEDIA_MODE = not pinylib.CONFIG.B_PUBLIC_MEDIA_MODE
+        self.send_bot_msg('*Public Media Mode*: %s' % pinylib.CONFIG.B_PUBLIC_MEDIA_MODE)
+
+    def do_set_greet_pm(self):
+        """
+
+        """
+        pinylib.CONFIG.B_GREET_PRIVATE = not pinylib.CONFIG.B_GREET_PRIVATE
+        self.send_bot_msg('*Greet Users Private Message*: %s' % pinylib.CONFIG.B_GREET_PRIVATE)
+
+    def do_set_media_limit_public(self):
+        """
+
+        """
+        if pinylib.CONFIG.B_PUBLIC_MEDIA_MODE:
+            pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC = not pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC
+            self.send_bot_msg('*Media Limit Public*: %s' % pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC)
+        else:
+            self.send_bot_msg(unicode_catalog.INDICATE + ' *Public media mode* is not turned on, turn it on first or '
+                                                         'set to media limit playlist.')
+
+    def do_set_media_limit_playlist(self):
+        """
+
+        """
+        pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST = not pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST
+        self.send_bot_msg('*Media Limit Playlist*: %s' % pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST)
+
+    def do_media_limit_duration(self, new_duration):
+        """
+
+        :param new_duration: int the maximum number of seconds each media broadcast should played for.
+        """
+        if self._is_client_mod:
+            if pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC or pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST:
+                pinylib.CONFIG.B_MEDIA_LIMIT_DURATION = int(new_duration)
+                self.send_bot_msg('*Media limit duration* was set to: %s' % str(pinylib.CONFIG.B_MEDIA_LIMIT_DURATION))
+            else:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' *Media limiting* for public media mode or the playlist '
+                                                             'is *not turned on*.')
+        else:
+            self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now..')
+
+    def do_set_allow_radio(self):
+        """
+
+        """
+        pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY = not pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY
+        self.send_bot_msg('*Capital FM auto-play*: %s' % pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY)
+
+    def do_start_radio_auto_play(self):
+        """
+
+        """
+        if self._is_client_mod:
+            if pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY:
+                if self.radio_timer_thread is None:
+                    # Start the radio event thread and state the message that we are playing from
+                    # the radio's list of songs.
+                    threading.Thread(target=self._auto_play_radio_track).start()
+                    self.send_bot_msg(unicode_catalog.MUSICAL_NOTE_SIXTEENTH + ' *Playing Capital FM Radio* ' +
+                                      unicode_catalog.MUSICAL_NOTE_SIXTEENTH)
+                else:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' The radio event is already playing, please close it '
+                                                                 'with *!stopradio* to start again.')
+            else:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' *Capital FM auto-play* is turned off, please '
+                                                             'turn it on with *!radio*.')
+        else:
+            self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now..')
+
+    def do_stop_radio_auto_play(self):
+        """
+
+        """
+        if self._is_client_mod:
+            self.cancel_radio_event_timer()
+            self.do_close_media()
+            self.send_bot_msg(unicode_catalog.STATE + ' *Stopped playing Capital FM Radio*.')
+        else:
+            self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now..')
+
+    def do_mute(self):
+        """
+
+        """
+        self.send_mute_msg()
+
+    def do_instant_push2talk(self):
+        """
+
+        """
+        self.send_push2talk_msg()
+
+    # def do_request_media(self, request_info):
+    #     """
+    #
+    #     :param request_info: str
+    #     """
+
+    # def do_request_media_accept(self):
+    #     """
+    #
+    #     """
+    #     pass
+
+    # def do_request_media_decline(self):
+    #     """
+    #
+    #     """
+    #     pass
+
+    def do_top40_charts(self):
+        """
+        Retrieves the Top40 songs from the BBC Radio 1 charts and adds it to the playlist.
+        """
+        if self._is_client_mod:
+            if pinylib.CONFIG.B_PLAYLIST_MODE:
+                self.send_bot_msg(unicode_catalog.STATE + ' *Retrieving Top40* latest charts list.')
+                # Get the latest charts list.
+                charts_list = list(reversed(apis.other.top40_charts()))
+
+                if charts_list is None:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' The Top40 tracks could not be fetched.')
+                elif len(charts_list) is 0:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' No songs could be retrieved from the charts.')
+                else:
+                    # Load a list of the videos from the charts list.
+                    video_list = []
+                    for track in range(len(charts_list)):
+                        search_term = '%s - %s' % (charts_list[track][0], charts_list[track][1])
+                        search_result = apis.youtube.search(search_term)
+                        if search_result is not None:
+                            video_list.append(search_result)
+
+                    # Verify we have some videos to play and add them to the playlist.
+                    if len(video_list) > 0:
+                        self.media_manager.add_track_list(self.active_user.nick, video_list)
+                        self.send_bot_msg(unicode_catalog.PENCIL + ' *Top40* chart has been *added*. Ready to play from'
+                                                                   ' *40 ' + unicode_catalog.ARROW_SIDEWAYS + ' 1*.')
+
+                        # If there is no track playing at the moment, start this list.
+                        if not self.media_manager.has_active_track():
+                            track = self.media_manager.get_next_track()
+                            self.send_media_broadcast_start(track.type, track.id)
+                            self.media_event_timer(track.time)
+                    else:
+                        self.send_bot_msg(unicode_catalog.INDICATE + ' We were *unable to load the search results* into'
+                                                                     'the playlist.')
+            else:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' *Playlist mode is switched off*, please turn it on to '
+                                                             'add music from charts.')
+        else:
+            self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now..')
+
+    def do_duckduckgo_search(self, search_query):
+        """
+        Shows information/definitions regarding a particular search on DuckDuckGo.
+        :param search_query: str search query to search for.
+        """
+        if len(search_query) is not 0:
+            search_result = apis.other.duck_duck_go_search(search_query)
+            if search_result is not None:
+                for part in range(len(search_result)):
+                    if len(search_result[part]) > 160:
+                        information = search_result[part][0:159] + '\n ' + search_result[part][159:]
+                    else:
+                        information = search_result[part]
+                    self.send_bot_msg(str(part + 1) + ' *' + information + '*')
+        else:
+            self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter a search term to search on DuckDuckGo.')
+
+    def do_imdb_search(self, search_entertainment):
+        """
+        Shows information from the IMDb database OMDb, regarding a search for a show/movie.
+        :param search_entertainment: str the show/movie to search for on IMDb.
+        """
+        if len(search_entertainment) is not 0:
+            omdb_details = apis.other.omdb_search(search_entertainment)
+            if omdb_details is not None:
+                self.send_bot_msg(omdb_details)
+            else:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' We could not find any details for: *%s*' %
+                                  search_entertainment)
+        else:
+            self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter a *movie or television show* to load details.')
+
+    def do_one_liner(self, category):
+        """
+        Show a random "one
+        :param category: str a specific tag to pick a random joke from OR state '?' to list all the possible categories.
+        """
+        if len(category) is not 0:
+            if category in apis.other.ONE_LINER_TAGS:
+                one_liner = apis.other.one_liners(category)
+                if one_liner is not None:
+                    self.send_bot_msg('*' + one_liner + '*')
+                else:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' We were *unable to retrieve a "one-liner"* joke with'
+                                                                 'under the category: %s.' % category)
+            elif category == '?':
+                all_categories = ', '.join(apis.other.ONE_LINER_TAGS)
+                self.send_undercover_msg(self.active_user.nick, '*Possible categories*: ' + str(all_categories))
+            else:
+                self.send_bot_msg(unicode_catalog.INDICATE + 'We *do not recognise the category* you have entered.')
+        else:
+            one_liner = apis.other.one_liners()
+            if one_liner is not None:
+                self.send_bot_msg('*' + one_liner + '*')
+            else:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' We were *unable to retrieve a "one-liner"* joke.')
 
     def do_advice(self):
-        """ Shows the reply from an advice API. """
-        advice = other.online_advice()
-        if advice is not None:
-            self.send_bot_msg('*' + unicode_catalog.NO_WIDTH + self.user.nick + unicode_catalog.NO_WIDTH + '*, ' +
-                              advice.lower())
+        """
+        Replies with a random line of advice.
+        """
+        advice_reply = apis.other.online_advice()
+        if advice_reply is not None:
+            self.send_bot_msg(unicode_catalog.CHECKBOX_TICK + ' *' + unicode_catalog.NO_WIDTH + self.active_user.nick +
+                              unicode_catalog.NO_WIDTH + '*, ' + advice_reply.lower())
         else:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' Unable to retrieve from server.')
+            self.send_bot_msg(unicode_catalog.INDICATE + ' We were *unable to retrieve an advice* from the website.')
 
-    # TODO: Simplify this section of code.
-    def do_one_liner(self, tag):
+    # TODO: When instant is used initially without using !cb to initialise the session,
+    #       the instant message is not printed.
+    def do_cleverbot(self, cleverbot_query, instant_query=False):
         """
-        Shows a random "one-liner" joke.
-        :param tag: str a specific category to pick a random joke from OR state '?' to list categories.
+        Shows the reply from CleverBot.
+        :param cleverbot_query: str the statement/question to ask CleverBot.
+        :param instant_query: bool True/False whether the request was from when a user typed in the client's nickname or
+                       manually requested a response.
         """
-        if tag:
-            if tag == '?':
-                all_tags = ', '.join(other.ONE_LINER_TAGS) + '.'
-                self.send_undercover_msg(self.user.nick, '*Possible tags*: ' + str(all_tags))
-                return
-            elif tag in other.ONE_LINER_TAGS:
-                one_liner = other.one_liners(tag)
+        if pinylib.CONFIG.B_CLEVERBOT:
+            if len(cleverbot_query) is not 0:
+                if self._cleverbot_session is None:
+                    # Open a new connection to CleverBot in the event we do not already have one set up.
+                    self._cleverbot_session = apis.clever_client_bot.CleverBot()
+                    # Start CleverBot message timer.
+                    threading.Thread(target=self._cleverbot_timer).start()
+                    if not instant_query:
+                        self.send_bot_msg(unicode_catalog.VICTORY_HAND + ' *Waking up* ' + self.nickname)
+
+                if self._cleverbot_session is not None:
+                    # Request the response from the server and send it as a normal user message.
+                    response = self._cleverbot_session.converse(cleverbot_query)
+                    if not instant_query:
+                        self.send_bot_msg('*CleverBot* %s: %s' % (unicode_catalog.STATE, response))
+                    else:
+                        self.send_bot_msg(response, use_chat_msg=True)
+
+                    self.console_write(pinylib.COLOR['green'], '[CleverBot]: ' + response)
+
+                # Record the time at which the response was sent.
+                self._cleverbot_msg_time = int(pinylib.time.time())
             else:
-                self.send_bot_msg('The tag you specified is not available. Enter *!joke ?* to get a list of tags.')
-                return
+                if not instant_query:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter a statement/question.')
         else:
-            one_liner = other.one_liners()
+            self.send_bot_msg(unicode_catalog.INDICATE + ' Please enable CleverBot to use this function.')
 
-        if one_liner is not None:
-            self.send_bot_msg('*' + one_liner + '*')
-        else:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' Unable to retrieve from server.')
-
-    # TODO: Fix time issues when using additional time, 12 hour time and google time.
-
-    # TODO: ASCII needs to be re-done properly - "None" reply.
-    def do_ascii(self, ascii_id):
+    def do_etymology_search(self, term_etymology):
         """
-        Shows the appropriate ASCII message in relation to the ASCII dictionary.
-        :param ascii_id: str the ASCII keyword/command.
+        Searches the Etymonline website to return potential etymology for a word.
+        :param term_etymology: str the term you want to search the etymology for.
         """
-        if '!' in ascii_id:
-            parts = ascii_id.split('!')
-            if len(parts) > 1:
-                key = parts[1]
-                if key in self.ascii_dict:
-                    ascii_message = self.ascii_dict[key]
-                    # Allow for custom replacement variables in the ASCII message.
-                    new_ascii_message = self.replace_content(ascii_message)
-                    self.send_bot_msg('*%s*' % new_ascii_message)
-                    return True
+        if len(term_etymology) is not 0:
+            etymology = apis.other.etymonline(term_etymology)
+            if etymology is not None:
+                if len(etymology) > 295:
+                    etymology_information = etymology[:294] + '...'
+                    self.send_bot_msg(etymology_information)
                 else:
-                    return False
+                    self.send_bot_msg(etymology)
         else:
-            return False
+            self.send_bot_msg(unicode_catalog.INDICATE + ' Enter *search term* to lookup etymology for.')
 
-    def private_message_handler(self, msg_sender, private_msg):
+    # Private Message Command Handler.
+    def private_message_handler(self, private_msg):
         """
         Custom private message commands.
-        :param msg_sender: str the user sending the private message.
         :param private_msg: str the private message.
         """
-        # Check ban words/strings on the private message.
-        check = False
-        if self.check_bad_string:
-            check = self.check_msg_for_bad_string(private_msg, True)
 
-        if not check:
-            # Is this a custom PM command?
-            if private_msg.startswith(CONFIG['prefix']):
-                # Split the message in to parts.
-                pm_parts = private_msg.split(' ')
-                # pm_parts[0] is the command.
-                pm_cmd = pm_parts[0].lower().strip()
-                # The rest is a command argument.
-                pm_arg = ' '.join(pm_parts[1:]).strip()
+        prefix = pinylib.CONFIG.B_PREFIX
+        # Is this a custom PM command?
+        if private_msg.startswith(prefix):
+            # Split the message in to parts.
+            pm_parts = private_msg.split(' ')
+            # pm_parts[0] is the command.
+            pm_cmd = pm_parts[0].lower().strip()
+            # The rest is a command argument.
+            pm_arg = ' '.join(pm_parts[1:]).strip()
 
-                # Super mod commands.
-                if pm_cmd == CONFIG['prefix'] + 'rp':
-                    threading.Thread(target=self.do_set_room_pass, args=(pm_arg,)).start()
+            # Super mod commands.
+            if self.has_level(1):
+                if self._is_client_owner:
+                    # Only possible if bot is using the room owner account.
+                    if pm_cmd == prefix + 'rp':
+                        threading.Thread(target=self.do_set_room_pass, args=(pm_arg,)).start()
 
-                elif pm_cmd == CONFIG['prefix'] + 'bp':
-                    threading.Thread(target=self.do_set_broadcast_pass, args=(pm_arg,)).start()
+                    elif pm_cmd == prefix + 'bp':
+                        threading.Thread(target=self.do_set_broadcast_pass, args=(pm_arg,)).start()
 
-                # Owner and super mod commands.
-                elif pm_cmd == CONFIG['prefix'] + 'key':
-                    threading.Thread(target=self.do_key, args=(pm_arg,)).start()
+                if pm_cmd == prefix + 'key':
+                    self.do_key(pm_arg)
 
-                elif pm_cmd == CONFIG['prefix'] + 'clrbn':
-                    threading.Thread(target=self.do_clear_bad_nicks).start()
+                elif pm_cmd == prefix + 'clrbn':
+                    self.do_clear_bad_nicks()
 
-                elif pm_cmd == CONFIG['prefix'] + 'clrbs':
-                    threading.Thread(target=self.do_clear_bad_strings).start()
+                elif pm_cmd == prefix + 'clrbs':
+                    self.do_clear_bad_strings()
 
-                elif pm_cmd == CONFIG['prefix'] + 'clrba':
-                    threading.Thread(target=self.do_clear_bad_accounts).start()
+                elif pm_cmd == prefix + 'clrba':
+                    self.do_clear_bad_accounts()
 
-                # Mod and bot controller commands.
-                elif pm_cmd == CONFIG['prefix'] + 'disconnect':
-                    self.do_pm_disconnect(pm_arg)
+            # Public commands.
+            if self.has_level(5):
+                if pm_cmd == prefix + 'opme':
+                    self.do_opme(pm_arg)
 
-                elif pm_cmd == CONFIG['prefix'] + 'wakeup':
-                    self.do_pm_wake()
+                elif pm_cmd == prefix + 'pm':
+                    self.do_pm_bridge(pm_parts)
 
-                elif pm_cmd == CONFIG['prefix'] + 'op':
-                    threading.Thread(target=self.do_op_user, args=(pm_parts, )).start()
+        # Print to console.
+        msg = str(private_msg).replace(pinylib.CONFIG.B_KEY, '***KEY***').replace(pinylib.CONFIG.B_SUPER_KEY,
+                                                                                  '***SUPER KEY***')
+        self.console_write(pinylib.COLOR['white'], 'Private message from %s: %s' % (self.active_user.nick, msg))
 
-                elif pm_cmd == CONFIG['prefix'] + 'deop':
-                    threading.Thread(target=self.do_deop_user, args=(pm_parts, )).start()
-
-                # TODO: Connect the broadcast options as main commands.
-                elif pm_cmd == CONFIG['prefix'] + 'up':
-                    threading.Thread(target=self.do_cam_up, args=(pm_arg, )).start()
-
-                elif pm_cmd == CONFIG['prefix'] + 'down':
-                    threading.Thread(target=self.do_cam_down, args=(pm_arg, )).start()
-
-                elif pm_cmd == CONFIG['prefix'] + 'nocam':
-                    threading.Thread(target=self.do_nocam, args=(pm_arg, )).start()
-
-                elif pm_cmd == CONFIG['prefix'] + 'noguest':
-                    threading.Thread(target=self.do_no_guest, args=(pm_arg, )).start()
-
-                # TODO: Public commands option in PM.
-                elif pm_cmd == CONFIG['prefix'] + 'pub':
-                    self.do_public_cmds(pm_arg)
-
-                elif pm_cmd == CONFIG['prefix'] + 'nick':
-                    self.do_nick(pm_arg)
-
-                elif pm_cmd == CONFIG['prefix'] + 'ban':
-                    threading.Thread(target=self.do_kick, args=(pm_arg, True, True, )).start()
-
-                elif pm_cmd == CONFIG['prefix'] + 'notice':
-                    if self._is_client_mod:
-                        threading.Thread(target=self.send_owner_run_msg, args=(pm_arg, )).start()
-                    else:
-                        threading.Thread(target=self.send_private_msg, args=('Not enabled.', msg_sender)).start()
-
-                elif pm_cmd == CONFIG['prefix'] + 'say':
-                    threading.Thread(target=self.send_chat_msg, args=(pm_arg, )).start()
-
-                elif pm_cmd == CONFIG['prefix'] + 'setpm':
-                    threading.Thread(target=self.do_set_auto_pm, args=(pm_arg, )).start()
-
-                # Public commands.
-                elif pm_cmd == CONFIG['prefix'] + 'sudo':
-                    threading.Thread(target=self.do_super_user, args=(pm_arg, )).start()
-
-                elif pm_cmd == CONFIG['prefix'] + 'opme':
-                    threading.Thread(target=self.do_opme, args=(pm_arg, )).start()
-
-                elif pm_cmd == CONFIG['prefix'] + 'pm':
-                    threading.Thread(target=self.do_pm_bridge, args=(pm_parts, )).start()
-
-            # Print to console.
-            self.console_write(pinylib.COLOR['white'], 'Private message from ' + msg_sender + ': ' + str(private_msg)
-                               .replace(self.key, '***KEY***')
-                               .replace(CONFIG['super_key'], '***SUPER KEY***'))
-
-    # == Super Mod Command Methods. ==
     def do_set_room_pass(self, password):
         """
         Set a room password for the room.
         :param password: str the room password
         """
         if self._is_client_owner:
-            if self.user.is_super:
-                if not password:
-                    self.privacy_settings.set_room_password()
-                    self.send_bot_msg('*The room password was removed.*')
-                    pinylib.time.sleep(1)
-                    self.send_private_msg('The room password was removed.', self.user.nick)
-                elif len(password) > 1:
-                    self.privacy_settings.set_room_password(password)
-                    self.send_private_msg('*The room password is now:* ' + password, self.user.nick)
-                    pinylib.time.sleep(1)
-                    self.send_bot_msg('*The room is now password protected.*')
+            if not password:
+                self.privacy_settings.set_room_password()
+                self.send_bot_msg('*The room password was removed.*')
+                pinylib.time.sleep(1)
+                self.send_private_msg('The room password was removed.', self.active_user.nick)
+            elif len(password) > 1:
+                self.privacy_settings.set_room_password(password)
+                self.send_private_msg('*The room password is now:* ' + password, self.active_user.nick)
+                pinylib.time.sleep(1)
+                self.send_bot_msg('*The room is now password protected.*')
 
     def do_set_broadcast_pass(self, password):
         """
@@ -2800,357 +2281,94 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         :param password: str the password
         """
         if self._is_client_owner:
-            if self.user.is_super:
-                if not password:
-                    self.privacy_settings.set_broadcast_password()
-                    self.send_bot_msg('*The broadcast password was removed.*')
-                    pinylib.time.sleep(1)
-                    self.send_private_msg('The broadcast password was removed.', self.user.nick)
-                elif len(password) > 1:
-                    self.privacy_settings.set_broadcast_password(password)
-                    self.send_private_msg('*The broadcast password is now:* ' + password, self.user.nick)
-                    pinylib.time.sleep(1)
-                    self.send_bot_msg('*Broadcast password is enabled.*')
+            if not password:
+                self.privacy_settings.set_broadcast_password()
+                self.send_bot_msg('*The broadcast password was removed.*')
+                pinylib.time.sleep(1)
+                self.send_private_msg('The broadcast password was removed.', self.active_user.nick)
+            elif len(password) > 1:
+                self.privacy_settings.set_broadcast_password(password)
+                self.send_private_msg('*The broadcast password is now:* ' + password, self.active_user.nick)
+                pinylib.time.sleep(1)
+                self.send_bot_msg('*Broadcast password is enabled.*')
 
-    # == Owner And Super Mod Command Methods. ==
     def do_key(self, new_key):
         """
         Shows or sets a new secret key.
         :param new_key: str the new secret key.
         """
-        if self.user.is_owner or self.user.is_super:
-            if len(new_key) is 0:
-                self.send_private_msg('The current key is: *' + self.key + '*', self.user.nick)
-            elif len(new_key) < 6:
-                self.send_private_msg('Key must be at least 6 characters long: ' + str(len(self.key)), self.user.nick)
-            elif len(new_key) >= 6:
-                self.key = new_key
-                self.send_private_msg('The key was changed to: *' + self.key + '*', self.user.nick)
+        if len(new_key) is 0:
+            self.send_private_msg('The current key is: *%s*' % pinylib.CONFIG.B_KEY, self.active_user.nick)
+        elif len(new_key) < 6:
+            self.send_private_msg('*Key must be at least 6 characters long:* %s' % len(new_key),
+                                  self.active_user.nick)
+        elif len(new_key) >= 6:
+            # Reset all bot controllers back to normal users.
+            for user in self.users.all:
+                if self.users.all[user].user_level is 2 or self.users.all[user].user_level is 4:
+                    self.users.all[user].user_level = 5
+            pinylib.CONFIG.B_KEY = new_key
+            self.send_private_msg('The key was changed to: *%s*' % new_key, self.active_user.nick)
 
-    # TODO: Adjusted file names to new file names.
     def do_clear_bad_nicks(self):
         """ Clears the bad nicks file. """
-        if self.user.is_owner or self.user.is_super:
-            pinylib.fh.delete_file_content(self.config_path(), CONFIG['nick_bans'])
+        pinylib.CONFIG.B_NICK_BANS[:] = []
+        pinylib.file_handler.delete_file_content(self.config_path(), pinylib.CONFIG.B_NICK_BANS_FILE_NAME)
 
     def do_clear_bad_strings(self):
         """ Clears the bad strings file. """
-        if self.user.is_owner or self.user.is_super:
-            pinylib.fh.delete_file_content(self.config_path(), CONFIG['ban_strings'])
+        pinylib.CONFIG.B_STRING_BANS[:] = []
+        pinylib.file_handler.delete_file_content(self.config_path(), pinylib.CONFIG.B_STRING_BANS_FILE_NAME)
 
     def do_clear_bad_accounts(self):
         """ Clears the bad accounts file. """
-        if self.user.is_owner or self.user.is_super:
-            pinylib.fh.delete_file_content(self.config_path(), CONFIG['account_bans'])
-
-    # == Mod And Bot Controller Command Methods. ==
-    def do_pm_disconnect(self, key):
-        """
-        Disconnects the bot via PM.
-        :param key: str the key to access the command.
-        """
-        if self.user.is_owner or self.user.is_super or self.user.is_mod or self.user.has_power:
-            if len(key) is 0:
-                self.send_private_msg('Missing key.', self.user.nick)
-            else:
-                if key == self.key:
-                    log.info('User %s:%s commenced remote disconnect.' % (self.user.nick, self.user.id))
-                    self.send_private_msg('The bot will disconnect from the room.', self.user.nick)
-                    self.console_write(pinylib.COLOR['red'], 'Disconnected by %s.' % self.user.nick)
-                    threading.Thread(target=self.disconnect).start()
-                    # Exit with a normal status code.
-                    sys.exit(1)
-                else:
-                    self.send_private_msg('Wrong key.', self.user.nick)
-
-    # TODO: Show hibernation statistics when awoken.
-    def do_pm_wake(self):
-        """ Lets the bot resume normal activities from when it was set to sleep. """
-        if self.user.is_owner or self.user.is_super or self.user.is_mod or self.user.has_power:
-            # TODO: Remove the use of bot listen.
-            self.bot_listen = True
-            self.send_private_msg('The bot has *woken up* from sleep, normal activities may now be resumed.',
-                                  self.user.nick)
-
-    def do_op_user(self, msg_parts):
-        """
-        Lets the room owner, a mod or a bot controller make another user a bot controller.
-        NOTE: Mods or bot controllers will have to provide a key, the owner does not.
-        :param msg_parts: list the pm message as a list.
-        """
-        if self.user.is_owner or self.user.is_super:
-            if len(msg_parts) == 1:
-                self.send_private_msg('Missing username.', self.user.nick)
-            elif len(msg_parts) == 2:
-                user = self.find_user_info(msg_parts[1])
-                if user is not None:
-                    if user.has_power:
-                        self.send_private_msg('This user already has privileges. No need to re-instate.',
-                                              self.user.nick)
-                    else:
-                        user.has_power = True
-                        self.send_private_msg(user.nick + ' is now a bot controller.', self.user.nick)
-                        self.send_private_msg('You are now a bot controller.', user.nick)
-                else:
-                    self.send_private_msg('No user named: ' + msg_parts[1], self.user.nick)
-
-        elif self.user.is_mod or self.user.has_power:
-            if len(msg_parts) == 1:
-                self.send_private_msg('Missing username.', self.user.nick)
-            elif len(msg_parts) == 2:
-                self.send_private_msg('Missing key.', self.user.nick)
-            elif len(msg_parts) == 3:
-                if msg_parts[2] == self.key:
-                    user = self.find_user_info(msg_parts[1])
-                    if user is not None:
-                        if user.has_power:
-                            self.send_private_msg('This user already has privileges. No need to re-instate.',
-                                                  self.user.nick)
-                        else:
-                            user.has_power = True
-                            self.send_private_msg(user.nick + ' is now a bot controller.', self.user.nick)
-                            self.send_private_msg('You are now a bot controller.', user.nick)
-                    else:
-                        self.send_private_msg('No user named: ' + msg_parts[1], self.user.nick)
-                else:
-                    self.send_private_msg('Wrong key.', self.user.nick)
-
-    def do_deop_user(self, msg_parts):
-        """
-        Lets the room owner, a mod or a bot controller remove a user from being a bot controller.
-        NOTE: Mods or bot controllers will have to provide a key, owner does not.
-        :param msg_parts: list the pm message as a list.
-        """
-        if self.user.is_owner or self.user.is_super:
-            if len(msg_parts) == 1:
-                self.send_private_msg('Missing username.', self.user.nick)
-            elif len(msg_parts) == 2:
-                user = self.find_user_info(msg_parts[1])
-                if user is not None:
-                    if not user.has_power:
-                        self.send_private_msg('This user was never instated as a bot controller. No need to DE-OP.',
-                                              self.user.nick)
-                    else:
-                        user.has_power = False
-                        self.send_private_msg(user.nick + ' is not a bot controller anymore.', self.user.nick)
-                else:
-                    self.send_private_msg('No user named: ' + msg_parts[1], self.user.nick)
-
-        elif self.user.is_mod or self.user.has_power:
-            if len(msg_parts) == 1:
-                self.send_private_msg('Missing username.', self.user.nick)
-            elif len(msg_parts) == 2:
-                self.send_private_msg('Missing key.', self.user.nick)
-            elif len(msg_parts) == 3:
-                if msg_parts[2] == self.key:
-                    user = self.find_user_info(msg_parts[1])
-                    if user is not None:
-                        if not user.has_power:
-                            self.send_private_msg('This user was never instated as a bot controller. No need to DE-OP.',
-                                                  self.user.nick)
-                        else:
-                            user.has_power = False
-                            self.send_private_msg(user.nick + ' is not a bot controller anymore.', self.user.nick)
-                    else:
-                        self.send_private_msg('No user named: ' + msg_parts[1], self.user.nick)
-                else:
-                    self.send_private_msg('Wrong key.', self.user.nick)
-
-    # def do_cam_up(self, key):
-    #     """
-    #     Makes the bot cam up.
-    #     :param key str the key needed for moderators/bot controllers.
-    #     """
-    #     if self.user.is_owner or self.user.is_super:
-    #         self.set_stream()
-    #     elif self.user.is_mod or self.user.has_power:
-    #         if len(key) is 0:
-    #             self.send_private_msg('Missing key.', self.user.nick)
-    #         elif key == self.key:
-    #             self.set_stream()
-    #         else:
-    #             self.send_private_msg('Wrong key.', self.user.nick)
-
-    # def do_cam_down(self, key):
-    #     """
-    #     Makes the bot cam down.
-    #     :param key: str the key needed for moderators/bot controllers.
-    #     """
-    #     if self.user.is_owner or self.user.is_super:
-    #         self.set_stream(False)
-    #     elif self.user.is_mod or self.user.has_power:
-    #         if len(key) is 0:
-    #             self.send_private_msg('Missing key.', self.user.nick)
-    #         elif key == self.key:
-    #             self.set_stream(False)
-    #         else:
-    #             self.send_private_msg('Wrong key.', self.user.nick)
-
-    def do_nocam(self, key):
-        """
-        Toggles if broadcasting is allowed or not.
-        NOTE: Mods or bot controllers will have to provide a key, owner does not.
-        :param key: str secret key.
-        """
-        if self.is_broadcasting_allowed:
-            if self.user.is_owner or self.user.is_super:
-                self.is_broadcasting_allowed = False
-                self.send_private_msg('*Broadcasting is NOT allowed.*', self.user.nick)
-            elif self.user.is_mod or self.user.has_power:
-                if len(key) is 0:
-                    self.send_private_msg('Missing key.', self.user.nick)
-                elif key == self.key:
-                    self.is_broadcasting_allowed = False
-                    self.send_private_msg('*Broadcasting is NOT allowed.*', self.user.nick)
-                else:
-                    self.send_private_msg('Wrong key.', self.user.nick)
-        else:
-            if self.user.is_owner or self.user.is_super:
-                self.is_broadcasting_allowed = True
-                self.send_private_msg('*Broadcasting is allowed.*', self.user.nick)
-            elif self.user.is_mod or self.user.has_power:
-                if len(key) is 0:
-                    self.send_private_msg('Missing key.', self.user.nick)
-                elif key == self.key:
-                    self.is_broadcasting_allowed = True
-                    self.send_private_msg('*Broadcasting is allowed.*', self.user.nick)
-                else:
-                    self.send_private_msg('Wrong key.', self.user.nick)
-
-    # TODO: no_normal users mode - only account mode (maybe a toggle for this here?)
-    def do_no_guest(self, key):
-        """
-        Toggles if guests are allowed to join the room or not.
-        NOTE: This will kick all guests that join the room, only turn it on if you are sure.
-              Mods or bot controllers will have to provide a key, the owner does not.
-        :param key: str secret key.
-        """
-        if self.is_guest_entry_allowed:
-            if self.user.is_owner or self.user.is_super:
-                self.is_guest_entry_allowed = False
-                self.send_private_msg('*Guests are NOT allowed to join the room.*', self.user.nick)
-            elif self.user.is_mod or self.user.has_power:
-                if len(key) is 0:
-                    self.send_private_msg('Missing key.', self.user.nick)
-                elif key == self.key:
-                    self.is_guest_entry_allowed = False
-                    self.send_private_msg('*Guests are NOT allowed to join the room.*', self.user.nick)
-                else:
-                    self.send_private_msg('Wrong key.', self.user.nick)
-        else:
-            if self.user.is_owner or self.user.is_super:
-                self.is_guest_entry_allowed = True
-                self.send_private_msg('*Guests ARE allowed to join the room.*', self.user.nick)
-            elif self.user.is_mod or self.user.has_power:
-                if len(key) is 0:
-                    self.send_private_msg('Missing key.', self.user.nick)
-                elif key == self.key:
-                    self.is_guest_entry_allowed = True
-                    self.send_private_msg('*Guests ARE allowed to join the room.*', self.user.nick)
-                else:
-                    self.send_private_msg('Wrong key.', self.user.nick)
-
-    def do_public_cmds(self, key):
-        """
-        Toggles if public commands are public or not.
-        NOTE: Mods or bot controllers will have to provide a key, owner and super does not.
-        :param key: str secret key.
-        """
-        if self.is_cmds_public:
-            if self.user.is_owner or self.user.is_super:
-                self.is_cmds_public = False
-                self.send_private_msg('*Public commands are disabled.*', self.user.nick)
-            elif self.user.is_mod or self.user.has_power:
-                if len(key) is 0:
-                    self.send_private_msg('missing key.', self.user.nick)
-                elif key == self.key:
-                    self.is_cmds_public = False
-                    self.send_private_msg('*Public commands are disabled.*', self.user.nick)
-                else:
-                    self.send_private_msg('Wrong key.', self.user.nick)
-        else:
-            if self.user.is_owner or self.user.is_super:
-                self.is_cmds_public = True
-                self.send_private_msg('*Public commands are enabled.*', self.user.nick)
-            elif self.user.is_mod or self.user.has_power:
-                if len(key) is 0:
-                    self.send_private_msg('missing key.', self.user.nick)
-                elif key == self.key:
-                    self.is_cmds_public = True
-                    self.send_private_msg('*Public commands are enabled.*', self.user.nick)
-                else:
-                    self.send_private_msg('Wrong key.', self.user.nick)
-
-    def do_set_auto_pm(self, message):
-        """
-        Allows for owners/moderators/botters to change the room private message.
-        :param message: str the new private message to be sent automatically to everyone upon entering the room.
-        """
-        if self.user.is_mod or self.user.has_power or self.user.is_owner:
-            if self.auto_pm:
-                if len(message) is 0:
-                    self.send_private_msg('Please enter a new Room Private Message.', self.user.nick)
-                else:
-                    self.pm_msg = message
-                    self.send_private_msg('Room private message now set to: ' + self.pm_msg, self.user.nick)
-            else:
-                self.send_private_msg('Automatic private message feature is not enabled in the configuration.',
-                                      self.user.nick)
+        pinylib.CONFIG.B_ACCOUNT_BANS[:] = []
+        pinylib.file_handler.delete_file_content(self.config_path(), pinylib.CONFIG.B_ACCOUNT_BANS_FILE_NAME)
 
     # == Public PM Command Methods. ==
-    def do_super_user(self, super_key):
-        """
-        Makes a user super mod, the highest level of mod.
-        It is only possible to be a super mod if the client is owner.
-        :param super_key: str the super key.
-        """
-        if self._is_client_owner:
-            if len(super_key) is 0:
-                self.send_private_msg('Missing super key.', self.user.nick)
-            elif super_key == CONFIG['super_key']:
-                self.user.is_super = True
-                self.send_private_msg('*You are now a super mod.*', self.user.nick)
-            else:
-                self.send_private_msg('Wrong super key.', self.user.nick)
-        else:
-            self.send_private_msg('Client is owner: *' + str(self._is_client_owner) + '*', self.user.nick)
-
     def do_opme(self, key):
         """
         Makes a user a bot controller if user provides the right key.
         :param key: str the secret key.
         """
-        if self.user.has_power:
-            self.send_private_msg('You already have privileges. No need to OP again.', self.user.nick)
-        else:
-            if len(key) is 0:
-                self.send_private_msg('Missing key.', self.user.nick)
-            elif key == self.key:
-                self.user.has_power = True
-                self.send_private_msg('You are now a bot controller.', self.user.nick)
+        if len(key) is 0:
+            self.send_private_msg('Missing key.', self.active_user.nick)
+        elif key == pinylib.CONFIG.B_SUPER_KEY:
+            if self._is_client_owner:
+                self.active_user.user_level = 1
+                self.send_private_msg('*You are now a super mod.*', self.active_user.nick)
             else:
-                self.send_private_msg('Wrong key.', self.user.nick)
+                self.send_private_msg('*The client is not using the owner account.*', self.active_user.nick)
+        elif key == pinylib.CONFIG.B_KEY:
+            if self._is_client_mod:
+                self.active_user.user_level = 2
+                self.send_private_msg('*You are now a bot controller.*', self.active_user.nick)
+            else:
+                self.send_private_msg('*The client is not moderator.*', self.active_user.nick)
+        else:
+            self.send_private_msg('Wrong key.', self.active_user.nick)
 
     def do_pm_bridge(self, pm_parts):
         """
-        Makes the bot work as a PM message bridge between two users who are not signed in.
+        Makes the bot work as a PM message bridge between 2 user who are not signed in.
         :param pm_parts: list the pm message as a list.
         """
         if len(pm_parts) == 1:
-            self.send_private_msg('Missing username.', self.user.nick)
+            self.send_private_msg('Missing username.', self.active_user.nick)
         elif len(pm_parts) == 2:
-            self.send_private_msg('The command is: ' + CONFIG['prefix'] + 'pm username message', self.user.nick)
+            self.send_private_msg('The command is: ' + pinylib.CONFIG.B_PREFIX + 'pm username message',
+                                  self.active_user.nick)
         elif len(pm_parts) >= 3:
             pm_to = pm_parts[1]
             msg = ' '.join(pm_parts[2:])
-            is_user = self.find_user_info(pm_to)
+            is_user = self.users.search(pm_to)
             if is_user is not None:
                 if is_user.id == self._client_id:
-                    self.send_private_msg('Action not allowed.', self.user.nick)
+                    self.send_private_msg('Action not allowed.', self.active_user.nick)
                 else:
-                    self.send_private_msg('*<' + self.user.nick + '>* ' + msg, pm_to)
+                    self.send_private_msg('*<' + self.active_user.nick + '>* ' + msg, pm_to)
             else:
-                self.send_private_msg('No user named: ' + pm_to, self.user.nick)
+                self.send_private_msg('No user named: ' + pm_to, self.active_user.nick)
 
     # Timed auto functions.
     def media_event_handler(self):
@@ -3159,150 +2377,33 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             if self.media_manager.is_last_track():
                 self.media_manager.clear_track_list()
             else:
-                pinylib.time.sleep(self.playback_delay)
+                # Add a media delay to add a gap between the each video/track that is played in the room.
+                pinylib.time.sleep(self.media_delay)
+
+                # Process the next track in the playlist, if we are not using the custom radio mode.
                 track = self.media_manager.get_next_track()
-                # if track is not None and self.is_connected:
-                if track is not None and self.net_connection.active_connection:
+                if track is not None and self.is_connected:
                     self.send_media_broadcast_start(track.type, track.id)
                 self.media_event_timer(track.time)
 
-                # TODO: If the track was a media request, then state who it was from.
-                # Handle media request notices.
-                if track.was_request:
-                    self.send_bot_msg(unicode_catalog.ARROW_SIDEWAYS +
-                                      ' This was a *media request* submitted by *%s*.' % track.nick)
-
     def media_event_timer(self, video_time):
         """
-        Set of a timed event thread.
+        Start a media event timer.
         :param video_time: int the time in milliseconds.
         """
-        video_time_in_seconds = video_time / 1000
-        self.media_timer_thread = threading.Timer(video_time_in_seconds, self.media_event_handler)
-        self.media_timer_thread.start()
-
-    def cancel_media_event_timer(self):
-        """
-        Cancel the media event timer if it is running.
-        :return: True if canceled, else False
-        """
-        if self.media_timer_thread is not None and self.media_timer_thread.is_alive():
-            self.media_timer_thread.cancel()
-            self.media_timer_thread = None
-            return True
-        return False
-
-    def random_msg(self):
-        """
-        Pick a random message from a list of messages.
-        :return: str random message.
-        """
-        upnext = 'Use *' + CONFIG['prefix'] + 'yt* youtube title, link or id to add or play youtube.'
-        plstat = 'Use *' + CONFIG['prefix'] + 'sc* soundcloud title or id to add or play soundcloud.'
-        if self.media_manager.is_last_track() is not None and not self.media_manager.is_last_track():
-            pos, next_track = self.media_manager.next_track_info()
-            if next_track is not None:
-                next_video_time = self.format_time(next_track.time)
-                upnext = '*Next is:* (' + str(pos) + ') *' + next_track.title + '* ' + next_video_time
-            queue = self.media_manager.queue()
-            plstat = str(queue[0]) + ' *items in the playlist.* ' + str(queue[1]) + ' *Still in queue.*'
-
-        messages = ['Reporting for duty..', 'Hello, is anyone here?', 'Awaiting command..', 'Observing behavior..',
-                    upnext, plstat, '*I have been connected for:* ' + self.format_time(self.get_runtime()),
-                    'Everyone alright?', 'What\'s everyone up to?',
-                    'How is the weather where everyone is?', 'Why is everyone so quiet?',
-                    'Anything in particular going on?',
-                    'Type: *' + CONFIG['prefix'] + 'help* for a list of commands',
-                    'Anything interesting in the news lately?']
-
-        return random.choice(messages)
-
-    def auto_msg_handler(self):
-        """ The event handler for auto_msg_timer. """
-        # if self.is_connected:
-        if self.net_connection.active_connection:
-            if CONFIG['auto_message_enabled']:
-                self.send_bot_msg(self.random_msg(), use_chat_msg=True)
-        self.start_auto_msg_timer()
-
-    def start_auto_msg_timer(self):
-        """
-        In rooms with less activity, it can be useful to have the client send auto messages to keep the client alive.
-        This method can be disabled by setting CONFIG['auto_message_sender'] to False.
-        The interval for when a message should be sent, is set in CONFIG['auto_message_interval']
-        """
-        threading.Timer(CONFIG['auto_message_interval'], self.auto_msg_handler).start()
-
-    # TODO: Evaluate design.
-    def do_auto_url(self, message):
-        """
-        Retrieve header information for a given link.
-        :param message: str complete message by the user.
-        """
-        if ('http://' in message) or ('https://' in message):
-            # TODO: If an exclamation mark is in the URL, will this not proceed?
-            if ('!' not in message) and ('tinychat.com' not in message):
-                url = None
-                if message.startswith('http://'):
-                    url = message.split('http://')[1]
-                    msgs = url.split(' ')[0]
-                    url = auto_url.auto_url('http://' + msgs)
-
-                elif message.startswith('https://'):
-                    url = message.split('https://')[1]
-                    msgs = url.split(' ')[0]
-                    url = auto_url.auto_url('https://' + msgs)
-
-                if url is not None:
-                    self.send_bot_msg('*[ ' + url + ' ]*')
-                    self.console_write(pinylib.COLOR['cyan'], self.user.nick + ' posted a URL: ' + url)
-
-    # TODO: Evaluate design.
-    # TODO: Added CleverBot instant call.
-    def cleverbot_message_handler(self, decoded_msg):
-        """
-        The cleverbot message handler will handle incoming decoded messages and give it to the right function.
-        :param decoded_msg: str the message that was sent into the room.
-        :return: bool True/False
-        """
-        # if the message begins with the client nickname and CleverBot Instant is turned on,
-        # send the message to the active session.
-        if self.cleverbot_enable:
-            if self.cleverbot_instant:
-                if self.client_nick in decoded_msg.lower():
-                    # if msg.lower().startswith('%s ' % self.client_nick): (only first method)
-                    # There are two ways of going about sending a reply.
-                    # One is to take the message after the nickname, meaning the nickname has to be first in
-                    # the message.
-                    # This is more safe to use and usually yields a more accurate response.
-                    # The second is replacing the nickname with a blank space and taking the resulting message, this may
-                    # result is an abnormal response, though covers a variety of responses.
-                    # Only first method.
-                    # query = msg.split('%s ' % self.client_nick)[1]
-                    # The second method.
-                    query = decoded_msg.lower().replace(self.client_nick, '')
-                    self.console_write(pinylib.COLOR['yellow'], '%s [CleverBot]: %s' % (self.user.nick, query.strip()))
-                    threading.Thread(target=self.do_cleverbot, args=(query, True,)).start()
-                    return True
-        return False
-
-    # TODO: Evaluate design - we do not need this in the event that we restict the form data.
-    # TODO: Added in a timer to monitor the CleverBot session & reset the messages periodically.
-    def cleverbot_timer(self):
-        """
-        Start clearing POST data by checking if messages are sent to CleverBot within
-        every 2.5 minutes (150 seconds), otherwise clear all the data that was previously recorded.
-        NOTE: Anything as a result asked before that to CleverBot may reply with an inaccurate reply.
-        """
-        while self.cleverbot_session is not None:
-            # Reset the POST log in the CleverBot instance to an empty list in order to clear the previous
-            # message history. This occurs if it has been 5 minutes or great since the last message
-            # has been sent and stored in the log.
-            if int(pinylib.time.time()) - self.cleverbot_msg_time >= 150 and \
-                            len(self.cleverbot_session.post_log) is not 0:
-                self.cleverbot_session.post_log = []
-                self.cleverbot_msg_time = int(pinylib.time.time())
-            pinylib.time.sleep(1)
+        if not pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST and not pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC:
+            video_time_in_seconds = video_time / 1000
+            self.media_timer_thread = threading.Timer(video_time_in_seconds, self.media_event_handler)
+            self.media_timer_thread.start()
+        else:
+            if pinylib.CONFIG.B_MEDIA_LIMIT_DURATION > 0:
+                self.media_timer_thread = threading.Timer(pinylib.CONFIG.B_MEDIA_LIMIT_DURATION,
+                                                          self.media_event_handler)
+                self.media_timer_thread.start()
+            else:
+                log.error('Media limit set was invalid: %s' % str(pinylib.CONFIG.B_MEDIA_LIMIT_DURATION))
+                self.console_write(pinylib.COLOR['red'], 'Media limit duration is invalid: %s' %
+                                   str(pinylib.CONFIG.B_MEDIA_LIMIT_DURATION))
 
     # Helper Methods.
     def get_privacy_settings(self):
@@ -3313,8 +2414,52 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     def config_path(self):
         """ Returns the path to the rooms configuration directory. """
-        path = pinylib.CONFIG['config_path'] + self._roomname + '/'
+        path = pinylib.CONFIG.CONFIG_PATH + self.roomname + '/'
         return path
+
+    # TODO: Implement blocked media lists.
+    def load_list(self, nicks=False, accounts=False, strings=False, blocked_media=False):
+        """
+        Loads different list to memory.
+        :param nicks: bool, True load nick bans file.
+        :param accounts: bool, True load account bans file.
+        :param strings: bool, True load ban strings file.
+        :param blocked_media: bool, True load blocked media file.
+        """
+        if nicks:
+            pinylib.CONFIG.B_NICK_BANS = pinylib.file_handler.file_reader(self.config_path(),
+                                                                          pinylib.CONFIG.B_NICK_BANS_FILE_NAME)
+        if accounts:
+            pinylib.CONFIG.B_ACCOUNT_BANS = pinylib.file_handler.file_reader(self.config_path(),
+                                                                             pinylib.CONFIG.B_ACCOUNT_BANS_FILE_NAME)
+        if strings:
+            pinylib.CONFIG.B_STRING_BANS = pinylib.file_handler.file_reader(self.config_path(),
+                                                                            pinylib.CONFIG.B_STRING_BANS_FILE_NAME)
+
+        # if blocked_media:
+        #     pinylib.CONFIG.B_BLOCKED_MEDIA = pinylib.file_handler.file_reader(self.config_path(),
+        #                                                                       pinylib.CONFIG.B_BLOCKED_MEDIA_FILE_NAME)
+
+    def has_level(self, level):
+        """ Checks the active user for correct user level. """
+        if self.active_user.user_level is 6:
+            return False
+        elif self.active_user.user_level <= level:
+            return True
+        return False
+
+    def cancel_media_event_timer(self):
+        """
+        Cancel the media event timer if it is running.
+        :return: True if canceled, else False
+        """
+        if self.media_timer_thread is not None:
+            if self.media_timer_thread.is_alive():
+                self.media_timer_thread.cancel()
+                self.media_timer_thread = None
+                return True
+            return False
+        return False
 
     @staticmethod
     def format_time(milliseconds):
@@ -3323,266 +2468,275 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         :param milliseconds: int the milliseconds or seconds to convert.
         :return: str in the format (days) hh:mm:ss
         """
-        seconds = milliseconds / 1000
-
-        m, s = divmod(seconds, 60)
+        m, s = divmod(milliseconds/1000, 60)
         h, m = divmod(m, 60)
         d, h = divmod(h, 24)
 
         if d == 0 and h == 0:
-            formatted_time = '%02d:%02d' % (m, s)
+            human_time = '%02d:%02d' % (m, s)
         elif d == 0:
-            formatted_time = '%d:%02d:%02d' % (h, m, s)
+            human_time = '%d:%02d:%02d' % (h, m, s)
         else:
-            formatted_time = '%d Day(s) %d:%02d:%02d' % (d, h, m, s)
-        return formatted_time
+            human_time = '%d Day(s) %d:%02d:%02d' % (d, h, m, s)
+        return human_time
 
-    def sanitize_message(self, msg_sender, raw_msg):
+    def check_msg(self, msg):
+        """
+        Checks the chat message for bad string.
+        :param msg: str the chat message.
+        """
+        was_banned = False
+        chat_words = msg.split(' ')
+        for bad in pinylib.CONFIG.B_STRING_BANS:
+            if bad.startswith('*'):
+                _ = bad.replace('*', '')
+                if _ in msg:
+                    self.send_ban_msg(self.active_user.nick, self.active_user.id)
+                    was_banned = True
+            elif bad in chat_words:
+                    self.send_ban_msg(self.active_user.nick, self.active_user.id)
+                    was_banned = True
+        if was_banned and pinylib.CONFIG.B_FORGIVE_AUTO_BANS:
+            self.send_forgive_msg(self.active_user.id)
+
+    def check_nick(self, old, user_info):
+        """
+        Check a users nick.
+        :param old: str old nick.
+        :param user_info: object, user object. This will contain the new nick.
+        """
+        if self._client_id != user_info.id:
+            if str(old).startswith('guest-') and self._is_client_mod:
+                if str(user_info.nick).startswith('guest-'):
+                    if not pinylib.CONFIG.B_ALLOW_GUESTS_NICKS:
+                        self.send_ban_msg(user_info.nick, user_info.id)
+                        self.send_bot_msg(unicode_catalog.TOXIC + '*Auto-Banned*: (bot nick detected)')
+                        return True
+                if str(user_info.nick).startswith('newuser'):
+                    if not pinylib.CONFIG.B_ALLOW_NEWUSERS:
+                        self.send_ban_msg(user_info.nick, user_info.id)
+                        self.send_bot_msg(unicode_catalog.TOXIC + '*Auto-Banned*: (newuser detected)')
+                        return True
+                if len(pinylib.CONFIG.B_NICK_BANS) > 0:
+                    for bad_nick in pinylib.CONFIG.B_NICK_BANS:
+                        if bad_nick.startswith('*'):
+                            a = bad_nick.replace('*', '')
+                            if a in user_info.nick:
+                                self.send_ban_msg(user_info.nick, user_info.id)
+                                self.send_bot_msg(unicode_catalog.TOXIC + '*Auto-Banned*: (bad nick)')
+                                return True
+                        elif user_info.nick in pinylib.CONFIG.B_NICK_BANS:
+                                self.send_ban_msg(user_info.nick, user_info.id)
+                                self.send_bot_msg(unicode_catalog.TOXIC + '*Auto-Banned*: (bad nick)')
+                                return True
+                return False
+
+    # TODO: Evaluate design.
+    def sanitize_message(self, decoded_msg):
         """
         Spam checks to ensure chat box is rid any potential further spam.
-        :param msg_sender: str the nick name of the message sender.
-        :param raw_msg: str the message the user sent.
+        :param decoded_msg: str the message the user sent.
         """
         # Reset the spam check at each message check, this allows us to know if the message should be passed onto
         # any further procedures.
-        user = self.find_user_info(msg_sender)
-        decoded_msg = self._decode_msg(raw_msg)
-
-        # Always check to see if the user's message has any bad strings initially.
-        if self.check_bad_string:
-            check = self.check_msg_for_bad_string(raw_msg)
-            if check:
-                return True
-
-        # TODO: Evaluate design.
         # TODO: Test to see if this works or not.
         # The unicode characters UTF-16 decimal representation.
-        # spam_chars = [',133', ',8192', ',10', ',9650']
-        #
-        # # Ban those who post messages with special unicode characters which is considered spam.
-        # if self.unicode_spam:
-        #     for spam_decimal in range(len(spam_chars)):
-        #         # unicode_msg = decoded_msg.decode('utf-8')
-        #         if raw_msg.find(spam_chars[spam_decimal]) >= 0:
-        #             if self._is_client_mod:
-        #                 # self.send_ban_msg(user.nick, user.id)
-        #             return True
+        spam_characters = [u'\u0020', u'\u0085', u'\u0333', u'\u25B2']
+        # TODO: What do ',8192', ',10', ',9650' stand for in unicode?
 
-        # Ban those who post excessive messages in both uppercase and exceeding a specified character limit.
-        if self.message_caps_limit:
-            # if len(raw_msg) >= self.caps_char_limit:
-            # Search for all caps and numbers in the message which exceed the length of the characters stated in
-            # the character limit.
-            # TODO: Test if character limit regex works or not: r'[A-Z+0-9+\W+]{50,}' OR [A-Z0-9]
-            # regex_pattern = r'[A-Z0-9\W+]{%s,}' % self.caps_char_limit
-            over_limit = self.character_limit_pattern.search(raw_msg)
-            if over_limit:
-                # if self._is_client_mod:
-                    # self.send_ban_msg(user.nick, user.id)
-                    # if CONFIG['caps_char_forgive']:
-                    #     self.send_forgive_msg(user.id)
-                return True
+        # Ban those who post messages with special unicode characters which is considered spam.
+        if pinylib.CONFIG.B_UNICODE_SPAM:
+            decoded_msg_pieces = [decoded_msg.strip()]
+            for spam_unicode in range(len(spam_characters)):
+                if spam_characters[spam_unicode] in decoded_msg_pieces:
+                    # self.send_ban_msg(self.active_user.nick, self.active_user.id)
+                    self.send_bot_msg('*Ban this*.')
+                    return True
+
+        # Always check to see if the user's message in the chat contains any bad strings.
+        self.check_msg(decoded_msg)
 
         # TODO: Working method.
         # Kick/ban those who post links to other rooms.
-        if self.room_link_spam:
-            if 'tinychat.com/' + self._roomname not in decoded_msg:
+        if pinylib.CONFIG.B_TINYCHAT_ROOM_LINK_SPAM:
+            if 'tinychat.com/' + self.roomname not in decoded_msg:
                 # TODO: Regex does not handle carriage returns after the string - Added more regex to handle
                 #       line feed, whitespaces and various possible ways of the URL displaying (and on multiple lines).
                 #       any characters after it. Previous: r'tinychat.com\/\w+($| |\/+ |\/+$)'
                 #       Now: r'tinychat.com\/\w+|tinychat. com\/\w+|tinychat .com\/\w+($| |\/+ |\/+$|\n+)\s'
 
                 # Perform case-insensitive matching on the strings matching/similar to 'tinychat.com'.
-                msg_search = self.tinychat_spam_pattern.search(decoded_msg)
-                # print(msg_search)
+                msg_search = self._tinychat_spam_pattern.search(decoded_msg)
                 if msg_search is not None:
                     matched = msg_search.group()
                     if matched[0] is not None:
-                        # if self._is_client_mod:
-                            # self.send_ban_msg(user.nick, user.id)
+                        # self.send_ban_msg(self.active_user.nick, self.active_user.id)
+                        # TODO: Optionally put in the forgive auto-bans.
+                        # if pinylib.CONFIG.B_FORGIVE_AUTO_BANS:
+                        #     self.send_forgive_msg(self.active_user.id)
+                        self.send_bot_msg('*Ban this*.')
                         return True
 
-        # If snapshot prevention is on, make sure we kick/ban any user taking snapshots in the room.
-        if self.snapshot_spam:
-            if self.snapshot_line in decoded_msg:
-                # if self._is_client_mod:
-                #     self.send_ban_msg(user.nick, user.id)
-                    # Remove next line to keep ban.
-                    # self.send_forgive_msg(user.id)
+        # Ban those who post excessive messages in both uppercase and exceeding a specified character limit.
+        if pinylib.CONFIG.B_CAPITAL_CHARACTER_LIMIT:
+            # if len(raw_msg) >= self.caps_char_limit:
+            # Search for all caps and numbers in the message which exceed the length of the characters stated in
+            # the character limit.
+            # TODO: Test if character limit regex works or not: r'[A-Z+0-9+\W+]{50,}' OR [A-Z0-9]
+            # regex_pattern = r'[A-Z0-9\W+]{%s,}' % self.caps_char_limit
+            over_limit = self._character_limit_pattern.search(decoded_msg)
+            if over_limit:
+                # self.send_ban_msg(self.active_user.nick, self.active_user.id)
+                # if pinylib.CONFIG.B_FORGIVE_AUTO_BANS:
+                #     self.send_forgive_msg(self.active_user.id)
+                self.send_bot_msg('*Ban this*.')
                 return True
 
-    # TODO: We cannot let whitespaces be accepted as potential bad strings.
-    # TODO: Test to see if this can still catch bad strings.
-    def check_msg_for_bad_string(self, msg, pm=False):
+        # If snapshot prevention is on, make sure we kick/ban any user taking snapshots in the room.
+        if not pinylib.CONFIG.B_ALLOW_SNAPSHOTS:
+            if self._snapshot_message in decoded_msg:
+                # self.send_ban_msg(self.active_user.nick, self.active_user.id)
+                # if pinylib.CONFIG.B_FORGIVE_AUTO_BANS:
+                #     self.send_forgive_msg(self.active_user.id)
+                self.send_bot_msg('*Ban this*.')
+                return True
+
+    # TODO: Evaluate design.
+    def do_auto_url(self, message):
         """
-        Checks the chat message for bad string(s).
-        :param msg: str the chat message.
-        :param pm: boolean true/false if the check is from a private message or not.
+        Retrieve header information for a given link.
+        :param message: str complete message by the user.
         """
-        if self._is_client_mod:
-            msg_words = msg.split(' ')
-            bad_strings = pinylib.fh.file_reader(self.config_path(), CONFIG['ban_strings'])
-            if bad_strings is not None:
-                for bad_string in msg_words:
-                    if bad_string.strip() in bad_strings:
-                        self.send_ban_msg(self.user.nick, self.user.id)
-                        if CONFIG['bsforgive']:
-                            self.send_forgive_msg(self.user.id)
+        # TODO: We don't want auto-url to be called on every message, make sure there is a URL in the message first.
+        # Make sure we read all the url's in lowercase to make processes quicker.
+        message = message.lower()
+        if ('http://' in message) or ('https://' in message):
+            # TODO: If an exclamation mark is in the URL, will this not proceed?
+            if ('!' not in message) and ('tinychat.com' not in message):
+                url_title = None
 
-                        if not pm:
-                            self.send_bot_msg(unicode_catalog.TOXIC + ' *Auto-banned*: (bad string in message)')
+                if message.startswith('http://'):
+                    url = message.split('http://')[1]
+                    msgs = url.split(' ')[0]
+                    url_title = auto_url.auto_url('http://' + msgs)
+                elif message.startswith('https://'):
+                    url = message.split('https://')[1]
+                    msgs = url.split(' ')[0]
+                    url_title = auto_url.auto_url('https://' + msgs)
 
-                        return True
-                return False
+                if url_title is not None:
+                    self.send_owner_run_msg(unicode_catalog.DAGGER_FOOTNOTE + ' *' + url_title + '*')
+                    self.console_write(pinylib.COLOR['cyan'], self.active_user.nick + ' posted a URL: ' + url_title)
 
-    # TODO: Add docstring information.
-    def send_auto_pm(self, nickname):
+    # TODO: Evaluate design.
+    # TODO: Added CleverBot instant call.
+    def cleverbot_message_handler(self, decoded_msg):
         """
-
-        :param nickname:
+        The CleverBot message handler will handle incoming decoded messages and give it to the right function.
+        :param decoded_msg: str the message that was sent into the room.
+        :return: bool True/False
         """
-        room = self._roomname.upper()
-        new_pm_msg = self.replace_content(self.auto_pm_msg, nickname, room)
+        if pinylib.CONFIG.B_CLEVERBOT and pinylib.CONFIG.B_INSTANT_CLEVERBOT:
+            if self.nickname in decoded_msg.lower():
+                query = decoded_msg.lower().replace(self.nickname, '')
+                self.console_write(pinylib.COLOR['yellow'], '%s [CleverBot]: %s' % (self.active_user.nick,
+                                                                                    query.strip()))
+                threading.Thread(target=self.do_cleverbot, args=(query, True,)).start()
 
-        if '|' in new_pm_msg:
-            message_parts = new_pm_msg.split('|')
-            for x in range(len(message_parts)):
-                self.send_private_msg(len(message_parts), nickname)
-        else:
-            self.send_private_msg(new_pm_msg, nickname)
-
-    # TODO: Add custom allocations for 'replacement variables'.
-    # TODO: This is not tidy.
-    def replace_content(self, message, user=None, room=None):
+    # TODO: Evaluate design - we do not need this in the event that we restrict the form data.
+    # TODO: Added in a timer to monitor the CleverBot session & reset the messages periodically.
+    def _cleverbot_timer(self):
         """
-        Allows the replacement of specific content within a message with local data used by the program.
-        :param message: str the message to replace content with.
-        :param user: str a personal name to fill in for with the %user% variable.
-        :param room: str a personal room to fill in for with the %room% variable.
-        :return: str the altered message.
+        Start clearing POST data by checking if messages are sent to CleverBot within
+        every 2.5 minutes (150 seconds), otherwise clear all the data that was previously recorded.
+        NOTE: Anything as a result asked before that to CleverBot may reply with an inaccurate reply.
         """
-        if '%user%' in message or '%room%' in message:
-            if user is None:
-                user = self.user.nick
-            if room is None:
-                room = self._roomname
-            message = message.replace('%user%', user).replace('%room%', room)
-        return message
+        # Reset the POST log in the CleverBot instance to an empty list in order to clear the previous
+        # message history. This occurs if it has been 5 minutes or great since the last message
+        # has been sent and stored in the log.
+        while self._cleverbot_session is not None:
+            if int(pinylib.time.time()) - self._cleverbot_msg_time >= 150 and \
+                            len(self._cleverbot_session.post_log) is not 0:
+                self._cleverbot_session.post_log = []
+                self._cleverbot_msg_time = int(pinylib.time.time())
+            pinylib.time.sleep(1)
 
-    # TODO: This is not tidy.
-    def connection_info(self):
-        """ Prints connection information into the console. """
-        print('\n** Connection Information: **')
-        print('- Room Embed URL: %s, Room name: %s' % (self._embed_url, self._roomname))
-        print('- RTMP Information:')
-        print('  IP: %s, PORT: %s, Proxy: %s, RTMP URL: %s, Application: %s' %
-              (self._ip, self._port, self._proxy, self._tc_url, self._app))
-        print('  SWF (Desktop) Version: %s, SWF URL: %s' % (self._desktop_version, self._swf_url))
-        print('- Tinychat Room Information:')
-        print('  Nickname: %s, ID: %s, Account: %s' % (self.client_nick, self._client_id, self.account))
-        print('  Type: %s, Greenroom: %s, Room password: %s, Room broadcasting password: %s\n' %
-              (self._room_type, self._greenroom, self.room_pass, self._b_password))
-
-
-def main():
-    if CONFIG['auto_connect']:
-        room_name = CONFIG['room']
-        nickname = CONFIG['nick']
-        room_password = CONFIG['room_password']
-        login_account = CONFIG['account']
-        login_password = CONFIG['account_password']
-
-        if len(room_name) is 0:
-            print('The ROOM name is empty in the configuration. You can configure this in %s if you have '
-                  '\'auto_connect\' enabled.' % CONFIG_FILE_NAME)
-            # Exit to system safely whilst returning exit code 1.
-            sys.exit(1)
-    else:
-        # Assign basic login variables.
-        room_name = raw_input('Enter room name: ')
-
-        while len(room_name) is 0:
-            console_utili.clear_console()
-            print('Please enter a ROOM name to continue.')
-            room_name = raw_input('Enter room name: ')
-
-        room_password = pinylib.getpass.getpass('Enter room password (optional:password hidden): ')
-        nickname = 'pinybot'
-        # nickname = raw_input('Enter nick name (optional): ')
-        login_account = raw_input('Login account (optional): ')
-        login_password = pinylib.getpass.getpass('Login password (optional:password hidden): ')
-        console_utili.clear_console()
-
-    # Set up the TinychatBot class with the login details provided.
-    client = TinychatBot(room_name, nick=nickname, account=login_account,
-                         password=login_password, room_pass=room_password)
-
-    # Start connection in a new thread.
-    t = threading.Thread(target=client.prepare_connect)
-    t.daemon = True
-    t.start()
-
-    # Wait for the connection to be established and then continue.
-    # while not client.is_connected:
-    while not client.net_connection.active_connection:
-        pinylib.time.sleep(1)
-
-    # TODO: We should not require ping in the event we monitor all other data.
-
-    if not CONFIG['server']:
-        # while client.is_connected:
-        while client.net_connection.active_connection:
-            chat_msg = raw_input()
-
-            # Stop the connection safely.
-            if chat_msg.lower() == '/q':
-                client.disconnect()
-                # Exit to system safely, whilst returning exit code 0.
-                sys.exit(0)
-
-            # Reconnect client back to the server.
-            elif chat_msg.lower() == '/reconnect':
-                client.reconnect()
-
-            # Display server/room connection information in the console.
-            elif chat_msg.lower() == '/info':
-                client.connection_info()
-
-            # Modify the bot nickname from the console.
-            elif chat_msg.lower() == '/nick':
-                new_nickname = raw_input('\nNew bot nickname: ')
-                client.client_nick = new_nickname
-                client.set_nick()
-
-            # Send a private message to a user in the room.
-            elif chat_msg.lower() == '/pm':
-                private_message_nick = raw_input('\nNick to Private Message: ')
-                private_message = raw_input('\nMessage to send: ')
-                client.send_private_msg(private_message, private_message_nick)
-
-            # Hide or view joining/quiting notifications in the console.
-            elif chat_msg.lower() == '/notifications':
-                client.join_quit_notifications = not client.join_quit_notifications
-                print('\n** Hiding JOIN/QUIT notifications **')
-
+    # TODO: Support SoundCloud.
+    def _auto_play_radio_track(self):
+        """
+        Handles adding YouTube media content to the playlist from the artist and track information on
+        the Capital FM Radio website.
+        """
+        if pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY:
+            # Retrieve the artist name and track title from Capital FM.
+            radio_now_playing = apis.other.capital_fm_latest()
+            # Make sure we are not playing the same track again, if we have received the same track,
+            # we can use the timer to wait another 30 seconds before checking again.
+            if self.latest_radio_track is radio_now_playing:
+                self.radio_timer_thread(30000)
+                self.similar_radio_tracks += 1
+                if self.similar_radio_tracks > 2:
+                    self.send_bot_msg('*Capital FM Radio*: If you are receiving similar/same tracks this could mean '
+                                      'the radio station has switched to another provider. Please switch the radio off'
+                                      'with *!stopradio* and use it 6 or 7 hours later.')
             else:
-                if CONFIG['console_msg_notice']:
-                    client.send_bot_msg(chat_msg)
-                else:
-                    client.send_chat_msg(chat_msg)
-                    # Print our chat messages onto the console
-                    client.console_write(pinylib.COLOR['cyan'], 'You: ' + chat_msg)
-    else:
-        # while client.is_connected:
-        while client.net_connection.active_connection:
-            continue
+                self.latest_radio_track = radio_now_playing
+                print('Information received: ', radio_now_playing)
+                if radio_now_playing is not None:
+                    # Retrieve a matching video from YouTube.
+                    _radio_video = apis.youtube.search(radio_now_playing)
+                    print('video found:', _radio_video)
+                    if _radio_video is not None:
+                        # Add to the playlist if there is a track playing already.
+                        # TODO: If another track is playing when we add a new track, the radio timer thread will
+                        #       not compensate for the time remaining on the current track before starting the
+                        #       radio event timer.
+                        if self.media_manager.has_active_track():
+                            radio_track = self.media_manager.add_track(self.active_user.nick, _radio_video)
+                            self.send_bot_msg(unicode_catalog.MUSICAL_NOTE_SIXTEENTH +
+                                              ' *Added Capital FM Radio Track* ' +
+                                              unicode_catalog.MUSICAL_NOTE_SIXTEENTH + ': ' + radio_track.title)
 
-if __name__ == '__main__':
-    # TODO: Similar options in the pinylib section in the configuration parser.
-    if CONFIG['debug_to_file']:
-        formatter = '%(asctime)s : %(levelname)s : %(filename)s : %(lineno)d : %(funcName)s() : %(name)s : %(message)s'
-        logging.basicConfig(filename=CONFIG['debug_file_name'], level=logging.DEBUG, format=formatter)
-        log.info('Starting pinybot.py version: %s' % __version__)
-    else:
-        log.addHandler(logging.NullHandler())
-    main()
+                            # TODO: Make sure the remaining time is in milliseconds and this is working.
+                            # Start the radio timer (taking into account the time remaining on the current media).
+                            self.radio_event_timer(self.media_manager.remaining_time() + radio_track.time)
+                        else:
+                            # Start the track if there was nothing playing.
+                            radio_track = self.media_manager.mb_start(self.active_user.nick, _radio_video)
+                            self.send_media_broadcast_start(radio_track.type, radio_track.id)
+                            self.media_event_timer(radio_track.time)
+
+                            # Start the radio event timer to call this function again, when the track finishes.
+                            self.radio_event_timer(radio_track.time)
+                    else:
+                        # TODO: If we can't find a video, should we wait and check again?
+                        self.send_bot_msg(unicode_catalog.INDICATE + ' We could not find a *YouTube* video for: *' +
+                                          radio_now_playing + '*')
+                        self.send_bot_msg(unicode_catalog.INDICATE + ' We will wait a while until searching for a new '
+                                                                     'track.')
+                        # If we did not find anything we will check after a minute.
+                        self.radio_timer_thread(60000)
+                else:
+                    self.send_bot_msg(unicode_catalog.INDICATE +
+                                      ' We were unable to retrieve any songs from Capital FM.')
+
+    def radio_event_timer(self, wait_time):
+        """
+
+        :param wait_time: int the time to wait until we should add another track.
+        """
+        wait_time_in_seconds = wait_time / 1000
+        self.radio_timer_thread = threading.Timer(wait_time_in_seconds, self._auto_play_radio_track)
+        self.radio_timer_thread.start()
+
+    def cancel_radio_event_timer(self):
+        """
+
+        """
+        if self.radio_timer_thread is not None:
+            if self.radio_timer_thread.is_alive():
+                self.radio_timer_thread.cancel()
+                self.radio_timer_thread = None
+            return False
+        return False
+

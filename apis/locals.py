@@ -2,7 +2,7 @@
 Contains functions that are not online APIs.
 
 What exactly should be here, im unsure of,
-but for now ill leave this function here as i don't see it fitting in, anywhere else.
+but for now ill leave this function here as i don't see it fitting in anywhere else.
 """
 import random
 

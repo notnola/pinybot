@@ -1,0 +1,197 @@
+[21:28:59] roomtype: show
+[21:28:59] greenroom: True
+[21:28:59] ip: 192.99.128.150
+[21:28:59] app: tinyconf
+[21:28:59] tcurl: rtmp://192.99.128.150:15934/tinyconf
+[21:28:59] port: 15934
+[21:28:59] Connect parameters set. Connecting
+[21:29:15] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[21:29:15] _result
+[21:29:15] 1
+[21:29:15] capabilities: 31
+[21:29:15] fmsVer: FMS/3,0,1,123
+[21:29:15] code: NetConnection.Connect.Success
+[21:29:15] objectEncoding: 0
+[21:29:15] description: Connection succeeded
+[21:29:15] level: status
+[21:29:15] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[21:29:15] registered with ID: 2122672
+[21:29:16] Captcha key: rMSfsBSUoRw//mEzVm36lbTzUFjRhO8y3HctZnZb/VA=
+[21:29:16] Setting nick: jojo
+[21:29:16] Joins guest-2122666:2122666
+[21:29:16] All joins information received from the server.
+[21:29:16] Unknown command: private_room
+[21:29:16] Received confirmation of setting client nickname. Set to: jojo
+[21:29:16] guest-2122672:2122672 changed nick to: jojo
+[21:29:20] guest-2122666:2122666 changed nick to: t3ch
+[21:29:31] t3ch [CleverBot]: hi
+[21:29:31] t3ch: hi jojo
+[21:29:31] [CleverBot]: How are you today?
+[21:29:41] t3ch [CleverBot]: im fine thanks , and yourself?
+[21:29:41] t3ch: im fine thanks jojo, and yourself?
+[21:29:42] [CleverBot]: Not good. Bad day.
+[21:29:46] t3ch [CleverBot]: why ?
+[21:29:46] t3ch: why jojo?
+[21:29:46] [CleverBot]: My girlfriend broke up with me.
+[21:29:51] t3ch: really? joo
+[21:29:54] t3ch [CleverBot]: really?
+[21:29:54] t3ch: really? jojo
+[21:29:54] [CleverBot]: Yes.
+[21:30:02] t3ch [CleverBot]: what happened?
+[21:30:02] t3ch: what happened? jojo
+[21:30:03] [CleverBot]: Nothing.
+[21:30:14] t3ch [CleverBot]: so how did she go ?
+[21:30:14] t3ch: so how did she go jojo?
+[21:30:16] [CleverBot]: Who?
+[21:30:22] t3ch [CleverBot]: your friend
+[21:30:22] t3ch: your friend jojo
+[21:30:22] [CleverBot]: Who is my friend?
+[21:30:27] t3ch [CleverBot]: you
+[21:30:27] t3ch: you jojo
+[21:30:27] [CleverBot]: Who am I?
+[21:30:33] t3ch [CleverBot]: bye
+[21:30:33] t3ch: bye jojo
+[21:30:33] [CleverBot]: Why bye?
+[21:30:48] t3ch: !yt 
+[21:44:34] Logged in as: teenreality
+[21:44:34] roomtype: show
+[21:44:34] greenroom: True
+[21:44:34] ip: 167.114.127.161
+[21:44:34] app: tinyconf
+[21:44:34] tcurl: rtmp://167.114.127.161:11102/tinyconf
+[21:44:34] port: 11102
+[21:44:34] account: teenreality
+[21:44:34] Connect parameters set. Connecting
+[21:44:36] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[21:44:36] _result
+[21:44:36] 1
+[21:44:36] capabilities: 31
+[21:44:36] fmsVer: FMS/3,0,1,123
+[21:44:36] code: NetConnection.Connect.Success
+[21:44:36] objectEncoding: 0
+[21:44:36] description: Connection succeeded
+[21:44:36] level: status
+[21:44:36] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[21:44:36] registered with ID: 2122900
+[21:44:36] Captcha key: KAz/Rypdc5MfTpDThsG0hi5RQ+oAkqRGs0QmiPeE/dY=
+[21:44:36] Setting nick: testingbot
+[21:44:36] Joins t3ch:2122666
+[21:44:36] All joins information received from the server.
+[21:44:36] Unknown command: private_room
+[21:44:36] Received confirmation of setting client nickname. Set to: testingbot
+[21:44:36] guest-2122900:2122900 changed nick to: testingbot
+[21:45:53] Logged in as: teenreality
+[21:45:54] roomtype: show
+[21:45:54] greenroom: True
+[21:45:54] ip: 167.114.163.0
+[21:45:54] app: tinyconf
+[21:45:54] tcurl: rtmp://167.114.163.0:15050/tinyconf
+[21:45:54] port: 15050
+[21:45:54] account: teenreality
+[21:45:54] Connect parameters set. Connecting
+[21:45:55] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[21:45:55] _result
+[21:45:55] 1
+[21:45:55] capabilities: 31
+[21:45:55] fmsVer: FMS/3,0,1,123
+[21:45:55] code: NetConnection.Connect.Success
+[21:45:55] objectEncoding: 0
+[21:45:55] description: Connection succeeded
+[21:45:55] level: status
+[21:45:55] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[21:45:55] registered with ID: 2122906
+[21:45:55] Captcha key: Wfy3SG1frJQdCKac3BxO/PtgRCVUlxqsXkqQx0LYXKQ=
+[21:45:55] Setting nick: teenreality
+[21:45:55] Joins t3ch:2122666
+[21:45:55] All joins information received from the server.
+[21:45:55] Unknown command: private_room
+[21:45:55] Received confirmation of setting client nickname. Set to: teenreality
+[21:45:55] guest-2122906:2122906 changed nick to: teenreality
+[21:46:29] Logged in as: teenreality
+[21:46:29] roomtype: show
+[21:46:29] greenroom: True
+[21:46:29] ip: 167.114.164.153
+[21:46:29] app: tinyconf
+[21:46:29] tcurl: rtmp://167.114.164.153:15444/tinyconf
+[21:46:29] port: 15444
+[21:46:29] account: teenreality
+[21:46:29] Connect parameters set. Connecting
+[21:46:30] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[21:46:30] _result
+[21:46:30] 1
+[21:46:30] capabilities: 31
+[21:46:30] fmsVer: FMS/3,0,1,123
+[21:46:30] code: NetConnection.Connect.Success
+[21:46:30] objectEncoding: 0
+[21:46:30] description: Connection succeeded
+[21:46:30] level: status
+[21:46:30] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[21:46:30] registered with ID: 2122909
+[21:46:31] Captcha key: C3SerH6ZQYzTq/4SoESzdAH9E6MpvEnNJIVm87lmghc=
+[21:46:31] Setting nick: bot
+[21:46:31] Joins t3ch:2122666
+[21:46:31] All joins information received from the server.
+[21:46:31] Unknown command: private_room
+[21:46:31] Received confirmation of setting client nickname. Set to: bot
+[21:46:31] guest-2122909:2122909 changed nick to: bot
+[21:46:51] t3ch: !yt 
+[21:47:03] t3ch: !ety 
+[22:20:42] Logged in as: teenreality
+[22:20:42] roomtype: show
+[22:20:42] greenroom: True
+[22:20:42] ip: 167.114.164.153
+[22:20:42] app: tinyconf
+[22:20:42] tcurl: rtmp://167.114.164.153:15444/tinyconf
+[22:20:42] port: 15444
+[22:20:42] account: teenreality
+[22:20:42] Connect parameters set. Connecting
+[22:20:44] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[22:20:44] _result
+[22:20:44] 1
+[22:20:44] capabilities: 31
+[22:20:44] fmsVer: FMS/3,0,1,123
+[22:20:44] code: NetConnection.Connect.Success
+[22:20:44] objectEncoding: 0
+[22:20:44] description: Connection succeeded
+[22:20:44] level: status
+[22:20:44] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[22:20:44] registered with ID: 2123350
+[22:20:44] Captcha key: BpnzTEoCX8p3uIn8VzpHukX8ZYySJ1OL5sPaRpbxRJM=
+[22:20:44] Setting nick: bot
+[22:20:44] Joins t3ch:2122666
+[22:20:44] All joins information received from the server.
+[22:20:44] Unknown command: private_room
+[22:20:44] Received confirmation of setting client nickname. Set to: bot
+[22:20:44] guest-2123350:2123350 changed nick to: bot
+[22:21:33] Logged in as: teenreality
+[22:21:34] roomtype: show
+[22:21:34] greenroom: True
+[22:21:34] ip: 198.27.112.176
+[22:21:34] app: tinyconf
+[22:21:34] tcurl: rtmp://198.27.112.176:15156/tinyconf
+[22:21:34] port: 15156
+[22:21:34] account: teenreality
+[22:21:34] Connect parameters set. Connecting
+[22:21:34] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[22:21:34] _result
+[22:21:34] 1
+[22:21:34] capabilities: 31
+[22:21:35] fmsVer: FMS/3,0,1,123
+[22:21:35] code: NetConnection.Connect.Success
+[22:21:35] objectEncoding: 0
+[22:21:35] description: Connection succeeded
+[22:21:35] level: status
+[22:21:35] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[22:21:35] registered with ID: 2123365
+[22:21:35] Captcha key: vD2tQFcjwxtO8v6dXG2AZs0s1VeUPlkjIQJPGz+jK4I=
+[22:21:35] Setting nick: bot
+[22:21:35] Joins t3ch:2122666
+[22:21:35] All joins information received from the server.
+[22:21:35] Unknown command: private_room
+[22:21:35] Received confirmation of setting client nickname. Set to: bot
+[22:21:35] guest-2123365:2123365 changed nick to: bot
+[22:48:38] t3ch:2122666 left the room.
+[22:55:11] Unknown command: private_room
+[22:55:12] Moderator guest-2123731:2123731:t3chwh1zz
+[22:55:29] t3chwh1zz:2123731 left the room.
+[23:29:22] Unknown command: private_room

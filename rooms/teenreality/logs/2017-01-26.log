@@ -1,0 +1,253 @@
+[00:00:43] Logged in as: teenreality
+[00:00:44] roomtype: show
+[00:00:44] greenroom: True
+[00:00:44] ip: 167.114.164.153
+[00:00:44] app: tinyconf
+[00:00:44] tcurl: rtmp://167.114.164.153:15444/tinyconf
+[00:00:44] port: 15444
+[00:00:44] account: teenreality
+[00:00:44] Connect parameters set. Connecting
+[00:00:46] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[00:00:46] _result
+[00:00:46] 1
+[00:00:46] capabilities: 31
+[00:00:46] fmsVer: FMS/3,0,1,123
+[00:00:46] code: NetConnection.Connect.Success
+[00:00:46] objectEncoding: 0
+[00:00:46] description: Connection succeeded
+[00:00:46] level: status
+[00:00:46] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[00:00:46] registered with ID: 2164582
+[00:00:46] Captcha key: Df+2jUnSvBW8VV3MItcyegk5pKU1luM2DlVowZwjfAU=
+[00:00:46] Setting nick: okgo
+[00:00:46] All joins information received from the server.
+[00:00:46] Unknown command: private_room
+[00:00:46] Received confirmation of setting client nickname. Set to: okgo
+[00:00:46] guest-2164582:2164582 changed nick to: okgo
+[00:01:34] guest-2164603:2164603 joined the room.
+[00:01:34] Unknown command: private_room
+[00:01:53] guest-2164603:2164603 changed nick to: t3ch
+[00:01:57] t3ch: !pmme 
+[00:02:03] Private message from t3ch: !opme
+[00:02:07] Private message from t3ch: !opme ***KEY***
+[00:02:11] t3ch: !yt 
+[00:04:09] Logged in as: teenreality
+[00:04:10] roomtype: show
+[00:04:10] greenroom: True
+[00:04:10] ip: 192.99.128.131
+[00:04:10] app: tinyconf
+[00:04:10] tcurl: rtmp://192.99.128.131:9650/tinyconf
+[00:04:10] port: 9650
+[00:04:10] account: teenreality
+[00:04:10] Connect parameters set. Connecting
+[00:04:11] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[00:04:11] _result
+[00:04:11] 1
+[00:04:11] capabilities: 31
+[00:04:11] fmsVer: FMS/3,0,1,123
+[00:04:11] code: NetConnection.Connect.Success
+[00:04:11] objectEncoding: 0
+[00:04:11] description: Connection succeeded
+[00:04:11] level: status
+[00:04:11] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[00:04:11] registered with ID: 2164654
+[00:04:12] Captcha key: gFYStn5efR4dw8b8lrU8L4ivSEOXl/mfKDleA2ZIiEc=
+[00:04:12] Setting nick: okgo
+[00:04:12] Joins t3ch:2164603
+[00:04:12] All joins information received from the server.
+[00:04:12] Unknown command: private_room
+[00:04:12] Received confirmation of setting client nickname. Set to: okgo
+[00:04:12] guest-2164654:2164654 changed nick to: okgo
+[00:04:15] t3ch: !yt 
+[00:04:16] t3ch: !pmme 
+[00:04:19] t3ch: !yt 
+[00:04:22] t3ch: !yt okgo
+[00:04:37] t3ch: !help 
+[00:04:42] t3ch: !v 
+[00:04:54] t3ch: !paus3 
+[00:04:55] t3ch: !pause 
+[00:04:59] t3ch: !pmme 
+[00:05:05] Private message from t3ch: !opme ligh
+[00:05:07] Private message from t3ch: ..
+[00:05:19] Private message from t3ch: ok
+[00:05:20] Private message from t3ch: !opme ***KEY***
+[00:05:24] t3ch: !pause 
+[00:05:27] t3ch: !resume 
+[00:05:32] t3ch: !seek 
+[00:05:38] t3ch [CleverBot]: hi
+[00:05:38] t3ch: hi okgo
+[00:05:40] [CleverBot]: How are you today?
+[00:05:46] t3ch [CleverBot]: not bad how are you
+[00:05:46] t3ch: not bad how are you okgo
+[00:05:46] [CleverBot]: Actually very good. I had a softball all-stars tournament and we won. I am so happy. We had pizza after the game by the way.
+[00:05:51] t3ch [CleverBot]: oh wow
+[00:05:51] t3ch: oh wow okgo
+[00:05:52] [CleverBot]: I know!
+[00:05:57] t3ch [CleverBot]: what happened
+[00:05:57] t3ch: what happened okgo
+[00:05:57] [CleverBot]: Nothing.
+[00:06:06] t3ch: https://google.com
+[00:08:23] Logged in as: teenreality
+[00:08:24] roomtype: show
+[00:08:24] greenroom: True
+[00:08:24] ip: 192.99.128.150
+[00:08:24] app: tinyconf
+[00:08:24] tcurl: rtmp://192.99.128.150:15934/tinyconf
+[00:08:24] port: 15934
+[00:08:24] account: teenreality
+[00:08:24] Connect parameters set. Connecting
+[00:08:25] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[00:08:25] _result
+[00:08:25] 1
+[00:08:25] capabilities: 31
+[00:08:25] fmsVer: FMS/3,0,1,123
+[00:08:25] code: NetConnection.Connect.Success
+[00:08:25] objectEncoding: 0
+[00:08:25] description: Connection succeeded
+[00:08:25] level: status
+[00:08:25] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[00:08:26] registered with ID: 2164690
+[00:08:26] Captcha key: j8Gm/+TShUOgLMYHs+nEsUz5pDskYlEFfTirzbuZnXk=
+[00:08:26] Setting nick: okgo
+[00:08:26] Joins t3ch:2164603
+[00:08:26] All joins information received from the server.
+[00:08:26] Unknown command: private_room
+[00:08:26] Received confirmation of setting client nickname. Set to: okgo
+[00:08:26] guest-2164690:2164690 changed nick to: okgo
+[00:08:28] t3ch: https://google.com
+[00:08:28] t3ch posted a URL: Google
+[00:08:37] t3ch: https://yahoo.com
+[00:08:38] t3ch posted a URL: Yahoo
+[00:08:42] t3ch: https://facebook.com
+[00:08:42] t3ch posted a URL: Facebook - Log In or Sign Up
+[00:08:52] t3ch: !up 
+[00:09:00] t3ch: !pmme 
+[00:09:06] Private message from t3ch: !opme ***KEY***
+[00:09:11] t3ch: !up 
+[00:09:11] Sending publish message.
+[00:09:11] create stream response, stream_id: 1
+[00:09:11] onStatus
+[00:09:11] 0
+[00:09:11] None
+[00:09:11] level: status
+[00:09:11] code: NetStream.Publish.Start
+[00:09:11] details: 2164690
+[00:09:11] clientid: 1
+[00:09:11] description: Stream `2164690` is now published
+[00:09:20] Sending closeStream message.
+[00:09:20] t3ch: !down 
+[00:09:24] Sending closeStream message.
+[00:09:24] t3ch: !down 
+[00:09:27] Sending closeStream message.
+[00:09:27] t3ch: !down 
+[00:09:30] t3ch: !up 
+[00:09:30] Sending publish message.
+[00:09:30] create stream response, stream_id: 2
+[00:09:30] onStatus
+[00:09:30] 0
+[00:09:30] None
+[00:09:30] level: status
+[00:09:30] code: NetStream.Publish.Start
+[00:09:30] details: 2164690
+[00:09:30] clientid: 2
+[00:09:30] description: Stream `2164690` is now published
+[00:09:34] Sending closeStream message.
+[00:09:34] t3ch: !down 
+[00:09:41] t3ch: !yt 
+[00:09:45] t3ch: !sc 
+[00:15:17] t3ch: !top40 
+[00:15:46] Logged in as: teenreality
+[00:15:47] roomtype: show
+[00:15:47] greenroom: True
+[00:15:47] ip: 192.99.128.150
+[00:15:47] app: tinyconf
+[00:15:47] tcurl: rtmp://192.99.128.150:15934/tinyconf
+[00:15:47] port: 15934
+[00:15:47] account: teenreality
+[00:15:47] Connect parameters set. Connecting
+[00:15:48] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[00:15:48] _result
+[00:15:48] 1
+[00:15:48] capabilities: 31
+[00:15:48] fmsVer: FMS/3,0,1,123
+[00:15:48] code: NetConnection.Connect.Success
+[00:15:48] objectEncoding: 0
+[00:15:48] description: Connection succeeded
+[00:15:48] level: status
+[00:15:48] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[00:15:48] registered with ID: 2164825
+[00:15:49] Captcha key: HiyBR6JXBUuxdl1seuZYz2F5LhE9ppTR6xA25W/en1U=
+[00:15:49] Setting nick: okgo
+[00:15:49] Joins t3ch:2164603
+[00:15:49] All joins information received from the server.
+[00:15:49] Unknown command: private_room
+[00:15:49] Received confirmation of setting client nickname. Set to: okgo
+[00:15:49] guest-2164825:2164825 changed nick to: okgo
+[00:15:51] t3ch: !pmme 
+[00:15:59] t3ch: !top40 
+[00:16:10] Private message from t3ch: !opme ***KEY***
+[00:16:14] t3ch: !top40 
+[00:18:40] t3ch: !next 
+[00:18:42] t3ch: !skip 
+[00:18:46] t3ch: !skip 
+[00:19:58] t3ch: !seek 2m
+[00:20:39] t3ch: !next 
+[00:20:40] t3ch: !skip 
+[00:20:42] t3ch: !skip 
+[00:20:51] t3ch: !skip 
+[00:20:57] t3ch: !skip 
+[00:21:00] t3ch: !skip 
+[00:21:02] t3ch: !skip 
+[00:21:04] t3ch: !skip 
+[00:21:09] t3ch: !skip 
+[00:22:56] t3ch: !skip 
+[00:22:58] t3ch: !skip 
+[00:23:22] t3ch: !skip 
+[00:23:33] t3ch: !skip 
+[00:23:35] t3ch: !skip 
+[00:23:38] t3ch: !skip 
+[00:23:40] t3ch: !skip 
+[00:23:42] t3ch: !skip 
+[00:23:44] t3ch: !skip 
+[00:23:47] t3ch: !skip 
+[00:23:49] t3ch: !skip 
+[00:23:51] t3ch: !skip 
+[00:23:56] t3ch: !skip 
+[00:23:59] t3ch: !skip 
+[00:24:01] t3ch: !skip 
+[00:24:04] t3ch: !skip 
+[00:24:06] t3ch: !skip 
+[00:24:08] t3ch: !skip 
+[00:24:10] t3ch: !skip 
+[00:24:15] t3ch: !pls 
+[00:24:19] t3ch: !pl 
+[00:24:21] t3ch: !s 
+[00:24:27] t3ch: !list 
+[00:24:30] t3ch: !list pl
+[00:24:33] t3ch: !list pls
+[00:24:37] t3ch: !list p
+[00:24:46] t3ch: !ety 
+[00:24:50] t3ch: !ety word
+[00:25:07] t3ch: !skip 
+[00:25:10] t3ch: !stop 
+[00:25:12] t3ch: !cpl 
+[00:25:23] t3ch: !yt minnale malayalam
+[00:25:38] t3ch: !advice 
+[00:25:50] t3ch: !advice 
+[00:26:01] t3ch: !advice 
+[00:26:04] t3ch: !advice 
+[00:26:08] t3ch: !advice 
+[00:26:44] t3ch: !mute 
+[00:27:06] t3ch: !cleverbot 
+[00:27:11] t3ch: hi okgo
+[00:27:15] t3ch: !cleverbot 
+[00:27:17] t3ch [CleverBot]: hi
+[00:27:17] t3ch: hi okgo
+[00:27:18] [CleverBot]: How are you doing?
+[00:27:21] t3ch: !cleverbot 
+[00:27:35] t3ch: !autourl 
+[00:30:40] t3ch: !yt kala chashma
+[00:30:47] t3ch: !yt bang bang title track
+[00:32:58] t3ch: !skip 
+[00:46:36] t3ch: !fs 
+[00:49:18] t3ch:2164603 left the room.

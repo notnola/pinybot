@@ -1,0 +1,416 @@
+[16:59:08] Logged in as: teenreality
+[16:59:08] roomtype: show
+[16:59:08] greenroom: True
+[16:59:08] ip: 167.114.79.91
+[16:59:08] app: tinyconf
+[16:59:08] tcurl: rtmp://167.114.79.91:8163/tinyconf
+[16:59:08] port: 8163
+[16:59:08] account: teenreality
+[16:59:08] Connect parameters set. Connecting...
+[16:59:10] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[16:59:10] _result
+[16:59:10] 1
+[16:59:10] capabilities: 31
+[16:59:10] fmsVer: FMS/3,0,1,123
+[16:59:10] code: NetConnection.Connect.Success
+[16:59:10] objectEncoding: 0
+[16:59:10] description: Connection succeeded
+[16:59:10] level: status
+[16:59:10] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[16:59:10] registered with ID: 2215066
+[16:59:10] Captcha key: snDvBl3BpgdL6wXcf+Tq7lgex9cCMYKwBPmcI1qjHdM=
+[16:59:10] Setting nick: pinybot
+[16:59:10] Joins t:2214481
+[16:59:10] All joins information received from the server.
+[16:59:10] Current "private_room" status is set to True.
+[16:59:10] Received confirmation of setting client nickname. Set to: pinybot
+[16:59:10] guest-2215066:2215066 changed nick to: pinybot
+[16:59:19] t: !pmme 
+[16:59:27] Private message from t: !opme ***KEY***
+[16:59:42] Private message from t: !opme ***SUPER KEY***
+[16:59:47] t: !spl 
+[16:59:50] t: !yt 
+[17:00:40] t: !yt http://youtu.be/c6K9P58Yf7E
+[17:01:12] t: !radio 
+[17:01:21] t: !skip 
+[17:01:38] t: !spl 
+[17:01:41] t: !now 
+[17:04:33] t: !skip 
+[17:04:36] t: !radio 
+[17:04:39] t: !radio 
+[17:06:42] Logged in as: teenreality
+[17:06:43] roomtype: show
+[17:06:43] greenroom: True
+[17:06:43] ip: 167.114.164.132
+[17:06:43] app: tinyconf
+[17:06:43] tcurl: rtmp://167.114.164.132:24090/tinyconf
+[17:06:43] port: 24090
+[17:06:43] account: teenreality
+[17:06:43] Connect parameters set. Connecting...
+[17:06:44] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[17:06:44] _result
+[17:06:44] 1
+[17:06:44] capabilities: 31
+[17:06:44] fmsVer: FMS/3,0,1,123
+[17:06:44] code: NetConnection.Connect.Success
+[17:06:44] objectEncoding: 0
+[17:06:44] description: Connection succeeded
+[17:06:44] level: status
+[17:06:44] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[17:06:44] registered with ID: 2215180
+[17:06:44] Captcha key: th7950uKE5W0jshal30ZimENyKC1hcF/CfM+IlV7gzo=
+[17:06:44] Setting nick: okgo
+[17:06:44] Joins t:2214481
+[17:06:44] All joins information received from the server.
+[17:06:44] Current "private_room" status is set to True.
+[17:06:44] Received confirmation of setting client nickname. Set to: okgo
+[17:06:44] guest-2215180:2215180 changed nick to: okgo
+[17:06:47] t: !radio 
+[17:06:54] t: !pmme 
+[17:07:12] Private message from t: !opme ***SUPER KEY***
+[17:07:21] t: !radio 
+[17:08:14] Logged in as: teenreality
+[17:08:15] roomtype: show
+[17:08:15] greenroom: True
+[17:08:15] ip: 192.99.128.131
+[17:08:15] app: tinyconf
+[17:08:15] tcurl: rtmp://192.99.128.131:9650/tinyconf
+[17:08:15] port: 9650
+[17:08:15] account: teenreality
+[17:08:15] Connect parameters set. Connecting...
+[17:08:16] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[17:08:16] _result
+[17:08:16] 1
+[17:08:16] capabilities: 31
+[17:08:16] fmsVer: FMS/3,0,1,123
+[17:08:16] code: NetConnection.Connect.Success
+[17:08:16] objectEncoding: 0
+[17:08:16] description: Connection succeeded
+[17:08:16] level: status
+[17:08:16] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[17:08:16] registered with ID: 2215183
+[17:08:16] Captcha key: w4t7JXTTzu5BCdvZKAa9C5thzcjTAM5NdJM2y5ciiEU=
+[17:08:16] Setting nick: okgo
+[17:08:16] Joins t:2214481
+[17:08:16] All joins information received from the server.
+[17:08:16] Current "private_room" status is set to True.
+[17:08:16] Received confirmation of setting client nickname. Set to: okgo
+[17:08:16] guest-2215183:2215183 changed nick to: okgo
+[17:08:19] t: !pmme 
+[17:08:25] Private message from t: !opme ***SUPER KEY***
+[17:08:29] t: !radio 
+[17:08:40] t: !yt 
+[17:08:43] t: !yt okgo
+[17:08:46] t: !spl 
+[17:09:03] t: !now 
+[17:09:23] t: !stopradio 
+[17:09:36] t: !skip 
+[17:10:51] Logged in as: teenreality
+[17:10:51] roomtype: show
+[17:10:51] greenroom: True
+[17:10:51] ip: 167.114.164.153
+[17:10:51] app: tinyconf
+[17:10:51] tcurl: rtmp://167.114.164.153:15444/tinyconf
+[17:10:51] port: 15444
+[17:10:51] account: teenreality
+[17:10:51] Connect parameters set. Connecting...
+[17:10:52] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[17:10:52] _result
+[17:10:52] 1
+[17:10:52] capabilities: 31
+[17:10:52] fmsVer: FMS/3,0,1,123
+[17:10:52] code: NetConnection.Connect.Success
+[17:10:52] objectEncoding: 0
+[17:10:52] description: Connection succeeded
+[17:10:52] level: status
+[17:10:52] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[17:10:52] registered with ID: 2215246
+[17:10:53] Captcha key: B93A7lCkax5AS2FXEMeyws3v3ahu99aB+3m+mQPZgkQ=
+[17:10:53] Setting nick: okgo
+[17:10:53] Joins t:2214481
+[17:10:53] All joins information received from the server.
+[17:10:53] Current "private_room" status is set to True.
+[17:10:53] Received confirmation of setting client nickname. Set to: okgo
+[17:10:53] guest-2215246:2215246 changed nick to: okgo
+[17:10:59] t: !pmme 
+[17:11:08] Private message from t: !opme ***SUPER KEY***
+[17:11:14] t: !yt 
+[17:11:16] t: !s 
+[17:11:17] t: !sc 
+[17:11:51] t: !radio 
+[17:11:59] t: !skip 
+[17:12:03] t: !stop 
+[17:12:44] t: !now 
+[17:13:42] t: !spl 
+[17:13:45] t: !radio 
+[17:13:48] t: !radio 
+[17:13:51] t: !spl 
+[17:13:59] t: !radio 
+[17:14:03] t: !radio 
+[17:14:41] Logged in as: teenreality
+[17:14:42] roomtype: show
+[17:14:42] greenroom: True
+[17:14:42] ip: 167.114.79.66
+[17:14:42] app: tinyconf
+[17:14:42] tcurl: rtmp://167.114.79.66:6898/tinyconf
+[17:14:42] port: 6898
+[17:14:42] account: teenreality
+[17:14:42] Connect parameters set. Connecting...
+[17:14:43] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[17:14:43] _result
+[17:14:43] 1
+[17:14:43] capabilities: 31
+[17:14:43] fmsVer: FMS/3,0,1,123
+[17:14:43] code: NetConnection.Connect.Success
+[17:14:43] objectEncoding: 0
+[17:14:43] description: Connection succeeded
+[17:14:43] level: status
+[17:14:43] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[17:14:43] registered with ID: 2215288
+[17:14:43] Captcha key: n2r8MPoKei9lV5E5C9x3s3N1L/ENu2QJo1OwJiAzHnI=
+[17:14:43] Setting nick: botpiny
+[17:14:43] Joins t:2214481
+[17:14:43] All joins information received from the server.
+[17:14:43] Current "private_room" status is set to True.
+[17:14:43] Received confirmation of setting client nickname. Set to: botpiny
+[17:14:43] guest-2215288:2215288 changed nick to: botpiny
+[17:14:46] t: !yt 
+[17:14:48] t: !radio 
+[17:14:53] t: !pmme 
+[17:15:02] Private message from t: !opme ***SUPER KEY***
+[17:15:09] t: !radio 
+[17:16:43] t: !spl 
+[17:16:50] t: !now 
+[17:18:19] t: !ski 
+[17:18:21] t: !stop 
+[17:18:23] t: !radio 
+[17:18:30] t: !radio 
+[17:18:50] t: !skip 
+[17:18:53] t: !stop 
+[17:18:55] t: !now 
+[17:18:56] t: !mi 
+[17:19:04] t: !stopradio 
+[17:19:11] t: !mi 
+[17:46:15] t:2214481 left the room.
+[23:37:48] Logged in as: teenreality
+[23:37:49] roomtype: show
+[23:37:49] greenroom: True
+[23:37:49] ip: 192.99.128.131
+[23:37:49] app: tinyconf
+[23:37:49] tcurl: rtmp://192.99.128.131:9650/tinyconf
+[23:37:49] port: 9650
+[23:37:49] account: teenreality
+[23:37:49] Connect parameters set. Connecting...
+[23:37:50] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[23:37:50] _result
+[23:37:50] 1
+[23:37:50] capabilities: 31
+[23:37:50] fmsVer: FMS/3,0,1,123
+[23:37:50] code: NetConnection.Connect.Success
+[23:37:50] objectEncoding: 0
+[23:37:50] description: Connection succeeded
+[23:37:50] level: status
+[23:37:50] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[23:37:50] registered with ID: 2220016
+[23:37:50] Captcha key: RzG1Y385PdjfQb648s/5VyN2k+ZnPO6PkWqNrGuSFEU=
+[23:37:50] Setting nick: pinybot
+[23:37:50] All joins information received from the server.
+[23:37:50] Current "private_room" status is set to True.
+[23:37:50] Received confirmation of setting client nickname. Set to: pinybot
+[23:37:50] guest-2220016:2220016 changed nick to: pinybot
+[23:38:53] guest-2220040:2220040 joined the room.
+[23:38:53] Current "private_room" status is set to True.
+[23:38:59] guest-2220040:2220040 changed nick to: t3ch
+[23:39:05] t3ch: !yt 
+[23:39:11] t3ch: !pmme 
+[23:39:15] Private message from t3ch: !opme ***KEY***
+[23:41:15] Logged in as: teenreality
+[23:41:16] roomtype: show
+[23:41:16] greenroom: True
+[23:41:16] ip: 192.99.128.131
+[23:41:16] app: tinyconf
+[23:41:16] tcurl: rtmp://192.99.128.131:9650/tinyconf
+[23:41:16] port: 9650
+[23:41:16] account: teenreality
+[23:41:16] Connect parameters set. Connecting...
+[23:41:17] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[23:41:17] _result
+[23:41:17] 1
+[23:41:17] capabilities: 31
+[23:41:17] fmsVer: FMS/3,0,1,123
+[23:41:17] code: NetConnection.Connect.Success
+[23:41:17] objectEncoding: 0
+[23:41:17] description: Connection succeeded
+[23:41:17] level: status
+[23:41:17] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[23:41:17] registered with ID: 2220139
+[23:41:17] Captcha key: SQAlcFlEHg179uvy5YNc4Nes/wDCp/6xjtFtzLDOVkA=
+[23:41:17] Setting nick: pinybot
+[23:41:17] Joins t3ch:2220040
+[23:41:17] All joins information received from the server.
+[23:41:17] Current "private_room" status is set to True.
+[23:41:17] Received confirmation of setting client nickname. Set to: pinybot
+[23:41:17] guest-2220139:2220139 changed nick to: pinybot
+[23:41:22] t3ch: !pmme 
+[23:41:28] Private message from t3ch: !opme ***KEY***
+[23:41:37] t3ch: !startradio 
+[23:42:07] t3ch: !i 
+[23:42:09] t3ch: !mi 
+[23:42:11] t3ch: !pmme 
+[23:42:26] t3ch: !now 
+[23:46:20] Logged in as: teenreality
+[23:46:21] roomtype: show
+[23:46:21] greenroom: True
+[23:46:21] ip: 192.99.128.150
+[23:46:21] app: tinyconf
+[23:46:21] tcurl: rtmp://192.99.128.150:15934/tinyconf
+[23:46:21] port: 15934
+[23:46:21] account: teenreality
+[23:46:21] Connect parameters set. Connecting...
+[23:46:21] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[23:46:21] _result
+[23:46:21] 1
+[23:46:21] capabilities: 31
+[23:46:21] fmsVer: FMS/3,0,1,123
+[23:46:21] code: NetConnection.Connect.Success
+[23:46:21] objectEncoding: 0
+[23:46:21] description: Connection succeeded
+[23:46:21] level: status
+[23:46:21] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[23:46:22] registered with ID: 2220226
+[23:46:22] Captcha key: JEJGvawvrUf8Pu02pyYXR2tGQEPpniBb2prK6V/nscE=
+[23:46:22] Setting nick: pinybot
+[23:46:22] Joins t3ch:2220040
+[23:46:22] All joins information received from the server.
+[23:46:22] Current "private_room" status is set to True.
+[23:46:22] Received confirmation of setting client nickname. Set to: pinybot
+[23:46:22] guest-2220226:2220226 changed nick to: pinybot
+[23:46:25] t3ch: !pmme 
+[23:46:29] Private message from t3ch: !opme ***KEY***
+[23:46:33] t3ch: !radio 
+[23:47:06] t3ch: !pmme 
+[23:48:14] Logged in as: teenreality
+[23:48:15] roomtype: show
+[23:48:15] greenroom: True
+[23:48:15] ip: 192.99.128.150
+[23:48:15] app: tinyconf
+[23:48:15] tcurl: rtmp://192.99.128.150:15934/tinyconf
+[23:48:15] port: 15934
+[23:48:15] account: teenreality
+[23:48:15] Connect parameters set. Connecting...
+[23:48:16] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[23:48:16] _result
+[23:48:16] 1
+[23:48:16] capabilities: 31
+[23:48:16] fmsVer: FMS/3,0,1,123
+[23:48:16] code: NetConnection.Connect.Success
+[23:48:16] objectEncoding: 0
+[23:48:16] description: Connection succeeded
+[23:48:16] level: status
+[23:48:16] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[23:48:16] registered with ID: 2220247
+[23:48:16] Captcha key: QZwnUaoxtcu651BGn3RDm+UJifXisy3nl1rWpx5NpKw=
+[23:48:16] Setting nick: pinybot
+[23:48:16] Joins t3ch:2220040
+[23:48:16] All joins information received from the server.
+[23:48:16] Current "private_room" status is set to True.
+[23:48:16] Received confirmation of setting client nickname. Set to: pinybot
+[23:48:16] guest-2220247:2220247 changed nick to: pinybot
+[23:48:19] t3ch: !pmme 
+[23:49:49] Private message from t3ch: !opme enevery
+[23:49:54] Private message from t3ch: !opme eneery
+[23:49:59] Private message from t3ch: !opme ***SUPER KEY***
+[23:50:07] t3ch: !yt 
+[23:50:12] t3ch: !radio 
+[23:51:31] Logged in as: teenreality
+[23:51:31] roomtype: show
+[23:51:31] greenroom: True
+[23:51:31] ip: 167.114.164.132
+[23:51:31] app: tinyconf
+[23:51:31] tcurl: rtmp://167.114.164.132:24090/tinyconf
+[23:51:31] port: 24090
+[23:51:31] account: teenreality
+[23:51:31] Connect parameters set. Connecting...
+[23:51:32] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[23:51:32] _result
+[23:51:32] 1
+[23:51:32] capabilities: 31
+[23:51:32] fmsVer: FMS/3,0,1,123
+[23:51:32] code: NetConnection.Connect.Success
+[23:51:32] objectEncoding: 0
+[23:51:32] description: Connection succeeded
+[23:51:32] level: status
+[23:51:32] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[23:51:32] registered with ID: 2220316
+[23:51:32] Captcha key: jv7gn35PMmHWpSWi7cFctaOQ5ZcGLmmU0fW4v6uJzs0=
+[23:51:32] Setting nick: pinybot
+[23:51:32] Joins t3ch:2220040
+[23:51:32] All joins information received from the server.
+[23:51:32] Current "private_room" status is set to True.
+[23:51:33] Received confirmation of setting client nickname. Set to: pinybot
+[23:51:33] guest-2220316:2220316 changed nick to: pinybot
+[23:51:36] t3ch: !pmme 
+[23:51:42] Private message from t3ch: !opme ***SUPER KEY***
+[23:51:47] t3ch: !startradio 
+[23:52:13] t3ch: !no 
+[23:52:15] t3ch: !now 
+[23:57:32] Logged in as: teenreality
+[23:57:33] roomtype: show
+[23:57:33] greenroom: True
+[23:57:33] ip: 198.27.112.176
+[23:57:33] app: tinyconf
+[23:57:33] tcurl: rtmp://198.27.112.176:15156/tinyconf
+[23:57:33] port: 15156
+[23:57:33] account: teenreality
+[23:57:33] Connect parameters set. Connecting...
+[23:57:34] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[23:57:34] _result
+[23:57:34] 1
+[23:57:34] capabilities: 31
+[23:57:34] fmsVer: FMS/3,0,1,123
+[23:57:34] code: NetConnection.Connect.Success
+[23:57:34] objectEncoding: 0
+[23:57:34] description: Connection succeeded
+[23:57:34] level: status
+[23:57:34] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[23:57:34] registered with ID: 2220397
+[23:57:34] Captcha key: 5GOxkfxyd2GTLiP/3Q7YG6h69bG3mUFH4LBK4iyxr80=
+[23:57:34] Setting nick: pinybot
+[23:57:34] Joins t3ch:2220040
+[23:57:34] All joins information received from the server.
+[23:57:34] Current "private_room" status is set to True.
+[23:57:35] Received confirmation of setting client nickname. Set to: pinybot
+[23:57:35] guest-2220397:2220397 changed nick to: pinybot
+[23:58:38] Logged in as: teenreality
+[23:58:38] roomtype: show
+[23:58:38] greenroom: True
+[23:58:38] ip: 167.114.163.0
+[23:58:38] app: tinyconf
+[23:58:38] tcurl: rtmp://167.114.163.0:15050/tinyconf
+[23:58:38] port: 15050
+[23:58:38] account: teenreality
+[23:58:38] Connect parameters set. Connecting...
+[23:58:39] Handled packet of type: 4 Packet data: {'msg': 4, 'event_type': 0, 'event_data': '\x00\x00\x00\x00'}
+[23:58:39] _result
+[23:58:39] 1
+[23:58:39] capabilities: 31
+[23:58:39] fmsVer: FMS/3,0,1,123
+[23:58:39] code: NetConnection.Connect.Success
+[23:58:39] objectEncoding: 0
+[23:58:39] description: Connection succeeded
+[23:58:39] level: status
+[23:58:39] Handled packet of type: 1 Packet data: {'msg': 1, 'chunk_size': 1024L}
+[23:58:39] registered with ID: 2220403
+[23:58:40] Captcha key: 9jUyyFI9LIOvz4SNXLJeP/qeGtEpm9Detz0z6LGJ03A=
+[23:58:40] Setting nick: pinybot
+[23:58:40] Joins t3ch:2220040
+[23:58:40] All joins information received from the server.
+[23:58:40] Current "private_room" status is set to True.
+[23:58:40] Received confirmation of setting client nickname. Set to: pinybot
+[23:58:40] guest-2220403:2220403 changed nick to: pinybot
+[23:58:45] t3ch: !pmme 
+[23:58:56] Private message from t3ch: !opme ***KEY***
+[23:59:04] t3ch: !mi 
+[23:59:06] t3ch: !yt 
+[23:59:11] t3ch: !radio 
+[23:59:16] t3ch: !startradio 
