@@ -123,6 +123,8 @@ B_BOT_REPORT_KICK = False
 
 ##
 #
+B_AUTO_GREENROOM = False
+#
 B_AUTO_URL_MODE = True
 #
 B_CLEVERBOT = True

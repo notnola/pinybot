@@ -20,9 +20,12 @@ log = logging.getLogger(__name__)
 # __version__ = '6.0.5'
 __version__ = '1.5.0'
 __version_name__ = 'Quantum'
-__status__ = 'alpha.8'
-__authors_information__ = 'Nortxort (https://github.com/nortxort/tinybot' + unicode_catalog.NO_WIDTH + ') GoelBiju ' \
-                          '(https://github.com/GoelBiju/pinybot' + unicode_catalog.NO_WIDTH + ')'
+__status__ = 'alpha.9'
+__authors_information__ = 'Nortxort (https://github.com/nortxort/tinybot ) GoelBiju ' \
+                          '(https://github.com/GoelBiju/pinybot )'
+
+# TODO: Public mode layout in message handler.
+# TODO: Unicode symbols back in yt and sc commands when adding to playlist.
 
 
 class TinychatBot(pinylib.TinychatRTMPClient):
@@ -48,7 +51,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     # Custom message variables:
     # TODO: Implement !ytlast.
-    latest_posted_url = None
+    latest_posted_url = str
 
     # Initiate CleverBot related variables:
     _cleverbot_session = None
@@ -71,7 +74,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         """
         Overrides the handling of the 'join' command from the server. This will allow us to handle a single user
         joining the room at a time.
-        :param join_info_dict:
+        :param join_info_dict: dict
         """
         log.info('user join info: %s' % join_info_dict)
         _user = self.users.add(join_info_dict)
@@ -148,8 +151,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         """
         Overrides the handling the 'avon' command sent from the server.
         This is essential when a user starts broadcasting.
-        :param uid:
-        :param name:
+        :param uid: str
+        :param name: str
         """
         if not pinylib.CONFIG.B_ALLOW_BROADCASTS and self._is_client_mod:
             self.send_close_user_msg(name)
@@ -186,12 +189,38 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
             self.console_write(pinylib.COLOR['cyan'], '%s:%s is broadcasting.' % (name, uid))
 
+    def on_greenroom_avon(self, uid, greenroom_id):
+        """
+
+        :param uid: str
+        :param greenroom_id: str
+        """
+        _greenroom_user = self.users.search_by_id(uid)
+        if _greenroom_user is not None:
+            self.console_write(pinylib.COLOR['cyan'], '%s:%s is broadcasting in the greenroom; waiting for approval.' %
+                               (_greenroom_user.nick, _greenroom_user.id))
+            if pinylib.CONFIG.B_AUTO_GREENROOM:
+                self.send_cam_approve_msg(_greenroom_user.nick, _greenroom_user.id)
+                self.send_bot_msg(unicode_catalog.INDICATE_UPWARDS + ' *Automatic Greenroom* broadcast approved: %s' %
+                                  _greenroom_user.nick)
+            else:
+                self.send_bot_msg(unicode_catalog.INDICATE_UPWARDS + ' *Automatic Greenroom*: %s is requesting'
+                                                                     ' broadcast approval. You can approve with *%s*.' %
+                                  (_greenroom_user.nick, '!approve ' + _greenroom_user.nick))
+        else:
+            # TODO: Move this to on_greenroom_join, if that is possible.
+            self.console_write(pinylib.COLOR['bright_red'], 'An unknown user joined the greenroom with id %s and '
+                                                            'greenroom id %s.' % (uid, greenroom_id))
+            self.send_bot_msg(unicode_catalog.INDICATE + ' There is an unknown user (not in the room) in the greenroom:'
+                                                         ' %s:%s (uid:greenroom id)' % (uid, greenroom_id))
+
     def on_nick(self, old, new, uid):
         """
-        Overrides
-        :param old:
-        :param new:
-        :param uid:
+        Overrides the handling of 'nick' command that we receive from the server. This allows us to manage who may
+        enter the room and what to do when they enter the room, after setting their nickname.
+        :param old: str
+        :param new: str
+        :param uid: str
         """
         if uid == self._client_id:
             self.nickname = new
@@ -560,8 +589,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                     self.do_play_youtube_search(cmd_arg)
 
                 # TODO: Implement greenroom reading information function.
-                # elif cmd == prefix + 'cam':
-                #     threading.Thread(target=self.do_cam_approve).start()
+                elif cmd == prefix + 'approve':  # cam
+                    threading.Thread(target=self.do_broadcast_approve, args=(cmd_arg,)).start()
 
             # Public commands (if enabled).
             if (pinylib.CONFIG.B_PUBLIC_CMD and self.has_level(5)) or self.active_user.user_level < 5:
@@ -574,7 +603,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
                 # TODO: Update version information.
                 elif cmd == prefix + 'v':
-                    self.do_version()
+                    threading.Thread(target=self.do_version).start()
 
                 elif cmd == prefix + 'help':
                     self.do_help()
@@ -658,10 +687,10 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         This will include the use of other external API's and basic ones, all new commands should be added here
         and linked to it's function below.
 
-        :param cmd: str
+        :param cmd: str the command that we received.
         :param cmd_arg: str the command argument that we received.
         """
-        print('(Custom message handler) Received command, command argument:', cmd, cmd_arg)
+        # print('(Custom message handler) Received command, command argument:', cmd, cmd_arg)
         prefix = pinylib.CONFIG.B_PREFIX
 
         if self.has_level(1):
@@ -692,6 +721,9 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             elif cmd == prefix + 'mobiles':
                 self.do_set_ban_mobiles()
 
+            elif cmd == prefix + 'autogreenroom':
+                self.do_set_auto_greenroom()
+
             elif cmd == prefix + 'autourl':
                 self.do_set_auto_url_mode()
 
@@ -711,8 +743,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             elif cmd == prefix + 'limit':
                 self.do_media_limit_duration(cmd_arg)
 
-            elif cmd == prefix + 'allowradio':
-                self.do_set_allow_radio()
+            elif cmd == prefix + 'radio':
+                self.do_set_radio()
 
             # TODO: We may not need these functions anymore.
             # elif cmd == prefix + 'pl':
@@ -1244,7 +1276,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 self.media_manager.clear_track_list()
                 self.send_bot_msg(unicode_catalog.SCISSORS + ' *Deleted* ' + pl_length + ' *items in the playlist.*')
             else:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' *The playlist is empty, nothing to delete.*')
+                self.send_bot_msg(unicode_catalog.INDICATE + ' *The playlist is empty*, nothing to delete.')
 
     def do_playlist_info(self):
         """ Shows the next 5 tracks in the track list. """
@@ -1749,15 +1781,31 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         else:
             self.send_bot_msg('Not enabled right now..')
 
-    def do_cam_approve(self):
-        """ Send a cam approve message to a user. """
+    def do_broadcast_approve(self, username):
+        """
+        Send a camera approval message to a user.
+        :param username: str the nickname of the user we want to send the broadcast request for.
+        """
         if self._is_client_mod:
-            if self._b_password is None:
-                conf = pinylib.core.get_roomconfig_xml(self.roomname, self.room_pass, proxy=self._proxy)
-                self._b_password = conf['bpassword']
-                self.rtmp_parameter['greenroom'] = conf['greenroom']
-            if self.rtmp_parameter['greenroom']:
-                self.send_cam_approve_msg(self.active_user.id, self.active_user.nick)
+            if len(username) is not 0:
+                if self._b_password is None:
+                    conf = pinylib.core.get_roomconfig_xml(self.roomname, self.room_pass, proxy=self._proxy)
+                    self._b_password = conf['bpassword']
+                    self.rtmp_parameter['greenroom'] = conf['greenroom']
+                if self.rtmp_parameter['greenroom']:
+                    # self.send_cam_approve_msg(self.active_user.nick, self.active_user.id)
+                    _approve_user = self.users.search(username)
+                    if _approve_user is not None:
+                        self.send_cam_approve_msg(_approve_user.nick, _approve_user.id)
+                        self.send_bot_msg(unicode_catalog.STATE + ' Greenroom *broadcast approved* for: %s' %
+                                          _approve_user.nick)
+                    else:
+                        self.send_bot_msg(unicode_catalog.INDICATE + ' We could not find a user named: %s' % username)
+            else:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter the *nickname* you would like to '
+                                                             'provide broadcast approval for.')
+        else:
+            self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now..')
 
     # == Tinychat API Command Methods. ==
     def do_spy(self, room_name):
@@ -1867,17 +1915,13 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     # Custom command handling functions:
     def do_set_sanitize_message(self):
-        """
-
-        """
+        """ """
         pinylib.CONFIG.B_SANITIZE_MESSAGES = not pinylib.CONFIG.B_SANITIZE_MESSAGES
         self.send_bot_msg('*Sanitize messages*: %s' % pinylib.CONFIG.B_SANITIZE_MESSAGES)
 
     # TODO: Handle private room commands.
     def do_set_private_room(self):
-        """
-
-        """
+        """ """
         if self._is_client_mod:
             self.send_private_room_msg(not self._private_room)
             self.send_bot_msg(unicode_catalog.STATE + 'Private room was sent as: *%s*' % (not self._private_room))
@@ -1885,65 +1929,52 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now..')
 
     def do_set_allow_snapshots(self):
-        """
-
-        """
+        """ """
         pinylib.CONFIG.B_ALLOW_SNAPSHOTS = not pinylib.CONFIG.B_ALLOW_SNAPSHOTS
         self.send_bot_msg('*Allow snapshots*: %s' % pinylib.CONFIG.B_ALLOW_SNAPSHOTS)
 
     def do_set_auto_close(self):
-        """
-
-        """
+        """ """
         pinylib.CONFIG.B_AUTO_CLOSE = not pinylib.CONFIG.B_AUTO_CLOSE
         self.send_bot_msg('*Auto-close*: %s' % pinylib.CONFIG.B_AUTO_CLOSE)
 
     def do_set_ban_mobiles(self):
-        """
-
-        """
+        """ """
         pinylib.CONFIG.B_BAN_MOBILES = not pinylib.CONFIG.B_BAN_MOBILES
         self.send_bot_msg('*Ban mobiles*: %s' % pinylib.CONFIG.B_BAN_MOBILES)
 
-    def do_set_auto_url_mode(self):
-        """
+    def do_set_auto_greenroom(self):
+        """ """
+        pinylib.CONFIG.B_AUTO_GREENROOM = not pinylib.CONFIG.B_AUTO_GREENROOM
+        self.send_bot_msg('*Automatic Greenroom*: %s' % pinylib.CONFIG.B_AUTO_GREENROOM)
 
-        """
+    def do_set_auto_url_mode(self):
+        """ """
         pinylib.CONFIG.B_AUTO_URL_MODE = not pinylib.CONFIG.B_AUTO_URL_MODE
         self.send_bot_msg('*Auto URL*: %s' % pinylib.CONFIG.B_AUTO_URL_MODE)
 
     def do_set_cleverbot(self):
-        """
-
-        """
+        """ """
         pinylib.CONFIG.B_CLEVERBOT = not pinylib.CONFIG.B_CLEVERBOT
         self.send_bot_msg('*CleverBot*: %s' % pinylib.CONFIG.B_CLEVERBOT)
 
     def do_set_playlist_mode(self):
-        """
-
-        """
+        """ """
         pinylib.CONFIG.B_PLAYLIST_MODE = not pinylib.CONFIG.B_PLAYLIST_MODE
         self.send_bot_msg('*Playlist Mode*: %s' % pinylib.CONFIG.B_PLAYLIST_MODE)
 
     def do_set_public_media_mode(self):
-        """
-
-        """
+        """ """
         pinylib.CONFIG.B_PUBLIC_MEDIA_MODE = not pinylib.CONFIG.B_PUBLIC_MEDIA_MODE
         self.send_bot_msg('*Public Media Mode*: %s' % pinylib.CONFIG.B_PUBLIC_MEDIA_MODE)
 
     def do_set_greet_pm(self):
-        """
-
-        """
+        """ """
         pinylib.CONFIG.B_GREET_PRIVATE = not pinylib.CONFIG.B_GREET_PRIVATE
         self.send_bot_msg('*Greet Users Private Message*: %s' % pinylib.CONFIG.B_GREET_PRIVATE)
 
     def do_set_media_limit_public(self):
-        """
-
-        """
+        """ """
         if pinylib.CONFIG.B_PUBLIC_MEDIA_MODE:
             pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC = not pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC
             self.send_bot_msg('*Media Limit Public*: %s' % pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC)
@@ -1952,9 +1983,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                                                          'set to media limit playlist.')
 
     def do_set_media_limit_playlist(self):
-        """
-
-        """
+        """ """
         pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST = not pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST
         self.send_bot_msg('*Media Limit Playlist*: %s' % pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST)
 
@@ -1965,15 +1994,20 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         """
         if self._is_client_mod:
             if pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC or pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST:
-                pinylib.CONFIG.B_MEDIA_LIMIT_DURATION = int(new_duration)
-                self.send_bot_msg('*Media limit duration* was set to: %s' % str(pinylib.CONFIG.B_MEDIA_LIMIT_DURATION))
+                if len(new_duration) is not 0:
+                    pinylib.CONFIG.B_MEDIA_LIMIT_DURATION = int(new_duration)
+                    self.send_bot_msg('*Media limit duration* was set to: %s seconds' %
+                                      str(pinylib.CONFIG.B_MEDIA_LIMIT_DURATION))
+                else:
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter a *duration (seconds) for '
+                                                                 'YouTube/SoundCloud media*.')
             else:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' *Media limiting* for public media mode or the playlist '
-                                                             'is *not turned on*.')
+                self.send_bot_msg(unicode_catalog.INDICATE + ' *Media limiting* for public media mode or '
+                                                             'the playlist is *not turned on*.')
         else:
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now..')
 
-    def do_set_allow_radio(self):
+    def do_set_radio(self):
         """
 
         """
@@ -1987,11 +2021,17 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         if self._is_client_mod:
             if pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY:
                 if self.radio_timer_thread is None:
-                    # Start the radio event thread and state the message that we are playing from
-                    # the radio's list of songs.
-                    threading.Thread(target=self._auto_play_radio_track).start()
-                    self.send_bot_msg(unicode_catalog.MUSICAL_NOTE_SIXTEENTH + ' *Playing Capital FM Radio* ' +
-                                      unicode_catalog.MUSICAL_NOTE_SIXTEENTH)
+                    # If media limiting is turned on, the radio cannot be in use.
+                    if pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST or pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC:
+                        self.send_bot_msg(unicode_catalog.INDICATE + ' *Media limiting is on*, please turn it off for '
+                                                                     'the playlist or public media with '
+                                                                     '*!playlistlimit* or *!publiclimit*.')
+                    else:
+                        # Start the radio event thread and state the message that we are playing from
+                        # the radio's list of songs.
+                        threading.Thread(target=self._auto_play_radio_track).start()
+                        self.send_bot_msg(unicode_catalog.MUSICAL_NOTE_SIXTEENTH + ' *Playing Capital FM Radio* ' +
+                                          unicode_catalog.MUSICAL_NOTE_SIXTEENTH)
                 else:
                     self.send_bot_msg(unicode_catalog.INDICATE + ' The radio event is already playing, please close it '
                                                                  'with *!stopradio* to start again.')
@@ -2373,6 +2413,13 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     # Timed auto functions.
     def media_event_handler(self):
         """ This method gets called whenever a media is done playing. """
+        # If there is a track is playing and we are limiting the media time, then close the media.
+        if pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST or pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC:
+            print('Limiting turned on.')
+            if self.media_manager.has_active_track():
+                print('Track is playing, closing it.')
+                self.do_close_media()
+
         if len(self.media_manager.track_list) > 0:
             if self.media_manager.is_last_track():
                 self.media_manager.clear_track_list()
@@ -2391,19 +2438,15 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         Start a media event timer.
         :param video_time: int the time in milliseconds.
         """
+        # If we are limiting the media duration set the video time to be the limited duration.
         if not pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST and not pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC:
             video_time_in_seconds = video_time / 1000
-            self.media_timer_thread = threading.Timer(video_time_in_seconds, self.media_event_handler)
-            self.media_timer_thread.start()
         else:
-            if pinylib.CONFIG.B_MEDIA_LIMIT_DURATION > 0:
-                self.media_timer_thread = threading.Timer(pinylib.CONFIG.B_MEDIA_LIMIT_DURATION,
-                                                          self.media_event_handler)
-                self.media_timer_thread.start()
-            else:
-                log.error('Media limit set was invalid: %s' % str(pinylib.CONFIG.B_MEDIA_LIMIT_DURATION))
-                self.console_write(pinylib.COLOR['red'], 'Media limit duration is invalid: %s' %
-                                   str(pinylib.CONFIG.B_MEDIA_LIMIT_DURATION))
+            video_time_in_seconds = pinylib.CONFIG.B_MEDIA_LIMIT_DURATION
+
+        # Star the media timer thread.
+        self.media_timer_thread = threading.Timer(video_time_in_seconds, self.media_event_handler)
+        self.media_timer_thread.start()
 
     # Helper Methods.
     def get_privacy_settings(self):
@@ -2671,14 +2714,15 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             # Retrieve the artist name and track title from Capital FM.
             radio_now_playing = apis.other.capital_fm_latest()
             # Make sure we are not playing the same track again, if we have received the same track,
-            # we can use the timer to wait another 30 seconds before checking again.
-            if self.latest_radio_track is radio_now_playing:
-                self.radio_timer_thread(30000)
+            # we can use the timer to wait another 2 minutes before checking again.
+            if self.latest_radio_track == radio_now_playing:
                 self.similar_radio_tracks += 1
                 if self.similar_radio_tracks > 2:
                     self.send_bot_msg('*Capital FM Radio*: If you are receiving similar/same tracks this could mean '
                                       'the radio station has switched to another provider. Please switch the radio off'
                                       'with *!stopradio* and use it 6 or 7 hours later.')
+                    self.similar_radio_tracks = 0
+                self.radio_timer_thread(120000)
             else:
                 self.latest_radio_track = radio_now_playing
                 print('Information received: ', radio_now_playing)

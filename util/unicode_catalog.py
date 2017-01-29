@@ -3,6 +3,8 @@
 # Catalog formatting:
 # UNICODE_NAME = unicode representation  # Additional comment on what this unicode symbol is assigned to.
 
+# NOTE: It seems that most unicode symbols up to Unicode Version 3.0.0 work, we cannot be sure if newer versions
+#       work with the online flash client.
 
 TIME = u'\u231A'  # up-time
 
@@ -13,6 +15,8 @@ MUSICAL_NOTE_SIXTEENTH = u'\u266C'  # radio notification
 STATE = u'\u21DB'  # success message from internal operation
 
 INDICATE = u'\u261B'  # error message from internal operation
+
+INDICATE_UPWARDS = u'\u261D'  # alerting of a greenroom broadcast approval required
 
 RELOAD = u'\u21BA'  # reconnecting to the room
 
