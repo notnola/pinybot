@@ -12,6 +12,8 @@ MUSICAL_NOTE = u'\u266B'  # playlist entries
 
 MUSICAL_NOTE_SIXTEENTH = u'\u266C'  # radio notification
 
+NUMERO = u'\u2116'  # stating the position of a track added to or in the playlist
+
 STATE = u'\u21DB'  # success message from internal operation
 
 INDICATE = u'\u261B'  # error message from internal operation

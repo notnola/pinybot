@@ -19,9 +19,9 @@ PASSWORD = ''
 # The swf version that tinychat is currently using.
 SWF_VERSION = '0675'
 # Log chat messages and events.
-CHAT_LOGGING = True
+CHAT_LOGGING = False
 # Show additional info/errors in console.
-DEBUG_MODE = True
+DEBUG_MODE = False
 # Log debug info to file.
 DEBUG_TO_FILE = False
 # Logging level for the debug file.

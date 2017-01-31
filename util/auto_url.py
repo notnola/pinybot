@@ -43,8 +43,11 @@ def auto_url(url, restrict_domain=None, chunk_size=512, decode_unicode=True):
         'Connection': 'keep-alive'
     }
 
-    # response = web.http_get(url, header=header)
-    response = requests.get(url, headers=header, stream=True)
+    try:
+        response = requests.get(url, headers=header, stream=True)
+    except (Exception, requests.RequestException) as ex:
+        print(ex)
+        return None
 
     content = u''
     try:

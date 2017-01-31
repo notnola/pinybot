@@ -195,8 +195,9 @@ class TinychatRTMPClient:
                 )
                 self.is_connected = True
 
+                # TODO: Place the connection process in a separate function.
                 # Connect to the greenroom tinychat application, if the room is a greenroom.
-                print('greenroom parameter:', self.rtmp_parameter['greenroom'])
+                # print('greenroom parameter:', self.rtmp_parameter['greenroom'])
                 if self.rtmp_parameter['greenroom']:
                     self.greenroom_connection = rtmp.RtmpClient(
                         ip=self.rtmp_parameter['ip'],
@@ -219,7 +220,7 @@ class TinychatRTMPClient:
                         }
                     )
                     self.is_greenroom_connected = True
-                    print('connected to greenroom server')
+                    # print('connected to greenroom server')
 
             except Exception as e:
                 log.error('connect error: %s' % e, exc_info=True)
@@ -234,7 +235,7 @@ class TinychatRTMPClient:
                     self._init_time = time.time()
                     # If the room is a greenroom, start the greenroom callback.
                 if self.rtmp_parameter['greenroom']:
-                    print('starting greenroom callback thread')
+                    # print('starting greenroom callback thread')
                     threading.Thread(target=self.__greenroom_callback).start()
                 # Start normal room callback.
                 self.__callback()
@@ -511,34 +512,27 @@ class TinychatRTMPClient:
                 cmd = amf0_cmd[0]
                 # iparam0 = 0
 
-                print(cmd, amf0_cmd)
+                # print(cmd, amf0_cmd)
                 if cmd == '_result':
-                    # self.on_greenroom_result()
-                    pass
+                    self.on_result(amf0_cmd)
 
                 elif cmd == 'onBWDone':
-                    # self.on_greenroom_bwdone()
-                    pass
+                    self.on_greenroom_bwdone()
 
                 elif cmd == 'registered':
-                    # self.on_greenroom_registered()
-                    pass
+                    self.on_greenroom_registered()
 
                 elif cmd == 'join':
-                    # self.on_greenroom_join()
-                    pass
+                    self.on_greenroom_join()
 
                 elif cmd == 'joins':
-                    # self.on_greenroom_joins()
-                    pass
+                    self.on_greenroom_joins()
 
                 elif cmd == 'joinsdone':
-                    # self.on_greenroom_joinsdone()
-                    pass
+                    self.on_greenroom_joinsdone()
 
                 elif cmd == 'nick':
-                    # self.on_greenroom_nick()
-                    pass
+                    self.on_greenroom_nick()
 
                 elif cmd == 'notice':
                     notice_msg = amf0_cmd[3]
@@ -548,8 +542,7 @@ class TinychatRTMPClient:
                         self.on_greenroom_avon(user_id, greenroom_id)
 
                 elif cmd == 'quit':
-                    # self.on_greenroom_quit()
-                    pass
+                    self.on_greenroom_quit()
 
                 else:
                     self.console_write(COLOR['bright_red'], 'Unknown greenroom command: %s' % cmd)
@@ -607,6 +600,12 @@ class TinychatRTMPClient:
             if config.ENABLE_AUTO_JOB:
                 self.start_auto_job_timer()
 
+    def on_greenroom_bwdone(self):
+        """
+
+        """
+        pass
+
     def on_registered(self, client_info):
         """
 
@@ -627,6 +626,12 @@ class TinychatRTMPClient:
             self.console_write(COLOR['bright_green'], 'Captcha key: %s' % key)
             self.send_cauth_msg(key)
             self.set_nick()
+
+    def on_greenroom_registered(self):
+        """
+
+        """
+        pass
 
     def on_join(self, join_info_dict):
         """
@@ -659,6 +664,12 @@ class TinychatRTMPClient:
         else:
             log.warning('user join: %s' % _user)
 
+    def on_greenroom_join(self):
+        """
+
+        """
+        pass
+
     def on_joins(self, joins_info_dict):
         """
 
@@ -685,6 +696,12 @@ class TinychatRTMPClient:
                     self.console_write(COLOR['bright_cyan'], 'Joins %s:%d' % (_user.nick, _user.id))
         else:
             log.warning('user joins: %s' % _user)
+
+    def on_greenroom_joins(self):
+        """
+
+        """
+        pass
 
     def on_joinsdone(self):
         """
@@ -775,6 +792,12 @@ class TinychatRTMPClient:
             log.error('failed to change nick for user: %s' % new)
         self.console_write(COLOR['bright_cyan'], '%s:%s changed nick to: %s' % (old, uid, new))
 
+    def on_greenroom_nick(self):
+        """
+
+        """
+        pass
+
     def on_nickinuse(self):
         """
 
@@ -796,6 +819,12 @@ class TinychatRTMPClient:
             if config.DEBUG_MODE:
                 self.console_write(COLOR['bright_red'], msg)
             log.debug(msg)
+
+    def on_greenroom_quit(self):
+        """
+
+        """
+        pass
 
     def on_kick(self, uid, name):
         """

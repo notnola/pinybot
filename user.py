@@ -145,6 +145,8 @@ class Users:
             return self.all[user_name]
         return None
 
+    # TODO: Issue with search by id, if the user is not found the in the dictionary on the first pass through the
+    #       loop then it will by default return None.
     def search_by_id(self, user_id):
         """
         Search for a user by id.
@@ -152,6 +154,7 @@ class Users:
         :return if user id is found, object (User) else None
         """
         for user in self.all:
+            print(user)
             if str(self.all[user].id) == user_id:
                 return self.all[user]
-            return None
+        return None
