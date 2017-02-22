@@ -11,12 +11,13 @@ import traceback
 
 from colorama import init, Fore, Style
 
+import auth
 import user
 import config
 from rtmplib import rtmp
 from util import core, string_util, file_handler
 
-__version__ = '6.0.3'
+__version__ = '6.1.2'
 
 #  Console colors.
 COLOR = {
@@ -59,31 +60,31 @@ class TinychatRTMPClient:
     embed_url = u'http://tinychat.com/{0}'
     rtmp_parameter = dict()
 
-    def __init__(self, roomname, **kwargs):
+    def __init__(self, roomname, nick=None, account='', password=None, room_pass=None, proxy=None):
         """
 
-        :param roomname:
-        :param kwargs:
+        :param roomname: str
+        :param nick: str (default: None)
+        :param account: str (default: '')
+        :param password: str (default: None)
+        :param room_pass: str (default: None)
+        :param proxy: str (default:None)
         """
         self.roomname = roomname
-        self.nickname = kwargs.get('nick')
-        self.account = kwargs.get('account', '')
-        self.password = kwargs.get('password')
-        self.room_pass = kwargs.get('room_pass')
+        self.nickname = nick
+        self.account = account
+        self.password = password
+        self.room_pass = room_pass
+
         self.connection = None
-        self.greenroom_connection = None
         self.is_connected = False
+        self.greenroom_connection = None
         self.is_greenroom_connected = False
 
         self.users = user.Users()
         self.active_user = None
-        self.rtmp_parameter['tcurl'] = kwargs.get('tcurl')
-        self.rtmp_parameter['app'] = kwargs.get('app')
-        self.rtmp_parameter['roomtype'] = kwargs.get('roomtype')
-        self.rtmp_parameter['ip'] = kwargs.get('ip')
-        self.rtmp_parameter['port'] = kwargs.get('port')
-        self.rtmp_parameter['greenroom'] = False
-        self._proxy = kwargs.get('proxy')
+
+        self._proxy = proxy
         self._client_id = None
         self._bauth_key = None
         self._private_room = None
@@ -146,24 +147,15 @@ class TinychatRTMPClient:
 
     def login(self):
         """
-        Try to login to tinychat
-        :return True if logged in, else False
+        Log into Tinychat.
+        :return: True if logged in else False
         """
+        _account = auth.Account(account=self.account, password=self.password, proxy=self._proxy)
         if self.account and self.password:
-            is_logged_in = core.web.has_cookie('pass')
-            if is_logged_in:
-                is_login_expired = core.web.is_cookie_expired('user')
-                if is_login_expired:
-                    post_login = core.post_login(self.account, self.password, proxy=self._proxy)
-                    if 'hash' in post_login['cookies']:
-                        return True
-                    return False
+            if _account.is_logged_in():
                 return True
-            post_login = core.post_login(self.account, self.password, proxy=self._proxy)
-            if 'hash' in post_login['cookies']:
-                return True
-            return False
-        return False
+            _account.login()
+        return _account.is_logged_in()
 
     def connect(self):
         """ Attempts to make a RTMP connection with the given connection parameters. """
@@ -194,36 +186,8 @@ class TinychatRTMPClient:
                     }
                 )
                 self.is_connected = True
-
-                # TODO: Place the connection process in a separate function.
-                # Connect to the greenroom tinychat application, if the room is a greenroom.
-                # print('greenroom parameter:', self.rtmp_parameter['greenroom'])
-                if self.rtmp_parameter['greenroom']:
-                    self.greenroom_connection = rtmp.RtmpClient(
-                        ip=self.rtmp_parameter['ip'],
-                        port=self.rtmp_parameter['port'],
-                        tc_url=self.rtmp_parameter['tcurl'],
-                        app=self.rtmp_parameter['app'],
-                        page_url=self.embed_url.format(self.roomname),
-                        swf_url=self.swf_url.format(config.SWF_VERSION),
-                        proxy=self._proxy,
-                        is_win=True
-                    )
-                    self.greenroom_connection.connect(
-                        {
-                            'account': '',
-                            'type': self.rtmp_parameter['roomtype'],
-                            'prefix': u'greenroom',
-                            'room': self.roomname,
-                            'version': self.desktop_version.format(config.SWF_VERSION),
-                            'cookie': ''
-                        }
-                    )
-                    self.is_greenroom_connected = True
-                    # print('connected to greenroom server')
-
             except Exception as e:
-                log.error('connect error: %s' % e, exc_info=True)
+                log.critical('connect error: %s' % e, exc_info=True)
                 self.is_connected = False
                 self.is_greenroom_connected = False
                 self.reconnect()
@@ -234,55 +198,192 @@ class TinychatRTMPClient:
                 if config.RESET_INIT_TIME:
                     self._init_time = time.time()
                     # If the room is a greenroom, start the greenroom callback.
-                if self.rtmp_parameter['greenroom']:
-                    # print('starting greenroom callback thread')
-                    threading.Thread(target=self.__greenroom_callback).start()
+                if self.rtmp_parameter['greenroom'] and not self.is_greenroom_connected:
+                    threading.Thread(target=self.__connect_greenroom).start()
                 # Start normal room callback.
                 self.__callback()
 
-    def disconnect(self):
-        """ Closes the RTMP connection with the remote server. """
+    def __connect_greenroom(self):
+        """ Connect to the greenroom. """
+        if not self.is_greenroom_connected:
+            log.debug('connecting to greenroom: %s' % self.roomname)
+            try:
+                self.greenroom_connection = rtmp.RtmpClient(
+                    ip=self.rtmp_parameter['ip'],
+                    port=self.rtmp_parameter['port'],
+                    tc_url=self.rtmp_parameter['tcurl'],
+                    app=self.rtmp_parameter['app'],
+                    page_url=self.embed_url.format(self.roomname),
+                    swf_url=self.swf_url.format(config.SWF_VERSION),
+                    proxy=self._proxy,
+                    is_win=True
+                )
+                self.greenroom_connection.connect(
+                    {
+                        'account': '',
+                        'type': self.rtmp_parameter['roomtype'],
+                        'prefix': u'greenroom',
+                        'room': self.roomname,
+                        'version': self.desktop_version.format(config.SWF_VERSION),
+                        'cookie': ''
+                    }
+                )
+                self.is_greenroom_connected = True
+            except Exception as gce:
+                log.critical('greenroom connect error: %s' % gce, exc_info=True)
+                #
+                self.is_greenroom_connected = False
+                self.reconnect(greenroom=True)
+                if config.DEBUG_MODE:
+                    traceback.print_exc()
+            finally:
+                #
+                self.__greenroom_callback()
+
+    def disconnect(self, greenroom=False):
+        """
+        Closes the RTMP connection with the remote server.
+
+        :param greenroom: boolean (default: False) True/False,
+        """
         log.debug('disconnecting from server.')
         try:
-            self.is_connected = False
-            self._bauth_key = None
-            self.users.clear()
-            self.connection.shutdown()
+            if greenroom:
+                log.debug('disconnecting from greenroom')
+                self.is_greenroom_connected = False
+                self.greenroom_connection.shutdown()
+            else:
+                self.is_connected = False
+                self._bauth_key = None
+                self.users.clear()
+                self.connection.shutdown()
         except Exception as e:
             log.error('disconnect error: %s' % e, exc_info=True)
             if config.DEBUG_MODE:
                 traceback.print_exc()
 
-    def reconnect(self):
-        """ Reconnect to the room. """
-        reconnect_msg = '============ RECONNECTING IN ' + str(self._reconnect_delay) + ' SECONDS ============'
-        log.info('reconnecting: %s' % reconnect_msg)
-        self.console_write(COLOR['bright_cyan'], reconnect_msg)
-        self._is_reconnected = True
-        self.disconnect()
-        time.sleep(self._reconnect_delay)
+    def reconnect(self, greenroom=False):
+        """
+        Reconnect to the room.
 
-        # increase reconnect_delay after each reconnect.
-        self._reconnect_delay *= 2
-        if self._reconnect_delay > 900:
-            self._reconnect_delay = config.RECONNECT_DELAY
-
-        if self.account and self.password:
-            if not self.login():
-                self.console_write(COLOR['bright_red'], 'Failed to login.')
-            else:
-                self.console_write(COLOR['bright_green'], 'Login okay.')
-        # log.debug('reconnecting: %s' % self.rtmp_parameter)
-        # self.get_rtmp_parameters()
-        # self.connect()
-        status = self.get_rtmp_parameters()
-        if status is 3:
-            self.connect()
+        :param greenroom: boolean (default: False) True/False,
+        """
+        if greenroom:
+            self.disconnect(greenroom=True)
+            time.sleep(config.RECONNECT_DELAY)
+            #
+            self.__connect_greenroom()
         else:
-            msg = 'failed to fetch parameters, status: %s' % status
-            log.error(msg)
-            if config.DEBUG_MODE:
-                self.console_write(COLOR['bright_red'], msg)
+            #
+            reconnect_msg = '============ RECONNECTING IN ' + str(self._reconnect_delay) + ' SECONDS ============'
+            log.info('reconnecting: %s' % reconnect_msg)
+            self.console_write(COLOR['bright_cyan'], reconnect_msg)
+            self._is_reconnected = True
+            self.disconnect()
+            time.sleep(self._reconnect_delay)
+
+            # Increase reconnect_delay after each reconnect.
+            self._reconnect_delay *= 2
+            if self._reconnect_delay > 900:
+                self._reconnect_delay = config.RECONNECT_DELAY
+
+            #
+            if self.account and self.password:
+                if not self.login():
+                    self.console_write(COLOR['bright_red'], 'Failed to login.')
+                else:
+                    self.console_write(COLOR['bright_green'], 'Login okay.')
+
+            #
+            status = self.get_rtmp_parameters()
+            if status is 3:
+                self.connect()
+            else:
+                msg = 'failed to fetch parameters, status: %s' % status
+                log.error(msg)
+                if config.DEBUG_MODE:
+                    self.console_write(COLOR['bright_red'], msg)
+
+    def __greenroom_callback(self):
+        """ Callback loop reading RTMP message from the greenroom RTMP stream. """
+        log.info('starting greenroom callback. is_greenroom_connected: %s' % self.is_greenroom_connected)
+        fails = 0
+        amf0_data = None
+        while self.is_greenroom_connected:
+            # Read a new RTMP packet from the RTMP stream.
+            try:
+                amf0_data = self.greenroom_connection.reader.next()
+            except Exception as e:
+                fails += 1
+                log.error('greenroom amf data read error: %s %s' % (fails, e), exc_info=True)
+                if fails == 2:
+                    if config.DEBUG_MODE:
+                        traceback.print_exc()
+                    #
+                    self.reconnect(greenroom=True)
+                    break
+            else:
+                fails = 0
+
+            # Process the packet we receive (either by handling it automatically or giving it to pinylib).
+            try:
+                handled = self.greenroom_connection.handle_packet(amf0_data)
+                if handled:
+                    msg = 'Handled greenroom packet: %s' % amf0_data
+                    log.debug(msg)
+                    if config.DEBUG_MODE:
+                        self.console_write(COLOR['white'], msg)
+                    continue
+
+                # Set the command name, the command data and a parameters iteration variable.
+                amf0_cmd = amf0_data['command']
+                cmd = amf0_cmd[0]
+
+                # if cmd == '_result':
+                #     self.on_result(amf0_cmd, greenroom=True)
+
+                # elif cmd == '_error':
+                #     self.on_error(amf0_cmd, greenroom=True)
+
+                # elif cmd == 'onBWDone':
+                #     self.on_bwdone(greenroom=True)
+
+                # elif cmd == 'registered':
+                #     self.on_registered(greenroom=True)
+
+                # elif cmd == 'join':
+                #     self.on_join(greenroom=True)
+
+                # elif cmd == 'joins':
+                #     self.on_joins(greenroom=True)
+
+                if cmd == 'joinsdone':
+                    self.on_joinsdone(greenroom=True)
+
+                # elif cmd == 'nick':
+                #     self.on_nick(greenroom=True)
+
+                elif cmd == 'notice':
+                    notice_msg = amf0_cmd[3]
+                    if notice_msg == 'avon':
+                        greenroom_id = amf0_cmd[4]
+                        user_id = amf0_cmd[5]
+                        self.on_avon(user_id, greenroom_id, greenroom=True)
+
+                # TODO: Do quit from the greenroom.
+                # elif cmd == 'quit':
+                #     self.on_quit(greenroom=True)
+
+                else:
+                    if config.DEBUG_MODE:
+                        self.console_write(COLOR['white'], 'ignoring greenroom command: %s' % cmd)
+
+            except Exception as gce:
+                log.error('general greenroom callback error: %s' % gce, exc_info=True)
+                if config.DEBUG_MODE:
+                    traceback.print_exc()
+                #
+                self.reconnect(greenroom=True)
 
     def __callback(self):
         """ Callback loop reading RTMP messages from the RTMP stream. """
@@ -473,86 +574,8 @@ class TinychatRTMPClient:
                 if config.DEBUG_MODE:
                     traceback.print_exc()
 
-    def __greenroom_callback(self):
-        """ Callback loop reading RTMP message from the greenroom RTMP stream. """
-        log.info('starting greenroom callback loop. is_greenroom_connected: %s' % self.is_greenroom_connected)
-        failures = 0
-        amf0_data_type = -1
-        amf0_data = None
-        while self.is_greenroom_connected:
-            # Read a new RTMP packet from the RTMP stream.
-            try:
-                amf0_data = self.greenroom_connection.reader.next()
-                if amf0_data is not None:
-                    amf0_data_type = amf0_data['msg']
-            except Exception as e:
-                failures += 1
-                log.error('amf data read error count: %s %s' % (failures, e), exc_info=True)
-                if failures == 2:
-                    if config.DEBUG_MODE:
-                        traceback.print_exc()
-                    # TODO: Reconnect function for greenroom connection.
-                    # self.reconnect_greenroom()
-                    break
-            else:
-                failures = 0
-
-            # Process the packet we receive (either by handling it automatically or giving it to pinylib).
-            try:
-                handled = self.greenroom_connection.handle_packet(amf0_data)
-                if handled:
-                    msg = 'Handled (greenroom) packet of type: %s Packet data: %s' % (amf0_data_type, amf0_data)
-                    log.info(msg)
-                    if config.DEBUG_MODE:
-                        self.console_write(COLOR['white'], msg)
-                    continue
-
-                # Set the command name, the command data and a parameters iteration variable.
-                amf0_cmd = amf0_data['command']
-                cmd = amf0_cmd[0]
-                # iparam0 = 0
-
-                # print(cmd, amf0_cmd)
-                if cmd == '_result':
-                    self.on_result(amf0_cmd)
-
-                elif cmd == 'onBWDone':
-                    self.on_greenroom_bwdone()
-
-                elif cmd == 'registered':
-                    self.on_greenroom_registered()
-
-                elif cmd == 'join':
-                    self.on_greenroom_join()
-
-                elif cmd == 'joins':
-                    self.on_greenroom_joins()
-
-                elif cmd == 'joinsdone':
-                    self.on_greenroom_joinsdone()
-
-                elif cmd == 'nick':
-                    self.on_greenroom_nick()
-
-                elif cmd == 'notice':
-                    notice_msg = amf0_cmd[3]
-                    if notice_msg == 'avon':
-                        greenroom_id = amf0_cmd[4]
-                        user_id = amf0_cmd[5]
-                        self.on_greenroom_avon(user_id, greenroom_id)
-
-                elif cmd == 'quit':
-                    self.on_greenroom_quit()
-
-                else:
-                    self.console_write(COLOR['bright_red'], 'Unknown greenroom command: %s' % cmd)
-
-            except Exception as ex:
-                log.error('greenroom callback error: %s' % ex, exc_info=True)
-                if config.DEBUG_MODE:
-                    traceback.print_exc()
-
     # Callback Event Methods.
+    # TODO: Greenroom attribute.
     def on_result(self, result_info):
         """
 
@@ -566,10 +589,12 @@ class TinychatRTMPClient:
                 else:
                     self.console_write(COLOR['white'], str(list_item))
 
+    # TODO: Greenroom attribute.
     def on_error(self, error_info):
         """
 
-        :param error_info:
+        :param error_info: dict
+        :param greenroom: boolean (default: False)
         """
         if config.DEBUG_MODE:
             for list_item in error_info:
@@ -592,24 +617,19 @@ class TinychatRTMPClient:
                 else:
                     self.console_write(COLOR['white'], str(list_item))
 
+    # TODO: Greenroom attribute.
     def on_bwdone(self):
         """
-
         """
         if not self._is_reconnected:
             if config.ENABLE_AUTO_JOB:
                 self.start_auto_job_timer()
 
-    def on_greenroom_bwdone(self):
-        """
-
-        """
-        pass
-
+    # TODO: Greenroom attribute.
     def on_registered(self, client_info):
         """
 
-        :param client_info:
+        :param client_info: dict
         """
         self._client_id = client_info['id']
         self._is_client_mod = client_info['mod']
@@ -627,16 +647,11 @@ class TinychatRTMPClient:
             self.send_cauth_msg(key)
             self.set_nick()
 
-    def on_greenroom_registered(self):
-        """
-
-        """
-        pass
-
+    # TODO: Greenroom attribute.
     def on_join(self, join_info_dict):
         """
 
-        :param join_info_dict:
+        :param join_info_dict: dict
         """
         _user = self.users.add(join_info_dict)
         if _user is not None:
@@ -664,16 +679,11 @@ class TinychatRTMPClient:
         else:
             log.warning('user join: %s' % _user)
 
-    def on_greenroom_join(self):
-        """
-
-        """
-        pass
-
+    # TODO: Greenroom attribute.
     def on_joins(self, joins_info_dict):
         """
 
-        :param joins_info_dict:
+        :param joins_info_dict: dict
         """
         _user = self.users.add(joins_info_dict)
         if _user is not None:
@@ -697,31 +707,24 @@ class TinychatRTMPClient:
         else:
             log.warning('user joins: %s' % _user)
 
-    def on_greenroom_joins(self):
+    # TODO: Greenroom attribute.
+    def on_joinsdone(self, greenroom=False):
         """
 
+        :param greenroom: boolean (default: False)
         """
-        pass
-
-    def on_joinsdone(self):
-        """
-
-        """
-        if self._is_client_mod:
-            self.send_banlist_msg()
-        self.console_write(COLOR['cyan'], 'Received all joins information from the server.')
-
-    def on_greenroom_joinsdone(self):
-        """
-
-        """
-        self.console_write(COLOR['cyan'], 'Received all greenroom joins information from the server.')
+        if not greenroom:
+            if self._is_client_mod:
+                self.send_banlist_msg()
+            self.console_write(COLOR['cyan'], 'Received all joins information from the server.')
+        else:
+            self.console_write(COLOR['cyan'], 'Received all greenroom joins information from the server.')
 
     def on_oper(self, uid, nick):
         """
 
-        :param uid:
-        :param nick:
+        :param uid: str
+        :param nick: str
         """
         _user = self.users.search(nick)
         _user.is_mod = True
@@ -731,9 +734,8 @@ class TinychatRTMPClient:
     def on_deop(self, uid, nick):
         """
 
-        :param uid:
-        :param nick:
-        :return:
+        :param uid: str
+        :param nick: str
         """
         _user = self.users.search(nick)
         _user.is_mod = False
@@ -742,34 +744,34 @@ class TinychatRTMPClient:
     def on_owner(self):
         pass
 
-    def on_avon(self, uid, name):
-        """
-
-        :param uid:
-        :param name:
-        :return:
-        """
-        self.console_write(COLOR['cyan'], '%s:%s is broadcasting.' % (name, uid))
-
-    def on_greenroom_avon(self, uid, greenroom_id):
+    # TODO: Greenroom attribute.
+    def on_avon(self, uid, name, greenroom=False):
         """
 
         :param uid: str
-        :param greenroom_id: str
+        :param name: str
+        :param greenroom: boolean (default: False)
         """
-        _greenroom_user = self.users.search_by_id(uid)
-        if _greenroom_user is not None:
-            self.console_write(COLOR['cyan'], '%s:%s is broadcasting in the greenroom, waiting for approval.' %
-                               (_greenroom_user.nick, _greenroom_user.id))
+        if not greenroom:
+            _user = self.users.search(name)
+            if _user is not None and _user.is_waiting:
+                _user.is_waiting = False
+            self.console_write(COLOR['cyan'], '%s:%s is broadcasting.' % (name, uid))
         else:
-            self.console_write(COLOR['bright_red'], 'Unknown user in the greenroom with id %s and greenroom id %s.' %
-                               (uid, greenroom_id))
+            _greenroom_user = self.users.search_by_id(uid)
+            if _greenroom_user is not None:
+                _greenroom_user.is_waiting = True
+                self.console_write(COLOR['cyan'], '%s:%s is waiting for approval in the greenroom.' %
+                                   (_greenroom_user.nick, _greenroom_user.id))
+            else:
+                self.console_write(COLOR['bright_red'],
+                                   'Unknown user in the greenroom with id %s and greenroom id %s.' %
+                                   (uid, name))
 
     def on_pro(self, uid):
         """
 
         :param uid:
-        :return:
         """
         _user = self.users.search_by_id(uid)
         if _user is not None:
@@ -777,12 +779,13 @@ class TinychatRTMPClient:
         else:
             self.console_write(COLOR['bright_magenta'], '%s is pro.' % uid)
 
+    # TODO: Greenroom attribute.
     def on_nick(self, old, new, uid):
         """
 
-        :param old:
-        :param new:
-        :param uid:
+        :param old: str
+        :param new: str
+        :param uid: str
         """
         if uid == self._client_id:
             self.nickname = new
@@ -792,69 +795,55 @@ class TinychatRTMPClient:
             log.error('failed to change nick for user: %s' % new)
         self.console_write(COLOR['bright_cyan'], '%s:%s changed nick to: %s' % (old, uid, new))
 
-    def on_greenroom_nick(self):
-        """
-
-        """
-        pass
-
     def on_nickinuse(self):
-        """
-
-        """
+        """ """
         self.nickname += string_util.create_random_string(1, 5)
         self.console_write(COLOR['white'], 'Nick already taken. Changing nick to: %s' % self.nickname)
         self.set_nick()
 
-    def on_quit(self, uid, name):
+    def on_quit(self, uid, name, greenroom=False):
         """
 
-        :param uid:
-        :param name:
+        :param uid: str
+        :param name: str
+        :param greenroom: boolean (default: False)
         """
-        if self.users.delete(name):
-            self.console_write(COLOR['cyan'], '%s:%s left the room.' % (name, uid))
+        if not greenroom:
+            if self.users.delete(name):
+                self.console_write(COLOR['cyan'], '%s:%s left the room.' % (name, uid))
+            else:
+                msg = 'failed to delete user: %s' % name
+                if config.DEBUG_MODE:
+                    self.console_write(COLOR['bright_red'], msg)
+                log.debug(msg)
         else:
-            msg = 'failed to delete user: %s' % name
-            if config.DEBUG_MODE:
-                self.console_write(COLOR['bright_red'], msg)
-            log.debug(msg)
-
-    def on_greenroom_quit(self):
-        """
-
-        """
-        pass
+            self.console_write(COLOR['cyan'], '%s:%s left the greenroom.' % (name, uid))
 
     def on_kick(self, uid, name):
         """
 
-        :param uid:
-        :param name:
+        :param uid: str
+        :param name: str
         """
         self.console_write(COLOR['bright_red'], '%s:%s was banned.' % (name, uid))
         self.send_banlist_msg()
 
     def on_banned(self):
-        """
-
-        :return:
-        """
+        """ """
         self.console_write(COLOR['red'], 'You are banned from this room.')
 
     def on_banlist(self, uid, nick):
         """
 
-        :param uid:
-        :param nick:
+        :param uid: str
+        :param nick: str
         """
         self.console_write(COLOR['bright_red'], 'Banned user: %s:%s' % (nick, uid))
 
     def on_topic(self, topic):
         """
 
-        :param topic:
-        :return:
+        :param topic: str
         """
         topic_msg = topic.encode('utf-8', 'replace')
         self.console_write(COLOR['cyan'], 'room topic: ' + topic_msg)
@@ -869,17 +858,15 @@ class TinychatRTMPClient:
         self.console_write(COLOR['bright_red'], msg)
 
     def on_doublesignon(self):
-        """
-
-        """
+        """ """
         self.console_write(COLOR['bright_red'], 'Double account sign on. Aborting!')
         self.is_connected = False
 
     def on_reported(self, nick, uid):
         """
 
-        :param nick:
-        :param uid:
+        :param nick: str
+        :param uid: str
         """
         self.console_write(COLOR['bright_red'], 'You were reported by: %s:%s' % (nick, uid))
 
@@ -952,7 +939,6 @@ class TinychatRTMPClient:
         :param gift_sender:
         :param gift_receiver:
         :param gift_info:
-        :return:
         """
         sender_nick = gift_sender['name']
         reciever_nick = gift_receiver['name']
@@ -966,7 +952,7 @@ class TinychatRTMPClient:
     def on_private_room(self, current_status):
         """
 
-        :param current_status:
+        :param current_status: str
         """
         if current_status == 'yes':
             self._private_room = True
@@ -1044,20 +1030,20 @@ class TinychatRTMPClient:
     def send_bauth_msg(self):
         """ Get and send the bauth key needed before we can start a broadcast. """
         if self._bauth_key is not None:
-            self._send_command('bauth', [u'' + self._bauth_key])
+            self.connection.call('bauth', [u'' + self._bauth_key])
         else:
             _token = core.get_bauth_token(self.roomname, self.nickname, self._client_id,
                                           self.rtmp_parameter['greenroom'], proxy=self._proxy)
             if _token != 'PW':
                 self._bauth_key = _token
-                self._send_command('bauth', [u'' + _token])
+                self.connection.call('bauth', [u'' + _token])
 
     def send_cauth_msg(self, cauthkey):
         """
         Send the cauth message with a working cauth key, we need to send this before we can chat.
         :param cauthkey: str a working cauth key.
         """
-        self._send_command('cauth', [u'' + cauthkey])
+        self.connection.call('cauth', [u'' + cauthkey])
 
     def send_owner_run_msg(self, msg, unicode_characters=True):
         """
@@ -1068,7 +1054,7 @@ class TinychatRTMPClient:
         if self._is_client_mod:
             if not unicode_characters:
                 msg = core.web.quote(msg, safe=':,/&+?#=@')
-                self._send_command('owner_run', [u'notice' + msg])
+                self.connection.call('owner_run', [u'notice' + msg])
             else:
                 encoded_message = ''
                 for x in range(len(msg)):
@@ -1088,32 +1074,31 @@ class TinychatRTMPClient:
                         except (Exception, UnicodeEncodeError):
                             pass
 
-                self._send_command('owner_run', [u'notice' + encoded_message])
+                self.connection.call('owner_run', [u'notice' + encoded_message])
 
     def send_cam_approve_msg(self, nick, uid=None):
         """
         Send cam approval message.
         NOTE: if no uid is provided, we try and look up the user by nick.
         :param nick: str the nick to be approved.
-        :param uid: (optional) the user id.
+        :param uid: str (optional) the user id.
         """
         if self._is_client_mod and self._b_password is not None:
             msg = '/allowbroadcast %s' % self._b_password
             if uid is None:
                 _user = self.users.search(nick)
                 if _user is not None:
-                    self._send_command('privmsg', [u'' + self._encode_msg(msg), u'#0,en',
-                                                   u'n' + str(_user.uid) + '-' + nick])
+                    self.connection.call('privmsg', [u'' + self._encode_msg(msg), u'#0,en',
+                                                     u'n' + str(_user.uid) + '-' + nick])
             else:
-                self._send_command('privmsg',
-                                   [u'' + self._encode_msg(msg), u'#0,en', u'n' + str(uid) + '-' + nick])
+                self.connection.call('privmsg', [u'' + self._encode_msg(msg), u'#0,en', u'n' + str(uid) + '-' + nick])
 
     def send_chat_msg(self, msg):
         """
         Send a chat room message.
         :param msg: str the message to send.
         """
-        self._send_command('privmsg', [u'' + self._encode_msg(msg), u'#262626,en'])
+        self.connection.call('privmsg', [u'' + self._encode_msg(msg), u'#262626,en'])
 
     def send_private_msg(self, msg, nick):
         """
@@ -1123,73 +1108,73 @@ class TinychatRTMPClient:
         """
         _user = self.users.search(nick)
         if _user is not None:
-            self._send_command('privmsg', [u'' + self._encode_msg('/msg ' + nick + ' ' + msg),
-                                           u'#262626,en', u'n' + str(_user.id) + '-' + nick])
-            self._send_command('privmsg', [u'' + self._encode_msg('/msg ' + nick + ' ' + msg),
-                                           u'#262626,en', u'b' + str(_user.id) + '-' + nick])
+            self.connection.call('privmsg', [u'' + self._encode_msg('/msg ' + nick + ' ' + msg),
+                                             u'#262626,en', u'n' + str(_user.id) + '-' + nick])
+            self.connection.call('privmsg', [u'' + self._encode_msg('/msg ' + nick + ' ' + msg),
+                                             u'#262626,en', u'b' + str(_user.id) + '-' + nick])
 
     def send_userinfo_request_msg(self, user_id):
         """
         Send user info request to a user.
         :param user_id: str user id of the user we want info from.
         """
-        self._send_command('account', [u'' + str(user_id)])
+        self.connection.call('account', [u'' + str(user_id)])
 
     def send_undercover_msg(self, nick, msg, use_b=True, use_n=True):
         """
         Send a 'undercover' message.
         This is a special message that appears in the main chat, but is only visible to the user it is sent to.
-        It can also be used to play 'private' youtubes/soundclouds with.
+        It can also be used to play 'private' YouTube/SoundCloud video/audio items with.
 
         :param nick: str the user name to send the message to.
         :param msg: str the message to send.
-        :param use_b:
-        :param use_n:
+        :param use_b: boolean (default: True)
+        :param use_n: boolean (default: True)
         """
         _user = self.users.search(nick)
         if _user is not None:
             if use_b:
-                self._send_command('privmsg', [u'' + self._encode_msg(msg),
-                                               '#0,en', u'b' + str(_user.id) + '-' + nick])
+                self.connection.call('privmsg', [u'' + self._encode_msg(msg),
+                                                 '#0,en', u'b' + str(_user.id) + '-' + nick])
             if use_n:
-                self._send_command('privmsg', [u'' + self._encode_msg(msg),
-                                               '#0,en', u'n' + str(_user.id) + '-' + nick])
+                self.connection.call('privmsg', [u'' + self._encode_msg(msg),
+                                                 '#0,en', u'n' + str(_user.id) + '-' + nick])
 
     def set_nick(self):
         """ Send the nick message. """
         if not self.nickname:
             self.nickname = string_util.create_random_string(5, 25)
         self.console_write(COLOR['bright_magenta'], 'Setting nick: %s' % self.nickname)
-        self._send_command('nick', [u'' + self.nickname])
+        self.connection.call('nick', [u'' + self.nickname])
 
     def send_ban_msg(self, nick, uid=None):
         """
 
         :param nick: str
-        :param uid: int
+        :param uid: int (default: None)
         """
         if self._is_client_mod:
             if uid is None:
                 _user = self.users.search(nick)
                 if _user is not None:
-                    self._send_command('kick', [u'' + nick, str(_user.id)])
+                    self.connection.call('kick', [u'' + nick, str(_user.id)])
             else:
-                self._send_command('kick', [u'' + nick, str(uid)])
+                self.connection.call('kick', [u'' + nick, str(uid)])
 
     def send_forgive_msg(self, uid):
         """
         Send forgive message.
-        :param uid: The ID of the user we want to forgive.
+        :param uid: int the ID of the user we want to forgive.
         """
         if self._is_client_mod:
-            self._send_command('forgive', [u'' + str(uid)])
+            self.connection.call('forgive', [u'' + str(uid)])
             # get the updated ban list.
             self.send_banlist_msg()
 
     def send_banlist_msg(self):
-        """ Send ban list message. """
+        """ Send ban-list message. """
         if self._is_client_mod:
-            self._send_command('banlist')
+            self.connection.call('banlist')
 
     def send_topic_msg(self, topic):
         """
@@ -1197,7 +1182,7 @@ class TinychatRTMPClient:
         :param topic: str the room topic.
         """
         if self._is_client_mod:
-            self._send_command('topic', [u'' + topic])
+            self.connection.call('topic', [u'' + topic])
 
     def send_close_user_msg(self, nick):
         """
@@ -1205,21 +1190,21 @@ class TinychatRTMPClient:
         :param nick: str the user name of the user we want to close.
         """
         if self._is_client_mod:
-            self._send_command('owner_run', [u'_close' + nick])
+            self.connection.call('owner_run', [u'_close' + nick])
 
     def send_mute_msg(self):
         """
         Send mute message to mute all broadcasting users in the room.
         """
         if self._is_client_mod:
-            self._send_command('owner_run', [u'mute'])
+            self.connection.call('owner_run', [u'mute'])
 
     def send_push2talk_msg(self):
         """
         Send push2talk room message to force the Push2Talk option for microphone broadcasting.
         """
         if self._is_client_mod:
-            self._send_command('owner_run', [u'push2talk'])
+            self.connection.call('owner_run', [u'push2talk'])
 
     def send_private_room_msg(self, new_status):
         """
@@ -1229,9 +1214,9 @@ class TinychatRTMPClient:
         if self._is_client_mod:
             if type(new_status) is bool:
                 if new_status:
-                    self._send_command('private_room', [u'yes'])
+                    self.connection.call('private_room', [u'yes'])
                 elif not new_status:
-                    self._send_command('private_room', [u'no'])
+                    self.connection.call('private_room', [u'no'])
 
     # Media Message Functions
     def send_media_broadcast_start(self, media_type, video_id, time_point=0, private_nick=None):
@@ -1240,7 +1225,7 @@ class TinychatRTMPClient:
         :param media_type: str 'youTube' or 'soundCloud'
         :param video_id: str the media video ID.
         :param time_point: int where to start the media from in milliseconds.
-        :param private_nick: str if not None, start the media broadcast for this username only.
+        :param private_nick: str (default: None) if not None, start the media broadcast for this username only.
         """
         mbs_msg = '/mbs %s %s %s' % (media_type, video_id, time_point)
         if private_nick is not None:
@@ -1252,7 +1237,7 @@ class TinychatRTMPClient:
         """
         Close a media broadcast.
         :param media_type: str 'youTube' or 'soundCloud'
-        :param private_nick str if not None, send this message to this username only.
+        :param private_nick: str (default: None) if not None, send this message to this username only.
         """
         mbc_msg = '/mbc %s' % media_type
         if private_nick is not None:
@@ -1265,7 +1250,7 @@ class TinychatRTMPClient:
         Play a currently paused media broadcast.
         :param media_type: str 'youTube' or 'soundCloud'
         :param time_point: int where to play the media from in milliseconds.
-        :param private_nick: str if not None, send this message to this username only.
+        :param private_nick: str (default: None) if not None, send this message to this username only.
         """
         mbpl_msg = '/mbpl %s %s' % (media_type, time_point)
         if private_nick is not None:
@@ -1277,7 +1262,7 @@ class TinychatRTMPClient:
         """
         Pause a currently playing media broadcast.
         :param media_type: str 'youTube' or 'soundCloud'
-        :param private_nick: str if not None, send this message to this username only.
+        :param private_nick: str (default: None) if not None, send this message to this username only.
         """
         mbpa_msg = '/mbpa %s' % media_type
         if private_nick is not None:
@@ -1290,7 +1275,7 @@ class TinychatRTMPClient:
         Time search a currently playing/paused media broadcast.
         :param media_type: str 'youTube' or 'soundCloud'
         :param time_point: int the time point to skip to.
-        :param private_nick: str if not None, send this message to this username only.
+        :param private_nick: str (default: None) if not None, send this message to this username only.
         :return:
         """
         mbsk_msg = '/mbsk %s %s' % (media_type, time_point)
@@ -1298,34 +1283,6 @@ class TinychatRTMPClient:
             self.send_undercover_msg(private_nick, mbsk_msg)
         else:
             self.send_chat_msg(mbsk_msg)
-
-    # Message Construction.
-    def _send_command(self, cmd, params=None, trans_id=0):
-        """
-        Sends command messages to the server.
-
-        NOTE: Im not sure what kind of effect the trans ID has,
-        or if it indeed is the transaction ID.
-
-        :param cmd: str command name.
-        :param params: list command parameters.
-        :param trans_id: int the trans action ID.
-        """
-        msg_format = [u'' + cmd, trans_id, None]
-        if params and type(params) is list:
-            msg_format.extend(params)
-        msg = {
-            'msg': rtmp.rtmp_type.DT_COMMAND,
-            'command': msg_format
-        }
-        try:
-            self.connection.writer.write(msg)
-            self.connection.writer.flush()
-        except Exception as ex:
-            log.error('send command error: %s' % ex, exc_info=True)
-            if config.DEBUG_MODE:
-                traceback.print_exc()
-            self.reconnect()
 
     # Helper Methods
     def get_runtime(self, milliseconds=True):
@@ -1373,7 +1330,14 @@ class TinychatRTMPClient:
                 if self._is_client_mod:
                     self.rtmp_parameter['greenroom'] = conf['greenroom']
                     self._b_password = conf['bpassword']
-            log.info('recv configuration: %s' % conf)
+                    # If the greenroom is enabled in the configuration and we are not monitoring it at the moment,
+                    # make sure we start a greenroom connection in a new thread.
+                    if conf['greenroom'] and not self.is_greenroom_connected:
+                        threading.Thread(target=self.__connect_greenroom).start()
+                    # If greenroom is no longer enabled, then we can stop monitoring it.
+                    elif not conf['greenroom'] and self.is_greenroom_connected:
+                        self.disconnect(greenroom=True)
+            log.debug('recv configuration: %s' % conf)
         self.start_auto_job_timer()
 
     def start_auto_job_timer(self):

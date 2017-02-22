@@ -2,15 +2,12 @@ import time
 
 
 class User:
-    """
-    A class representing a users information.
-    NOTE: Defaults are attributes that pinylib expects
-    """
+    """ A class representing a users information. """
     def __init__(self, **kwargs):
-        # Default's.
         self.lf = kwargs.get('lf')
         self.account = kwargs.get('account', '')
         self.is_owner = kwargs.get('own', False)
+
         self.gp = kwargs.get('gp', 0)
         self.alevel = kwargs.get('alevel', '')
         self.bf = kwargs.get('bf', False)
@@ -23,6 +20,7 @@ class User:
         self.tinychat_id = None
         self.last_login = None
         self.user_level = 0
+        self.is_waiting = False
         # Extras.
         self.last_msg = None
 
@@ -158,3 +156,16 @@ class Users:
             if str(self.all[user].id) == user_id:
                 return self.all[user]
         return None
+
+    def search_containing(self, contains):
+        """
+        Search users for a matching string within the user nick.
+        :param contains: str the string to search for in the nick.
+        :return: list of object (User) matching the contains string.
+        """
+        _users_containing = []
+        for user in self.all:
+            if str(contains) in self.all[user].nick:
+                _users_containing.append(self.all[user])
+        return _users_containing
+

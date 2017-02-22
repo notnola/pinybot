@@ -18,7 +18,8 @@ def main():
                 bot.console_write(pinybot.pinylib.COLOR['bright_green'], 'Logged in as: %s' % bot.account)
         else:
             # Print out the error message and exit.
-            print ('AUTO INFO: The room name variable must be at least set for the automatic login to work.')
+            print ('AUTOMATIC CONNECTION INFORMATION: The room name variable must be at least set for the automatic '
+                   'login to work.')
             sys.exit(1)
     else:
         room_name = raw_input('Enter room name: ').strip()
@@ -90,6 +91,8 @@ def main():
                 cmd = msg_parts[0].lower().strip()
                 if cmd == '/q':
                     bot.disconnect()
+                    if bot.is_greenroom_connected:
+                        bot.disconnect(greenroom=True)
                 elif cmd == '/a':
                     if len(bot.users.signed_in) is 0:
                         print ('No signed in users in the room.')
@@ -148,7 +151,7 @@ def main():
 if __name__ == '__main__':
     if pinybot.pinylib.CONFIG.DEBUG_TO_FILE:
         formater = '%(asctime)s : %(levelname)s : %(filename)s : %(lineno)d : %(funcName)s() : %(name)s : %(message)s'
-        logging.basicConfig(filename=pinybot.pinylib.CONFIG.B_DEBUG_FILE_NAME, level=tinybot.pinylib.CONFIG.DEBUG_LEVEL,
+        logging.basicConfig(filename=pinybot.pinylib.CONFIG.B_DEBUG_FILE_NAME, level=pinybot.pinylib.CONFIG.DEBUG_LEVEL,
                             format=formater)
         log.info('Starting tinybot version: %s using pinylib version: %s' %
                  (pinybot.__version__, pinybot.pinylib.__version__))

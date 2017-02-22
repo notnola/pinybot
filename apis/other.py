@@ -1,7 +1,6 @@
 """ Contains functions to fetch info from different simple online APIs."""
 import util.web
 
-
 import random
 import unicodedata
 import urllib
@@ -39,7 +38,7 @@ def urbandictionary_search(search):
         return None
 
 
-def weather_search(city):
+def worldwide_weather_search(city):
     """
     Searches World-Weather-Online's API for weather data for a given city.
     You must have a working API key to be able to use this function.
@@ -51,10 +50,10 @@ def weather_search(city):
         if not api_key:
             return 'Missing api key.'
         else:
-            weather_api_url = 'http://api.worldweatheronline.com/free/v2/weather.ashx?' \
+            worldwide_api_url = 'http://api.worldweatheronline.com/free/v2/weather.ashx?' \
                               'q=%s&format=json&key=%s' % (city, api_key)
 
-            response = util.web.http_get(url=weather_api_url, json=True)
+            response = util.web.http_get(url=worldwide_api_url, json=True)
             if response['json'] is not None:
                 try:
                     pressure = response['json']['data']['current_condition'][0]['pressure']
@@ -66,10 +65,44 @@ def weather_search(city):
                     sunrise = response['json']['data']['weather'][0]['astronomy'][0]['sunrise']
                     sunset = response['json']['data']['weather'][0]['astronomy'][0]['sunset']
 
-                    weather_info = '*Queried location:* %s. *Temperature:* %sC (%sF), *Pressure:* %s millibars, ' \
-                                   '*Cloud cover:* %s%%, *Sunrise:* %s, *Sunset:* %s.' % \
-                                   (query, temp_celsius, temp_fahrenheit, pressure, cloud_cover, sunrise, sunset)
-                    return weather_info
+                    weather_online_information = '*Queried location:* %s. *Temperature:* %sC (%sF), ' \
+                                                 '*Pressure:* %s millibars, Cloud cover:* %s%%, *Sunrise:* %s,' \
+                                                 '*Sunset:* %s.' % (query, temp_celsius, temp_fahrenheit, pressure,
+                                                                    cloud_cover, sunrise, sunset)
+                    return weather_online_information
+                except (IndexError, KeyError):
+                    return None
+    else:
+        return None
+
+
+def wunderground_weather_search(city):
+    """
+
+    Thanks to Aida (Autotonic) for writing this method.
+    :param city:
+    :return:
+    """
+    if str(city).strip():
+        api_key = ''  # Place your API key for Wunderground weather here.
+        if not api_key:
+            return 'Missing API key.'
+        else:
+            wunderground_api_url = 'http://api.wunderground.com/api/%s/conditions/q/%s.json' % (api_key, city)
+
+            response = util.web.http_get(url=wunderground_api_url, json=True)
+
+            if response['json'] is not None:
+                try:
+                    display_location = response['json']['current_observation']['display_location']['full']
+                    weather_observation = response['json']['current_observation']['weather']
+                    temperature_observation = response['json']['current_observation']['temperature_string']
+                    humidity_observation = response['json']['current_observation']['relative_humidity']
+
+                    wunderground_information = '*%s*: %s | %s | Humidity: %s' % (display_location, weather_observation,
+                                                                                 temperature_observation,
+                                                                                 humidity_observation)
+                    return wunderground_information
                 except (IndexError, KeyError):
                     return None
     else:
@@ -83,8 +116,8 @@ def who_is(ip):
     :return: information str or None on error.
     """
     if str(ip).strip():
-        url = 'http://ip-api.com/json/%s' % ip
-        response = util.web.http_get(url=url, json=True)
+        ip_api_url = 'http://ip-api.com/json/%s' % ip
+        response = util.web.http_get(url=ip_api_url, json=True)
         if response['json'] is not None:
             try:
                 city = response['json']['city']
@@ -107,8 +140,8 @@ def chuck_norris():
     Finds a random Chuck Norris joke/quote.
     :return: joke str or None on failure.
     """
-    url = 'http://api.icndb.com/jokes/random/?escape=javascript'
-    response = util.web.http_get(url=url, json=True)
+    icdb_api_url = 'http://api.icndb.com/jokes/random/?escape=javascript'
+    response = util.web.http_get(url=icdb_api_url, json=True)
     if response['json'] is not None:
         if response['json']['type'] == 'success':
             joke = response['json']['value']['joke'].decode('string_escape')
@@ -119,13 +152,40 @@ def chuck_norris():
         return None
 
 
+def food_search(ingredient):
+    """
+
+    All credits for this method goes to Aida (Autotonic).
+    :param ingredient:
+    :return:
+    """
+    if str(ingredient).strip():
+        api_key = ''  # Place your API key for the food2fork website here.
+        if api_key:
+            food2fork_api_url = 'http://food2fork.com/api/search?key=%s&q=%s' % (api_key, ingredient)
+            response = util.web.http_get(url=food2fork_api_url, json=True)
+            if response['json'] is not None:
+                count = int(response['json']['count'])
+                num = random.randint(0, count)
+                title = response['json']['recipes'][num]['title']
+                url = response['json']['recipes'][num]['f2f_url']
+                recipe_information = '(%s/%s) *%s*: %s' % (num, count, title, url)
+                return recipe_information
+            else:
+                return None
+        else:
+            return 'Missing API key.'
+    else:
+        return None
+
+
 def online_advice():
     """
     Retrieves a random string of advice from the 'adviceslip' (http://adviceslip.com/) API.
     :return str: advice or None if 'advice' is not found.
     """
-    url = 'http://api.adviceslip.com/advice'
-    response = util.web.http_get(url, json=True)
+    adviceslip_api_url = 'http://api.adviceslip.com/advice'
+    response = util.web.http_get(url=adviceslip_api_url, json=True)
     if response['json'] is not None:
         return response['json']['slip']['advice']
     else:
@@ -138,9 +198,9 @@ def duck_duck_go_search(search):
     :param search: The search term str to search for.
     :return results: list or None on no match or error.
     """
-    duck_duck_go_api = 'http://api.duckduckgo.com/?q=%s&ia=answer&format=json&no_html=1' % \
-                       urllib.quote_plus(search.strip())
-    response = util.web.http_get(duck_duck_go_api, json=True)
+    duck_duck_go_api_url = 'http://api.duckduckgo.com/?q=%s&ia=answer&format=json&no_html=1' % \
+                           urllib.quote_plus(search.strip())
+    response = util.web.http_get(url=duck_duck_go_api_url, json=True)
 
     if response['json'] is not None:
         if response['json']['AnswerType'] == 'calc':
@@ -161,8 +221,8 @@ def omdb_search(search):
     :param search: str search term.
     :return omdb_info: str title, rating, and short a description.
     """
-    omdb_url = 'http://www.omdbapi.com/?t=%s&plot=short&r=json' % search.strip()
-    response = util.web.http_get(omdb_url, json=True)
+    omdb_api_url = 'http://www.omdbapi.com/?t=%s&plot=short&r=json' % search.strip()
+    response = util.web.http_get(url=omdb_api_url, json=True)
 
     if response['json'] is not None:
         try:
@@ -195,14 +255,17 @@ def longman_dictionary(lookup_term):
     (http://http://developer.pearson.com/apis/dictionaries) and returns an appropriate definition.
     NOTE: The API is free for up to 4,000,000 calls per month. We are using the 'entries' API endpoint
           located by using http://api.pearson.com/v2/dictionaries/entries?headword=[headword here].
+    For all the searches we are using, we will use the Advanced American Dictionary (laad3 is what we use in the url
+    for this dictionary).
     :param lookup_term: str the term to search for a dictionary reference.
-    :return definitions: list
+    :return definitions: list of the definitions returned from the search.
     """
-    dictionary_url = 'http://api.pearson.com/v2/dictionaries/entries?headword=%s' % lookup_term.strip()
-    response = util.web.http_get(dictionary_url, json=True)
+    dictionary_api_url = 'http://api.pearson.com/v2/dictionaries/laad3/entries?headword=%s' % lookup_term.strip()
+    response = util.web.http_get(url=dictionary_api_url, json=True)
 
     if response['json'] is not None:
         definitions = []
+        # TODO: Handle examples.
         for search_result in response['json']['results']:
             if 'senses' in search_result:
                 for sense_num in range(len(search_result['senses'])):
@@ -232,8 +295,8 @@ def time_is(location):
             'Host': 'time.is'
         }
 
-        post_url = 'http://time.is/' + location.replace(location[0], location[0].upper())
-        time_data = util.web.http_get(post_url, header=header)
+        time_url = 'http://time.is/' + location.replace(location[0], location[0].upper())
+        time_data = util.web.http_get(url=time_url, header=header)
         time_html = time_data['content']
         soup = BeautifulSoup(time_html, 'html.parser')
 
@@ -256,8 +319,8 @@ def google_time(location):
     :return time: str or None on failure.
     """
     if bs4_present:
-        url = 'https://www.google.com/search?q=time%20in%20' + urllib.quote_plus(location)
-        response = util.web.http_get(url)
+        google_search_url = 'https://www.google.com/search?q=time%20in%20' + urllib.quote_plus(location)
+        response = util.web.http_get(url=google_search_url)
         if response['content'] is not None:
             raw_content = response['content']
             soup = BeautifulSoup(raw_content, 'html.parser')
@@ -279,15 +342,48 @@ def google_time(location):
     return None
 
 
-def top40_charts():
+def official_charts():
     """
-    Retrieves the Top40 songs list from www.bbc.co.uk/radio1/chart/singles.
-    :return songs: list (nested list) all songs including the song name and artist in the format
-             [[songs name, song artist], etc.]].
+    Retrieves the Official Charts Top 40 Singles (http://www.officialcharts.com/charts/uk-top-40-singles-chart/)
+    currently in time.
+    :return official_charts: list of the artist and title of the tracks in the top 40 starting from first to the last.
     """
     if bs4_present:
-        chart_url = 'http://www.bbc.co.uk/radio1/chart/singles'
-        response = util.web.http_get(url=chart_url)
+        official_charts_url = 'http://www.officialcharts.com/charts/uk-top-40-singles-chart/'
+        response = util.web.http_get(url=official_charts_url)
+
+        if response['content'] is not None:
+            html = response['content']
+            soup = BeautifulSoup(html, 'html.parser')
+            tracks = soup.findAll('div', {'class': 'track'})
+
+            official_tracks = []
+            for track in tracks:
+                # Get the text from the track.
+                title_artist = track.find('div', {'class': 'title'}).getText()
+                title_name = track.find('div', {'class': 'artist'}).getText()
+
+                # Get the track artist and name by stripping any spaces and storing them as titles into the list.
+                track_artist = title_artist.strip()
+                track_name = title_name.strip()
+                official_tracks.append('%s - %s' % (track_artist.title(), track_name.title()))
+
+            if len(official_tracks) is not 0:
+                return official_tracks
+            else:
+                return False
+    return None
+
+
+def radio_top40_charts():
+    """
+    Retrieves the Top40 songs list from Radio One (www.bbc.co.uk/radio1/chart/singles).
+    :return songs: list (nested list) all songs including the song name and artist in the format
+                   [[songs name, song artist], etc.]] or None if we couldn't retrieve any content.
+    """
+    if bs4_present:
+        radio_one_url = 'http://www.bbc.co.uk/radio1/chart/singles'
+        response = util.web.http_get(url=radio_one_url)
 
         if response['content'] is not None:
             html = response['content']
@@ -309,12 +405,17 @@ def top40_charts():
                 all_artists.append(individual_artist)
 
             songs = []
-            for x in range(len(all_titles)):
-                songs.append([all_titles[x], all_artists[x]])
+            for song in range(len(all_titles)):
+                songs.append('%s - %s' % (all_artists[song], all_titles[song]))
 
             if len(songs) is not 0:
                 return songs
-    return None
+            else:
+                return False
+        else:
+            return None
+    else:
+        return None
 
 
 def capital_fm_latest():
@@ -352,13 +453,14 @@ def one_liners(tag=None):
     :return joke: str a one line joke/statement (depending on the specified category).
     """
     if bs4_present:
-        url = 'http://onelinefun.com/'
+        onelinefun_url = 'http://onelinefun.com/'
+        # TODO: Make this small section more clear.
         if tag is None:
             # Select a random tag from the list if one has not been provided.
             joke_tag = random.randint(0, len(ONE_LINER_TAGS) - 1)
-            joke_url = url + ONE_LINER_TAGS[joke_tag] + '/'
+            joke_url = onelinefun_url + ONE_LINER_TAGS[joke_tag] + '/'
         else:
-            joke_url = url + str(tag) + '/'
+            joke_url = onelinefun_url + str(tag) + '/'
 
         response = util.web.http_get(url=joke_url)
         if response['content'] is not None:
@@ -389,7 +491,7 @@ def etymonline(search):
     """
     if bs4_present:
         etymonline_url = 'http://etymonline.com/index.php?term=%s&allowed_in_frame=0' % (search.replace(' ', '+'))
-        response = util.web.http_get(etymonline_url)
+        response = util.web.http_get(url=etymonline_url)
 
         if response['content'] is not None:
             html = response['content']

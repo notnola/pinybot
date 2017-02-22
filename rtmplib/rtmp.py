@@ -178,21 +178,27 @@ class RtmpClient:
             return False
         return False
 
-    def call(self, process_name, parameters=None, trans_id=0):
-        """ Runs remote procedure calls (RPC) at the receiving end. """
-        if parameters is None:
-            parameters = []  # parameters = {}
+    def call(self, procedure_name, parameters=None, transaction_id=0):
+        """
+        Run remote procedure calls (RPC) at the receiving end.
+
+        :param procedure_name: str
+        :param parameters: list
+        :param transaction_id: int
+        """
+        msg_format = [u'' + procedure_name, transaction_id, None]
+        if parameters and type(parameters) is list:
+            msg_format.extend(parameters)
+
         msg = {
             'msg': rtmp_type.DT_COMMAND,
-            'command':
-            [
-                process_name,
-                trans_id,
-                parameters
-            ]
+            'command': msg_format
         }
-        self.writer.write(msg)
-        self.writer.flush()
+        try:
+            self.writer.write(msg)
+            self.writer.flush()
+        except Exception as ex:
+            log.error('send call error: %s' % ex, exc_info=True)
 
     def connect(self, connect_params=None):
         """ Connect to the server with the given connect parameters. """

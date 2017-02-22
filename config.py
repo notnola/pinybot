@@ -1,5 +1,4 @@
 # This file holds pinylib's configuration.
-# Use a prefix, if you plan on adding your own.
 # Settings info https://github.com/nortxort/pinylib/wiki/Settings
 
 # Set the bot to run without allowing any input into the console.
@@ -17,13 +16,13 @@ ACCOUNT = ''
 PASSWORD = ''
 
 # The swf version that tinychat is currently using.
-SWF_VERSION = '0675'
+SWF_VERSION = '0677'
 # Log chat messages and events.
 CHAT_LOGGING = False
 # Show additional info/errors in console.
-DEBUG_MODE = False
+DEBUG_MODE = True
 # Log debug info to file.
-DEBUG_TO_FILE = False
+DEBUG_TO_FILE = True
 # Logging level for the debug file.
 DEBUG_LEVEL = 30
 # Use colors for the console.
@@ -50,21 +49,27 @@ B_PREFIX = '!'
 # Bot controller key.
 B_KEY = 'light'
 # Bot super key.
-B_SUPER_KEY = 'energy'
+B_SUPER_KEY = 'water'
+# The maximum amount of match bans.
+B_MAX_MATCH_BANS = 1
 # Public commands enabled.
 B_PUBLIC_CMD = True
 # Greet user when joining.
 B_GREET = True
 # The message to greet the user with in the public chat-box.
 B_GREET_MESSAGE = ''
+# Send the public chat-box greeting as an undercover message.
+B_GREET_UNDERCOVER = False
 # Greet user with a private message.
 B_GREET_PRIVATE = False
-# The message to greet the user with in the private chat-box
+# The message to greet the user with in the private chat-box.
 B_GREET_PRIVATE_MESSAGE = ''
 # Greet users who broadcast their camera/microphone.
 B_GREET_BROADCAST = False
 # The message to greet the broadcasting users with in the chat-box.
 B_GREET_BROADCAST_MESSAGE = ''
+# Send the public chat-box broadcast message as an undercover message.
+B_GREET_BROADCAST_UNDERCOVER = False
 # Allow newuser to join the room.
 B_ALLOW_NEWUSERS = True
 # Allow broadcasting.
@@ -124,6 +129,8 @@ B_BOT_REPORT_KICK = False
 ##
 #
 B_AUTO_GREENROOM = False
+#
+B_SELF_GREENROOM_APPROVAL = False
 #
 B_AUTO_URL_MODE = True
 #
