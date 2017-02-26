@@ -49,7 +49,7 @@ B_PREFIX = '!'
 # Bot controller key.
 B_KEY = 'light'
 # Bot super key.
-B_SUPER_KEY = 'water'
+B_SUPER_KEY = 'lighthouse'
 # The maximum amount of match bans.
 B_MAX_MATCH_BANS = 1
 # Public commands enabled.
@@ -133,6 +133,8 @@ B_AUTO_GREENROOM = False
 B_SELF_GREENROOM_APPROVAL = False
 #
 B_AUTO_URL_MODE = True
+#
+B_AUTO_YOUTUBE_URL = True
 #
 B_CLEVERBOT = True
 #

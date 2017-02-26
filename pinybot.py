@@ -18,10 +18,10 @@ __all__ = ['pinylib']
 
 log = logging.getLogger(__name__)
 
-__base_version__ = '6.0.8'
+__base_version__ = '6.1.0'
 __version__ = '1.5.0'
 __version_name__ = 'Mist'
-__status__ = 'beta.1'
+__status__ = 'beta.2'
 __authors_information__ = 'Nortxort (https://github.com/nortxort/tinybot ) GoelBiju ' \
                           '(https://github.com/GoelBiju/pinybot )'
 
@@ -52,7 +52,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     # Custom message variables:
     # TODO: Implement !ytlast.
-    # latest_posted_url = str
+    latest_yt_video_id = str
 
     # Initiate CleverBot related variables:
     _cleverbot_session = None
@@ -788,8 +788,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             if cmd == prefix + 'playlist':
                 self.do_set_playlist_mode()
 
-            elif cmd == prefix + 'publicmedia':
-                self.do_set_public_media_mode()
+            # elif cmd == prefix + 'publicmedia':
+            #     self.do_set_public_media_mode()
 
             elif cmd == prefix + 'mute':
                 self.do_mute()
@@ -862,16 +862,24 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         :param decoded_msg: str the message received from the user.
         """
         url_message = False
+        handle_message = decoded_msg.lower()
         # If Auto URL has been switched on, run, in a new the thread, the automatic URL header retrieval.
         # This should only be run in the case that we have message sanitation turned on.
         if pinylib.CONFIG.B_AUTO_URL_MODE:
-            url_message = self.do_auto_url(decoded_msg.lower())
+            url_message = self.do_auto_url(handle_message)
+
+        # If we will be using the last posted YouTube URL, we want to check if the identified URL
+        # is one from YouTube or not.
+        if pinylib.CONFIG.B_AUTO_YOUTUBE_URL:
+            matched_yt_url = self._youtube_pattern.match(handle_message)
+            if matched_yt_url is not None:
+                self.latest_yt_video_id = matched_yt_url.group(1)
 
         # TODO: CleverBot will only work now if it is not given a command and the message did not
         #       have a url the message.
         if pinylib.CONFIG.B_CLEVERBOT:
             if not url_message:
-                self.cleverbot_message_handler(decoded_msg)
+                self.cleverbot_message_handler(handle_message)
 
         # TODO: Moved check_msg procedure to the sanitize message procedure.
 
@@ -1457,7 +1465,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                     if len(_users) > 0:
                         for i, user in enumerate(_users):
                             if user.nick != self.nickname and user.user_level > self.active_user.user_level:
-                                if i <= pinylib.CONFIG.B_MAX_MATCH_BANS -1:
+                                if i <= pinylib.CONFIG.B_MAX_MATCH_BANS - 1:
                                     self.send_ban_msg(user.nick, user.id)
                                     a = pinylib.string_util.random.uniform(0.0, 1.0)
                                     pinylib.time.sleep(a)
@@ -1490,9 +1498,9 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                     user_name = user_name.replace('*', '')
                     _users = self.users.search_containing(user_name)
                     if len(_users) > 0:
-                        for i,user in enumerate(_users):
+                        for i, user in enumerate(_users):
                             if user.nick != self.nickname and user.user_level > self.active_user.user_level:
-                                if i <= pinylib.CONFIG.B_MAX_MATCH_BANS -1:
+                                if i <= pinylib.CONFIG.B_MAX_MATCH_BANS - 1:
                                     self.send_ban_msg(user.nick, user.id)
                                     a = pinylib.string_util.random.uniform(0.0, 1.5)
                                     pinylib.time.sleep(a)
@@ -1551,8 +1559,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         if self._is_client_mod:
             if len(bad_string) is 0:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Ban string can\'t be blank.')
-            # elif len(bad_string) < 3:
-            #     self.send_bot_msg('Ban string to short: ' + str(len(bad_string)))
+            elif len(bad_string) < 3:
+                self.send_bot_msg('Ban string to short: ' + str(len(bad_string)))
             elif bad_string in pinylib.CONFIG.B_STRING_BANS:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' *%s* is already in list.' % bad_string)
             else:
@@ -1598,6 +1606,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 self.load_list(accounts=True)
             elif bad_account_name in pinylib.CONFIG.B_ACCOUNT_BANS:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' %s is already in list.' % bad_account_name)
+                # TODO: Account names can be shorter than 3 characters in length (thank you to Technetium1 for
+                #       pointing this out).
                 # elif len(bad_account_name) < 3:
                 #     self.send_bot_msg('Account to short: ' + str(len(bad_account_name)))
             else:
@@ -2166,49 +2176,49 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         pinylib.CONFIG.B_PLAYLIST_MODE = not pinylib.CONFIG.B_PLAYLIST_MODE
         self.send_bot_msg('*Playlist Mode*: %s' % pinylib.CONFIG.B_PLAYLIST_MODE)
 
-    def do_set_public_media_mode(self):
-        """ """
-        pinylib.CONFIG.B_PUBLIC_MEDIA_MODE = not pinylib.CONFIG.B_PUBLIC_MEDIA_MODE
-        self.send_bot_msg('*Public Media Mode*: %s' % pinylib.CONFIG.B_PUBLIC_MEDIA_MODE)
+    # def do_set_public_media_mode(self):
+    #     """ """
+    #     pinylib.CONFIG.B_PUBLIC_MEDIA_MODE = not pinylib.CONFIG.B_PUBLIC_MEDIA_MODE
+    #     self.send_bot_msg('*Public Media Mode*: %s' % pinylib.CONFIG.B_PUBLIC_MEDIA_MODE)
 
     def do_set_greet_pm(self):
         """ """
         pinylib.CONFIG.B_GREET_PRIVATE = not pinylib.CONFIG.B_GREET_PRIVATE
         self.send_bot_msg('*Greet Users Private Message*: %s' % pinylib.CONFIG.B_GREET_PRIVATE)
 
-    def do_set_media_limit_public(self):
-        """ """
-        if pinylib.CONFIG.B_PUBLIC_MEDIA_MODE:
-            pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC = not pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC
-            self.send_bot_msg('*Media Limit Public*: %s' % pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC)
-        else:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' *Public media mode* not turned on, turn it on first or '
-                                                         'set to media limit playlist.')
-
-    def do_set_media_limit_playlist(self):
-        """ """
-        pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST = not pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST
-        self.send_bot_msg('*Media Limit Playlist*: %s' % pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST)
-
-    def do_media_limit_duration(self, new_duration):
-        """
-
-        :param new_duration: int the maximum number of seconds each media broadcast should played for.
-        """
-        if self._is_client_mod:
-            if pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC or pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST:
-                if len(new_duration) is not 0:
-                    pinylib.CONFIG.B_MEDIA_LIMIT_DURATION = int(new_duration)
-                    self.send_bot_msg('*Media limit duration* was set to: %s seconds' %
-                                      str(pinylib.CONFIG.B_MEDIA_LIMIT_DURATION))
-                else:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter a *duration (seconds) for '
-                                                                 'YouTube/SoundCloud media*.')
-            else:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' *Media limiting* for public media mode or '
-                                                             'the playlist is *not turned on*.')
-        else:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
+    # def do_set_media_limit_public(self):
+    #     """ """
+    #     if pinylib.CONFIG.B_PUBLIC_MEDIA_MODE:
+    #         pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC = not pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC
+    #         self.send_bot_msg('*Media Limit Public*: %s' % pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC)
+    #     else:
+    #         self.send_bot_msg(unicode_catalog.INDICATE + ' *Public media mode* not turned on, turn it on first or '
+    #                                                      'set to media limit playlist.')
+    #
+    # def do_set_media_limit_playlist(self):
+    #     """ """
+    #     pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST = not pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST
+    #     self.send_bot_msg('*Media Limit Playlist*: %s' % pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST)
+    #
+    # def do_media_limit_duration(self, new_duration):
+    #     """
+    #
+    #     :param new_duration: int the maximum number of seconds each media broadcast should played for.
+    #     """
+    #     if self._is_client_mod:
+    #         if pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC or pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST:
+    #             if len(new_duration) is not 0:
+    #                 pinylib.CONFIG.B_MEDIA_LIMIT_DURATION = int(new_duration)
+    #                 self.send_bot_msg('*Media limit duration* was set to: %s seconds' %
+    #                                   str(pinylib.CONFIG.B_MEDIA_LIMIT_DURATION))
+    #             else:
+    #                 self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter a *duration (seconds) for '
+    #                                                              'YouTube/SoundCloud media*.')
+    #         else:
+    #             self.send_bot_msg(unicode_catalog.INDICATE + ' *Media limiting* for public media mode or '
+    #                                                          'the playlist is *not turned on*.')
+    #     else:
+    #         self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     def do_set_radio(self):
         """ """
@@ -2218,40 +2228,40 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     # TODO: When playing a track then adding another track to the playlist, stopping the current track
     #       and turning radio and start radio on. First video on the radio plays but when playing next on radio,
     #       the song that was added to the playlist gets played next.
-    def do_start_radio_auto_play(self):
-        """ """
-        if self._is_client_mod:
-            if pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY:
-                if self.radio_timer_thread is None:
-                    # If media limiting is turned on, the radio cannot be in use.
-                    if pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST or pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC:
-                        self.send_bot_msg(unicode_catalog.INDICATE +
-                                          ' *Media limiting is on*, please turn it off for the playlist or public media'
-                                          ' with *!playlistlimit* or *!publiclimit*.')
-                    else:
-                        # Start the radio event thread and state the message that we are playing from
-                        # the radio's list of songs.
-                        threading.Thread(target=self._auto_play_radio_track).start()
-                        self.send_bot_msg(unicode_catalog.MUSICAL_NOTE_SIXTEENTH + ' *Playing Capital FM Radio* ' +
-                                          unicode_catalog.MUSICAL_NOTE_SIXTEENTH)
-                        self.send_bot_msg('You can *listen live* at: http://www.capitalfm.com/digital/radio/player/')
-                else:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' The radio event is already playing, please close it '
-                                                                 'with *!stopradio* to start again.')
-            else:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' *Capital FM auto-play* is turned off, please turn it on'
-                                                             ' with *!radio*.')
-        else:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
+    # def do_start_radio_auto_play(self):
+    #     """ """
+    #     if self._is_client_mod:
+    #         if pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY:
+    #             if self.radio_timer_thread is None:
+    #                 # If media limiting is turned on, the radio cannot be in use.
+    #                 if pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST or pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC:
+    #                     self.send_bot_msg(unicode_catalog.INDICATE +
+    #                                       ' *Media limiting is on*, please turn it off for the playlist or public media'
+    #                                       ' with *!playlistlimit* or *!publiclimit*.')
+    #                 else:
+    #                     # Start the radio event thread and state the message that we are playing from
+    #                     # the radio's list of songs.
+    #                     threading.Thread(target=self._auto_play_radio_track).start()
+    #                     self.send_bot_msg(unicode_catalog.MUSICAL_NOTE_SIXTEENTH + ' *Playing Capital FM Radio* ' +
+    #                                       unicode_catalog.MUSICAL_NOTE_SIXTEENTH)
+    #                     self.send_bot_msg('You can *listen live* at: http://www.capitalfm.com/digital/radio/player/')
+    #             else:
+    #                 self.send_bot_msg(unicode_catalog.INDICATE + ' The radio event is already playing, please close it '
+    #                                                              'with *!stopradio* to start again.')
+    #         else:
+    #             self.send_bot_msg(unicode_catalog.INDICATE + ' *Capital FM auto-play* is turned off, please turn it on'
+    #                                                          ' with *!radio*.')
+    #     else:
+    #         self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
-    def do_stop_radio_auto_play(self):
-        """ """
-        if self._is_client_mod:
-            self.cancel_radio_event_timer()
-            self.do_close_media()
-            self.send_bot_msg(unicode_catalog.STATE + ' *Stopped playing Capital FM Radio*.')
-        else:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
+    # def do_stop_radio_auto_play(self):
+    #     """ """
+    #     if self._is_client_mod:
+    #         self.cancel_radio_event_timer()
+    #         self.do_close_media()
+    #         self.send_bot_msg(unicode_catalog.STATE + ' *Stopped playing Capital FM Radio*.')
+    #     else:
+    #         self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     def do_mute(self):
         """ """
@@ -2877,7 +2887,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         # TODO: Working method.
         # Kick/ban those who post links to other rooms.
         if pinylib.CONFIG.B_TINYCHAT_ROOM_LINK_SPAM:
-            if 'tinychat.com/' + self.roomname not in decoded_msg:
+            # TODO: You could get around this by inserting a small link to the current room in with lots of
+            #       other links elsewhere
+            # We need to check to see if the message does not contain the current room's link and that
+            # we do not unnecessarily ban due to a snapshot message containing the website address in the message.
+            # Many thanks to "zootshecfur" for pointing this out.
+            if 'tinychat.com/' + self.roomname not in decoded_msg and self._snapshot_message not in decoded_msg:
                 # TODO: Regex does not handle carriage returns after the string - Added more regex to handle
                 #       line feed, whitespaces and various possible ways of the URL displaying (and on multiple lines).
                 #       any characters after it. Previous: r'tinychat.com\/\w+($| |\/+ |\/+$)'
@@ -2952,6 +2967,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         if ('!' not in decoded_message) and ('tinychat.com' not in decoded_message):
             identified, identified_url = self.identify_url(decoded_message)
             if identified and identified_url is not None:
+                # Retrieve the website title.
                 url_title = auto_url.auto_url(identified_url)
                 if url_title is not None:
                     self.send_owner_run_msg(unicode_catalog.DAGGER_FOOTNOTE + ' *' + url_title + '*')
