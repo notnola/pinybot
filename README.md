@@ -1,4 +1,6 @@
 # pinybot
+
+[![Join the chat at https://gitter.im/pinybot/Lobby](https://badges.gitter.im/pinybot/Lobby.svg)](https://gitter.im/pinybot/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 > "The true base for your Tinychat bot needs."
 
 ![Github code](https://img.shields.io/badge/Code-Python-green.svg) [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/GoelBiju/pinybot/master/LICENSE) [![GitHub issues](https://img.shields.io/github/issues/GoelBiju/pinybot.svg)](https://github.com/GoelBiju/pinybot/issues) [![GitHub stars](https://img.shields.io/github/stars/GoelBiju/pinybot.svg)](https://github.com/GoelBiju/pinybot/stargazers) [![GitHub forks](https://img.shields.io/github/forks/GoelBiju/pinybot.svg)](https://github.com/GoelBiju/pinybot/network) ![Github downloads](https://img.shields.io/github/downloads/GoelBiju/pinybot/total.svg)
