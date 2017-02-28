@@ -55,7 +55,7 @@ def main():
             bot.account = ''
             bot.password = None
 
-    status = bot.get_rtmp_parameters()
+    status = bot.set_rtmp_parameters()
     while True:
         if status == 1:
             bot.console_write(pinybot.pinylib.COLOR['bright_red'], 'Password protected. Enter room password')
@@ -64,7 +64,7 @@ def main():
                 main()
                 break
             else:
-                status = bot.get_rtmp_parameters()
+                status = bot.set_rtmp_parameters()
         elif status == 2:
             bot.console_write(pinybot.pinylib.COLOR['bright_red'], 'The room has been closed.')
             main()
@@ -94,7 +94,7 @@ def main():
                     if bot.is_greenroom_connected:
                         bot.disconnect(greenroom=True)
                 elif cmd == '/a':
-                    if len(bot.users.signed_in) is 0:
+                    if len(bot.users.signed_in) == 0:
                         print ('No signed in users in the room.')
                     else:
                         for user in bot.users.signed_in:
@@ -103,25 +103,25 @@ def main():
                     for user in bot.users.all:
                         print ('%s: %s' % (user, bot.users.all[user].user_level))
                 elif cmd == '/m':
-                    if len(bot.users.mods) is 0:
+                    if len(bot.users.mods) == 0:
                         print ('No moderators in the room.')
                     else:
                         for mod in bot.users.mods:
                             print (mod.nick)
                 elif cmd == '/l':
-                    if len(bot.users.lurkers) is 0:
+                    if len(bot.users.lurkers) == 0:
                         print ('No lurkers in the room.')
                     else:
                         for lurker in bot.users.lurkers:
                             print (lurker.nick)
                 elif cmd == '/n':
-                    if len(bot.users.norms) is 0:
+                    if len(bot.users.norms) == 0:
                         print ('No normal users in the room.')
                     else:
                         for norm in bot.users.norms:
                             print (norm.nick)
                 elif cmd == '/b':
-                    if len(msg_parts) is 2:
+                    if len(msg_parts) == 2:
                         _user = bot.users.search(msg_parts[1])
                         if _user is not None:
                             if _user.user_level <= 1:
@@ -131,7 +131,7 @@ def main():
                         else:
                             print ('No user named: %s' % msg_parts[1])
                 elif cmd == '/k':
-                    if len(msg_parts) is 2:
+                    if len(msg_parts) == 2:
                         _user = bot.users.search(msg_parts[1])
                         if _user is not None:
                             if _user.user_level <= 1:

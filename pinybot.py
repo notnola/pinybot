@@ -11,19 +11,21 @@ import re
 import threading
 
 import pinylib
-import apis
-from util import media_manager, privacy_settings, auto_url, unicode_catalog
+import util.media_manager
+from util import auto_url, unicode_catalog
+from page import privacy
+from apis import youtube, soundcloud, lastfm, other, locals_
 
-__all__ = ['pinylib']
-
-log = logging.getLogger(__name__)
 
 __base_version__ = '6.1.0'
 __version__ = '1.5.0'
-__version_name__ = 'Mist'
-__status__ = 'beta.2'
+__version_name__ = 'Sunlight'
+__status__ = 'beta.3'
 __authors_information__ = 'Nortxort (https://github.com/nortxort/tinybot ) GoelBiju ' \
                           '(https://github.com/GoelBiju/pinybot )'
+
+log = logging.getLogger(__name__)
+
 
 # TODO: Public mode layout in message handler.
 # TODO: Unicode symbols back in yt and sc commands when adding to playlist.
@@ -35,13 +37,16 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     privacy_settings = None
 
     # Media event variables:
-    media_manager = media_manager.MediaManager()
+    media = util.media_manager.MediaManager()
     media_timer_thread = None
     media_delay = 2.0
 
     # Media control variables:
     search_list = []
     is_search_list_youtube_playlist = False
+
+    # TODO: Figure out what this does.
+    is_broadcasting = False
 
     # Custom media event variables:
     radio_timer_thread = None
@@ -73,83 +78,79 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     if pinylib.CONFIG.B_PUBLIC_MEDIA_MODE:
         pinylib.CONFIG.B_PLAYLIST_MODE = True
 
-    def on_join(self, join_info_dict, greenroom=False):
+    def on_join(self, join_info):
+        """ Application message received when a user joins the room.
+
+        :param join_info: Information about the user joining.
+        :type join_info: dict
         """
-        Overrides the handling of the 'join' command from the server. This will allow us to handle a single user
-        joining the room at a time.
-        :param join_info_dict: dict
-        :param greenroom: boolean (default: False)
-        """
-        if not greenroom:
-            log.info('user join info: %s' % join_info_dict)
-            _user = self.users.add(join_info_dict)
+        log.info('user join info: %s' % join_info)
+        _user = self.users.add(join_info)
 
-            if _user is not None:
-                if _user.account:
-                    tc_info = pinylib.core.tinychat_user_info(_user.account)
-                    if tc_info is not None:
-                        _user.tinychat_id = tc_info['tinychat_id']
-                        _user.last_login = tc_info['last_active']
+        if _user is not None:
+            if _user.account:
+                tc_info = pinylib.apis.tinychat.user_info(_user.account)
+                if tc_info is not None:
+                    _user.tinychat_id = tc_info['tinychat_id']
+                    _user.last_login = tc_info['last_active']
 
-                    # TODO: 1.5.0 - Modified to add in to optionally show joins information (this can be changed in the
-                    #       configuration file).
-                    if _user.is_owner:
-                        _user.user_level = 1
-                        if pinylib.CONFIG.ROOM_EVENT_INFORMATION:
-                            self.console_write(pinylib.COLOR['red'], 'Room Owner %s:%d:%s' %
-                                               (_user.nick, _user.id, _user.account))
-                    elif _user.is_mod:
-                        _user.user_level = 3
-                        if pinylib.CONFIG.ROOM_EVENT_INFORMATION:
-                            self.console_write(pinylib.COLOR['bright_red'], 'Moderator %s:%d:%s' %
-                                               (_user.nick, _user.id, _user.account))
-                    else:
-                        _user.user_level = 5
-                        if pinylib.CONFIG.ROOM_EVENT_INFORMATION:
-                            self.console_write(pinylib.COLOR['bright_yellow'], '%s:%d has account: %s' %
-                                               (_user.nick, _user.id, _user.account))
-
-                        if _user.account in pinylib.CONFIG.B_ACCOUNT_BANS:
-                            if self._is_client_mod:
-                                self.send_ban_msg(_user.nick, _user.id)
-                                if pinylib.CONFIG.B_FORGIVE_AUTO_BANS:
-                                    self.send_forgive_msg(_user.id)
-                                self.send_bot_msg(unicode_catalog.TOXIC + '*Auto-Banned:* (bad account)')
-
+                # TODO: 1.5.0 - Modified to add in to optionally show joins information (this can be changed in the
+                #       configuration file).
+                if _user.is_owner:
+                    _user.user_level = 1
+                    if pinylib.CONFIG.ROOM_EVENT_INFORMATION:
+                        self.console_write(pinylib.COLOR['red'], 'Room Owner %s:%d:%s' %
+                                           (_user.nick, _user.id, _user.account))
+                elif _user.is_mod:
+                    _user.user_level = 3
+                    if pinylib.CONFIG.ROOM_EVENT_INFORMATION:
+                        self.console_write(pinylib.COLOR['bright_red'], 'Moderator %s:%d:%s' %
+                                           (_user.nick, _user.id, _user.account))
                 else:
                     _user.user_level = 5
-                    if _user.id is not self._client_id:
-                        # Handle entry to users who are have not entered the captcha and are just previewing the room.
-                        if _user.lf and not pinylib.CONFIG.B_ALLOW_LURKERS and self._is_client_mod:
-                            self.send_ban_msg(_user.nick, _user.id)
-                            if pinylib.CONFIG.B_FORGIVE_AUTO_BANS:
-                                self.send_forgive_msg(_user.id)
-                            self.send_bot_msg(unicode_catalog.TOXIC + '*Auto-Banned:* (lurkers not allowed)')
+                    if pinylib.CONFIG.ROOM_EVENT_INFORMATION:
+                        self.console_write(pinylib.COLOR['bright_yellow'], '%s:%d has account: %s' %
+                                           (_user.nick, _user.id, _user.account))
 
-                        # Handle entry to users who are only guests.
-                        elif not pinylib.CONFIG.B_ALLOW_GUESTS and self._is_client_mod:
+                    if _user.account in pinylib.CONFIG.B_ACCOUNT_BANS:
+                        if self.is_client_mod:
                             self.send_ban_msg(_user.nick, _user.id)
                             if pinylib.CONFIG.B_FORGIVE_AUTO_BANS:
                                 self.send_forgive_msg(_user.id)
-                            self.send_bot_msg(unicode_catalog.TOXIC + '*Auto-Banned:* (guests not allowed)')
-                        else:
-                            self.console_write(pinylib.COLOR['cyan'], '%s:%d joined the room.' % (_user.nick, _user.id))
+                            self.send_bot_msg(unicode_catalog.TOXIC + '*Auto-Banned:* (bad account)')
+
+            else:
+                _user.user_level = 5
+                if _user.id is not self._client_id:
+                    # Handle entry to users who are have not entered the captcha and are just previewing the room.
+                    if _user.lf and not pinylib.CONFIG.B_ALLOW_LURKERS and self.is_client_mod:
+                        self.send_ban_msg(_user.nick, _user.id)
+                        if pinylib.CONFIG.B_FORGIVE_AUTO_BANS:
+                            self.send_forgive_msg(_user.id)
+                        self.send_bot_msg(unicode_catalog.TOXIC + '*Auto-Banned:* (lurkers not allowed)')
+
+                    # Handle entry to users who are only guests.
+                    elif not pinylib.CONFIG.B_ALLOW_GUESTS and self.is_client_mod:
+                        self.send_ban_msg(_user.nick, _user.id)
+                        if pinylib.CONFIG.B_FORGIVE_AUTO_BANS:
+                            self.send_forgive_msg(_user.id)
+                        self.send_bot_msg(unicode_catalog.TOXIC + '*Auto-Banned:* (guests not allowed)')
+                    else:
+                        self.console_write(pinylib.COLOR['cyan'], '%s:%d joined the room.' % (_user.nick, _user.id))
 
     def on_joinsdone(self, greenroom=False):
-        """
-        Overrides the handling the 'joinsdone' command from the server. This allows us to start processes which need to
-        be done after we receive all the 'joins' information.
+        """ Application message received when all room users information have been received.
 
         :param greenroom: boolean (default: False)
         """
         if not greenroom:
-            if self._is_client_mod:
+            if self.is_client_mod:
                 self.send_banlist_msg()
                 self.load_list(nicks=True, accounts=True, strings=True)
 
             # Handle retrieving the privacy settings information for the room
             # (if the bot is on the room owner's account).
-            if self._is_client_owner and self.rtmp_parameter['roomtype'] != 'default':
+            if self.is_client_owner and self.param.roomtype != 'default':
                 threading.Thread(target=self.get_privacy_settings).start()
 
             self.console_write(pinylib.COLOR['cyan'], 'Received all joins information from the server.')
@@ -157,12 +158,14 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.console_write(pinylib.COLOR['cyan'], 'Received all greenroom joins information from the server.')
 
     def on_avon(self, uid, name, greenroom=False):
-        """
-        Overrides the handling the 'avon' command sent from the server.
-        This is essential when a user starts broadcasting.
-        :param uid: str
-        :param name: str
-        :param greenroom: boolean (default: False)
+        """ Application message received when a user starts broadcasting.
+
+        :param uid: The Id of the user.
+        :type uid: str
+        :param name: The nick name of the user.
+        :type name: str
+        :param greenroom: True the user is waiting in the greenroom.
+        :type greenroom: bool
         """
         if not greenroom:
             _user = self.users.search(name)
@@ -170,7 +173,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             if _user is not None and _user.is_waiting:
                 _user.is_waiting = False
 
-            if not pinylib.CONFIG.B_ALLOW_BROADCASTS and self._is_client_mod:
+            if not pinylib.CONFIG.B_ALLOW_BROADCASTS and self.is_client_mod:
                 self.send_close_user_msg(name)
                 self.console_write(pinylib.COLOR['cyan'], 'Auto closed broadcast %s:%s' % (name, uid))
             else:
@@ -178,7 +181,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 # avon_user = self.users.search(name)
                 # TODO: Add code into to get the device type on which the user is using to broadcast.
 
-                # Handle auto-closing users which has been set to happen for guests/newusers.
+                # Handle auto-closing users which has been set to happen for guests/new users.
                 if pinylib.CONFIG.B_AUTO_CLOSE:
                     if name.startswith('newuser'):
                         self.send_close_user_msg(name)
@@ -225,12 +228,14 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                                                              ' *%s*:%s (*user id*:greenroom id)' % (uid, name))
 
     def on_nick(self, old, new, uid):
-        """
-        Overrides the handling of 'nick' command that we receive from the server. This allows us to manage who may
-        enter the room and what to do when they enter the room, after setting their nickname.
-        :param old: str
-        :param new: str
-        :param uid: str
+        """ Application message received when a user changes nick name.
+
+        :param old: The old nick name of the user.
+        :type old: str
+        :param new: The new nick name of the user
+        :type new: str
+        :param uid: The Id of the user.
+        :type uid: int
         """
         if uid == self._client_id:
             self.nickname = new
@@ -245,7 +250,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 self.send_forgive_msg(uid)
         elif uid != self._client_id:
             # TODO: Send as undercover message as well.
-            if self._is_client_mod and pinylib.CONFIG.B_GREET:
+            if self.is_client_mod and pinylib.CONFIG.B_GREET:
                 if old_info.account:
                     if len(pinylib.CONFIG.B_GREET_MESSAGE) is 0:
                         if not pinylib.CONFIG.B_GREET_UNDERCOVER:
@@ -266,11 +271,11 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                     else:
                         self.send_undercover_msg(new, '*Welcome* %s:%s' % (new, uid))
 
-            if self.media_manager.has_active_track():
-                if not self.media_manager.is_mod_playing:
-                    self.send_media_broadcast_start(self.media_manager.track().type,
-                                                    self.media_manager.track().id,
-                                                    time_point=self.media_manager.elapsed_track_time(),
+            if self.media.has_active_track():
+                if not self.media.is_mod_playing:
+                    self.send_media_broadcast_start(self.media.track().type,
+                                                    self.media.track().id,
+                                                    time_point=self.media.elapsed_track_time(),
                                                     private_nick=new)
 
         # TODO: Add the AUTO PM function.
@@ -298,124 +303,137 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     # Media Events.
     def on_media_broadcast_start(self, media_type, video_id, usr_nick):
-        """
-        A user started a media broadcast.
-        :param media_type: str the type of media. youTube or soundCloud.
-        :param video_id: str the YouTube ID or SoundCloud track ID.
-        :param usr_nick: str the user name of the user playing media.
+        """ A user started a media broadcast.
+
+        :param media_type: The type of media. youTube or soundCloud.
+        :type media_type: str
+        :param video_id: The youtube ID or souncloud trackID.
+        :type video_id: str
+        :param usr_nick: The user name of the user playing media.
+        :type usr_nick: str
         """
         self.cancel_media_event_timer()
 
         if media_type == 'youTube':
-            _youtube = apis.youtube.video_details(video_id, check=False)
+            _youtube = youtube.video_details(video_id, check=False)
             if _youtube is not None:
-                self.media_manager.mb_start(self.active_user.nick, _youtube)
+                self.media.mb_start(self.active_user.nick, _youtube)
 
         elif media_type == 'soundCloud':
-            _soundcloud = apis.soundcloud.track_info(video_id)
+            _soundcloud = soundcloud.track_info(video_id)
             if _soundcloud is not None:
-                self.media_manager.mb_start(self.active_user.nick, _soundcloud)
+                self.media.mb_start(self.active_user.nick, _soundcloud)
 
-        self.media_event_timer(self.media_manager.track().time)
+        self.media_event_timer(self.media.track().time)
         self.console_write(pinylib.COLOR['bright_magenta'], '%s is playing %s %s' %
                            (usr_nick, media_type, video_id))
 
     def on_media_broadcast_close(self, media_type, usr_nick):
-        """
-        A user closed a media broadcast.
-        :param media_type: str the type of media (youTube or soundCloud).
-        :param usr_nick: str the user name of the user closing the media.
+        """ A user closed a media broadcast.
+
+        :param media_type: The type of media. youTube or soundCloud.
+        :type media_type: str
+        :param usr_nick: The user name of the user closing the media.
+        :type usr_nick: str
         """
         self.cancel_media_event_timer()
-        self.media_manager.mb_close()
+        self.media.mb_close()
         self.console_write(pinylib.COLOR['bright_magenta'], '%s closed the %s' % (usr_nick, media_type))
 
     def on_media_broadcast_paused(self, media_type, usr_nick):
-        """
-        A user paused the media broadcast.
-        :param media_type: str the type of media being paused (youTube or soundCloud).
-        :param usr_nick: str the user name of the user pausing the media.
+        """ A user paused the media broadcast.
+
+        :param media_type: The type of media being paused. youTube or soundCloud.
+        :type media_type: str
+        :param usr_nick: The user name of the user pausing the media.
+        :type usr_nick: str
         """
         self.cancel_media_event_timer()
-        self.media_manager.mb_pause()
+        self.media.mb_pause()
         self.console_write(pinylib.COLOR['bright_magenta'], '%s paused the %s' % (usr_nick, media_type))
 
     def on_media_broadcast_play(self, media_type, time_point, usr_nick):
-        """
-        A user resumed playing a media broadcast.
-        :param media_type: str the media type. youTube or soundCloud.
-        :param time_point: int the time point in the tune in milliseconds.
-        :param usr_nick: str the user resuming the tune.
+        """ A user resumed playing a media broadcast.
+
+        :param media_type: The media type. youTube or soundCloud.
+        :type media_type: str
+        :param time_point: The time point in the tune in milliseconds.
+        :type time_point: int
+        :param usr_nick: The user resuming the tune.
+        :type usr_nick: str
         """
         self.cancel_media_event_timer()
-        new_media_time = self.media_manager.mb_play(time_point)
+        new_media_time = self.media.mb_play(time_point)
         self.media_event_timer(new_media_time)
 
         self.console_write(pinylib.COLOR['bright_magenta'], '%s resumed the %s at: %s' %
                            (usr_nick, media_type, self.format_time(time_point)))
 
     def on_media_broadcast_skip(self, media_type, time_point, usr_nick):
-        """
-        A user time searched a tune.
-        :param media_type: str the media type. youTube or soundCloud.
-        :param time_point: int the time point in the tune in milliseconds.
-        :param usr_nick: str the user time searching the tune.
+        """ A user time searched a tune.
+
+        :param media_type: The media type. youTube or soundCloud.
+        :type media_type: str
+        :param time_point: The time point in the tune in milliseconds.
+        :type time_point: int
+        :param usr_nick: The user time searching the tune.
+        :type usr_nick: str
         """
         self.cancel_media_event_timer()
-        new_media_time = self.media_manager.mb_skip(time_point)
-        if not self.media_manager.is_paused:
+        new_media_time = self.media.mb_skip(time_point)
+        if not self.media.is_paused:
             self.media_event_timer(new_media_time)
 
         self.console_write(pinylib.COLOR['bright_magenta'], '%s time searched the %s at: %s' %
                            (usr_nick, media_type, self.format_time(time_point)))
 
     # Media Message Method.
-    def send_media_broadcast_start(self, media_type, video_id, time_point=0, private_nick=None):
-        """
-        Starts a media broadcast.
-        :param media_type: str 'youTube' or 'soundCloud'
-        :param video_id: str the media video ID.
-        :param time_point: int where to start the media from in milliseconds.
-        :param private_nick: str if not None, start the media broadcast for this username only.
-        """
-        mbs_msg = '/mbs %s %s %s' % (media_type, video_id, time_point)
-        if private_nick is not None:
-            self.send_undercover_msg(private_nick, mbs_msg)
-        else:
-            self.send_chat_msg(mbs_msg)
+    # def send_media_broadcast_start(self, media_type, video_id, time_point=0, private_nick=None):
+    #     """
+    #     Starts a media broadcast.
+    #     :param media_type: str 'youTube' or 'soundCloud'
+    #     :param video_id: str the media video ID.
+    #     :param time_point: int where to start the media from in milliseconds.
+    #     :param private_nick: str if not None, start the media broadcast for this username only.
+    #     """
+    #     mbs_msg = '/mbs %s %s %s' % (media_type, video_id, time_point)
+    #     if private_nick is not None:
+    #         self.send_undercover_msg(private_nick, mbs_msg)
+    #     else:
+    #         self.send_chat_msg(mbs_msg)
 
     # Message Method.
     def send_bot_msg(self, msg, use_chat_msg=False):
-        """
-        Send a chat message to the room.
+        """ Send a chat message to the room.
 
         NOTE: If the client is moderator, send_owner_run_msg will be used.
         If the client is not a moderator, send_chat_msg will be used.
         Setting use_chat_msg to True, forces send_chat_msg to be used.
 
-        :param msg: str the message to send.
-        :param use_chat_msg: boolean True, use normal chat messages.
+        :param msg: The message to send.
+        :type msg: str
+        :param use_chat_msg: True, use normal chat messages,
         False, send messages depending on weather or not the client is mod.
+        :type use_chat_msg: bool
         """
         if use_chat_msg:
             self.send_chat_msg(msg)
         else:
-            if self._is_client_mod:
+            if self.is_client_mod:
                 self.send_owner_run_msg(msg)
             else:
                 self.send_chat_msg(msg)
 
     # Command Handler.
     def message_handler(self, decoded_msg):
-        """
-        Custom command handler.
+        """ Message handler.
 
-        NOTE: Any method using a online API will be started in a new thread.
-        :param decoded_msg: str the message sent by the current user.
+        :param decoded_msg: The decoded message (text).
+        :type decoded_msg: str
         """
         # Spam checks to prevent any text from spamming the room chat and being parsed by the bot.
         spam_potential = False
-        if self._is_client_mod:
+        if self.is_client_mod:
             if pinylib.CONFIG.B_SANITIZE_MESSAGES and self.active_user.user_level > 4:
                 # Start sanitizing the message.
                 spam_potential = self.sanitize_message(decoded_msg)
@@ -438,7 +456,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 if self.has_level(1):
 
                     # Only possible if bot is using the room owner account.
-                    if self._is_client_owner:
+                    if self.is_client_owner:
 
                         if cmd == prefix + 'mod':
                             threading.Thread(target=self.do_make_mod, args=(cmd_arg,)).start()
@@ -675,6 +693,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                     elif cmd == prefix + '8ball':
                         self.do_8ball(cmd_arg)
 
+                    elif cmd == prefix + 'roll':
+                        self.do_dice()
+
+                    elif cmd == prefix + 'flip':
+                        self.do_flip_coin()
+
                 # Handle extra commands if they are not handled by the default ones.
                 self.custom_message_handler(cmd, cmd_arg)
 
@@ -884,11 +908,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         # TODO: Moved check_msg procedure to the sanitize message procedure.
 
     def do_make_mod(self, account):
+        """ Make a tinychat account a room moderator.
+
+        :param account: The account to make a moderator.
+        :type account: str
         """
-        Make a Tinychat account a room moderator.
-        :param account str the account to make a moderator.
-        """
-        if self._is_client_owner:
+        if self.is_client_owner:
             if len(account) is not 0:
                 tc_user = self.privacy_settings.make_moderator(account)
                 if tc_user is None:
@@ -905,7 +930,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         Removes a Tinychat account from the moderator list.
         :param account str the account to remove from the moderator list.
         """
-        if self._is_client_owner:
+        if self.is_client_owner:
             if len(account) is not 0:
                 tc_user = self.privacy_settings.remove_moderator(account)
                 if tc_user:
@@ -917,7 +942,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     def do_directory(self):
         """ Toggles if the room should be shown on the directory. """
-        if self._is_client_owner:
+        if self.is_client_owner:
             if self.privacy_settings.show_on_directory():
                 self.send_bot_msg('*Room IS shown on the directory.*')
             else:
@@ -925,7 +950,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     def do_push2talk(self):
         """ Toggles if the room should be in push2talk mode. """
-        if self._is_client_owner:
+        if self.is_client_owner:
             if self.privacy_settings.set_push2talk():
                 self.send_bot_msg('*Push2Talk is enabled.*')
             else:
@@ -933,7 +958,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     def do_green_room(self):
         """ Toggles if the room should be in greenroom mode. """
-        if self._is_client_owner:
+        if self.is_client_owner:
             if self.privacy_settings.set_greenroom():
                 self.send_bot_msg('*Green room is enabled.*')
                 self.rtmp_parameter['greenroom'] = True
@@ -943,7 +968,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     def do_clear_room_bans(self):
         """ Clear all room bans. """
-        if self._is_client_owner:
+        if self.is_client_owner:
             if self.privacy_settings.clear_bans():
                 self.send_bot_msg(unicode_catalog.STATE + ' *All room bans was cleared.*')
 
@@ -962,12 +987,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     def do_media_info(self):
         """ Shows basic media info. """
-        if self._is_client_mod:
-            self.send_owner_run_msg('*Playlist Length:* ' + str(len(self.media_manager.track_list)))
-            self.send_owner_run_msg('*Track List Index:* ' + str(self.media_manager.track_list_index))
+        if self.is_client_mod:
+            self.send_owner_run_msg('*Playlist Length:* ' + str(len(self.media.track_list)))
+            self.send_owner_run_msg('*Track List Index:* ' + str(self.media.track_list_index))
             self.send_owner_run_msg('*Elapsed Track Time:* ' +
-                                    self.format_time(self.media_manager.elapsed_track_time()))
-            self.send_owner_run_msg('*Active Track:* ' + str(self.media_manager.has_active_track()))
+                                    self.format_time(self.media.elapsed_track_time()))
+            self.send_owner_run_msg('*Active Track:* ' + str(self.media.has_active_track()))
             self.send_owner_run_msg('*Active Threads:* ' + str(threading.active_count()))
 
     def do_op_user(self, user_name):
@@ -975,7 +1000,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         Lets the room owner, a mod or a bot controller make another user a bot controller.
         :param user_name: str the user to op.
         """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(user_name) is not 0:
                 _user = self.users.search(user_name)
                 if _user is not None:
@@ -991,7 +1016,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         Lets the room owner, a mod or a bot controller remove a user from being a bot controller.
         :param user_name: str the user to deop.
         """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(user_name) is not 0:
                 _user = self.users.search(user_name)
                 if _user is not None:
@@ -1049,7 +1074,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     def do_room_settings(self):
         """ Shows current room settings. """
-        if self._is_client_owner:
+        if self.is_client_owner:
             settings = self.privacy_settings.current_settings()
             self.send_undercover_msg(self.active_user.nick, '*Broadcast Password:* %s' % settings['broadcast_pass'])
             self.send_undercover_msg(self.active_user.nick, '*Room Password:* %s' % settings['room_pass'])
@@ -1063,7 +1088,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         Makes a playlist from the currently most played tunes on last.fm
         :param chart_items: int the amount of tunes we want.
         """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if chart_items is 0 or chart_items is None:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Please specify the amount of tunes you want.')
             else:
@@ -1076,11 +1101,11 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                         self.send_bot_msg(unicode_catalog.STATE + ' *Please wait* while creating a playlist...')
                         last = apis.lastfm.chart(_items)
                         if last is not None:
-                            self.media_manager.add_track_list(self.active_user.nick, last)
+                            self.media.add_track_list(self.active_user.nick, last)
                             self.send_bot_msg(unicode_catalog.PENCIL + ' *Added:* ' + str(len(last)) +
                                               ' *tunes from last.fm chart.*')
-                            if not self.media_manager.has_active_track():
-                                track = self.media_manager.get_next_track()
+                            if not self.media.has_active_track():
+                                track = self.media.get_next_track()
                                 self.send_media_broadcast_start(track.type, track.id)
                                 self.media_event_timer(track.time)
                         else:
@@ -1095,7 +1120,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         Creates a playlist from what other people are listening to on last.fm.
         :param max_tunes: int the max amount of tunes.
         """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if max_tunes is not 0 or max_tunes is not None:
                 try:
                     _items = int(max_tunes)
@@ -1106,11 +1131,11 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                         self.send_bot_msg(unicode_catalog.INDICATE + ' Please wait while creating a playlist...')
                         last = apis.lastfm.listening_now(max_tunes)
                         if last is not None:
-                            self.media_manager.add_track_list(self.active_user.nick, last)
+                            self.media.add_track_list(self.active_user.nick, last)
                             self.send_bot_msg(unicode_catalog.PENCIL + ' *Added:* ' + str(len(last)) +
                                               ' *tunes from last.fm*')
-                            if not self.media_manager.has_active_track():
-                                track = self.media_manager.get_next_track()
+                            if not self.media.has_active_track():
+                                track = self.media.get_next_track()
                                 self.send_media_broadcast_start(track.type, track.id)
                                 self.media_event_timer(track.time)
                         else:
@@ -1127,15 +1152,15 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         Searches last.fm for tunes matching the search term and creates a playlist from them.
         :param search_tag: str the search term to search for.
         """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(search_tag) is not 0:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Please wait while creating playlist..')
                 last = apis.lastfm.tag_search(search_tag)
                 if last is not None:
-                    self.media_manager.add_track_list(self.active_user.nick, last)
+                    self.media.add_track_list(self.active_user.nick, last)
                     self.send_bot_msg(unicode_catalog.PENCIL + ' *Added:* ' + str(len(last)) + ' *tunes from last.fm*')
-                    if not self.media_manager.has_active_track():
-                        track = self.media_manager.get_next_track()
+                    if not self.media.has_active_track():
+                        track = self.media.get_next_track()
                         self.send_media_broadcast_start(track.type, track.id)
                         self.media_event_timer(track.time)
                 else:
@@ -1150,7 +1175,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         Searches youtube for a play list matching the search term.
         :param search_term: str the search to search for.
         """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(search_term) is not 0:
                 self.search_list = apis.youtube.playlist_search(search_term)
                 if len(self.search_list) is not 0:
@@ -1170,7 +1195,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         Finds the videos from the youtube playlist search.
         :param int_choice: int the index of the play list on the search_list.
         """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if self.is_search_list_youtube_playlist:
                 try:
                     index_choice = int(int_choice)
@@ -1181,11 +1206,11 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                         self.send_bot_msg(unicode_catalog.STATE + ' Please wait while creating playlist..')
                         tracks = apis.youtube.playlist_videos(self.search_list[index_choice]['playlist_id'])
                         if len(tracks) is not 0:
-                            self.media_manager.add_track_list(self.active_user.nick, tracks)
+                            self.media.add_track_list(self.active_user.nick, tracks)
                             self.send_bot_msg(unicode_catalog.PENCIL + ' *Added:* %s *tracks from youtube playlist.*' %
                                               len(tracks))
-                            if not self.media_manager.has_active_track():
-                                track = self.media_manager.get_next_track()
+                            if not self.media.has_active_track():
+                                track = self.media.get_next_track()
                                 self.send_media_broadcast_start(track.type, track.id)
                                 self.media_event_timer(track.time)
                         else:
@@ -1205,7 +1230,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         Close a user broadcasting.
         :param user_name: str the username to close.
         """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(user_name) is not 0:
                 if self.users.search(user_name) is not None:
                     self.send_close_user_msg(user_name)
@@ -1218,7 +1243,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     def do_clear(self):
         """ Clears the chat box. """
-        if self._is_client_mod:
+        if self.is_client_mod:
             for x in range(0, 29):
                 self.send_owner_run_msg(' ')
         else:
@@ -1229,16 +1254,16 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     # TODO: How does skip handle radio media event handler.
     def do_skip(self):
         """ Play the next item in the playlist. """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if not pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY:
-                if self.media_manager.is_last_track():
+                if self.media.is_last_track():
                     self.send_bot_msg(unicode_catalog.STATE + ' This is the *last tune in the playlist*.')
-                elif self.media_manager.is_last_track() is None:
+                elif self.media.is_last_track() is None:
                     self.send_bot_msg(unicode_catalog.INDICATE + ' *No tunes* to skip. The *playlist is empty*.')
                 else:
                     self.cancel_media_event_timer()
-                    current_type = self.media_manager.track().type
-                    next_track = self.media_manager.get_next_track()
+                    current_type = self.media.track().type
+                    next_track = self.media.get_next_track()
                     if current_type != next_track.type:
                         self.send_media_broadcast_close(media_type=current_type)
                     self.send_media_broadcast_start(next_track.type, next_track.id)
@@ -1246,10 +1271,10 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
                     # Handle if a radio tracks are being added to the playlist, we will cancel the current timer
                     # and adjust to the new time of the track.
-                    if pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY and self.radio_timer_thread is not None:
-                        self.cancel_radio_event_timer()
+                    # if pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY and self.radio_timer_thread is not None:
+                    #     self.cancel_radio_event_timer()
                         # threading.Thread(target=self.radio_event_timer, args=(next_track.time,)).start()
-                        self.radio_event_timer(next_track.time)
+                        # self.radio_event_timer(next_track.time)
         else:
             self.send_bot_msg('Command not enabled.')
 
@@ -1258,8 +1283,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         Delete item(s) from the playlist by index.
         :param to_delete: str index(es) to delete.
         """
-        if self._is_client_mod:
-            if len(self.media_manager.track_list) is 0:
+        if self.is_client_mod:
+            if len(self.media.track_list) is 0:
                 self.send_bot_msg(unicode_catalog.STATE + ' The track list is *empty*.')
             elif len(to_delete) is 0:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' No indexes to delete provided.')
@@ -1281,11 +1306,11 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 else:
                     indexes = []
                     for i in temp_indexes:
-                        if i < len(self.media_manager.track_list) and i not in indexes:
+                        if i < len(self.media.track_list) and i not in indexes:
                             indexes.append(i)
 
                 if indexes is not None and len(indexes) > 0:
-                    result = self.media_manager.delete_by_index(indexes, by_range)
+                    result = self.media.delete_by_index(indexes, by_range)
                     if result is not None:
                         if by_range:
                             self.send_bot_msg(unicode_catalog.SCISSORS + ' *Deleted from index:* %s *to index:* %s' %
@@ -1302,49 +1327,49 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     def do_media_replay(self):
         """ Replays the last played media."""
-        if self._is_client_mod:
-            if self.media_manager.track() is not None:
+        if self.is_client_mod:
+            if self.media.track() is not None:
                 self.cancel_media_event_timer()
-                self.media_manager.we_play(self.media_manager.track())
-                self.send_media_broadcast_start(self.media_manager.track().type,
-                                                self.media_manager.track().id)
-                self.media_event_timer(self.media_manager.track().time)
+                self.media.we_play(self.media.track())
+                self.send_media_broadcast_start(self.media.track().type,
+                                                self.media.track().id)
+                self.media_event_timer(self.media.track().time)
         else:
             self.send_bot_msg('Command not enabled.')
 
     def do_play_media(self):
         """ Resumes a track in pause mode. """
-        if self._is_client_mod:
-            track = self.media_manager.track()
+        if self.is_client_mod:
+            track = self.media.track()
             if track is not None:
-                if self.media_manager.has_active_track():
+                if self.media.has_active_track():
                     self.cancel_media_event_timer()
-                if self.media_manager.is_paused:
-                    ntp = self.media_manager.mb_play(self.media_manager.elapsed_track_time())
-                    self.send_media_broadcast_play(track.type, self.media_manager.elapsed_track_time())
+                if self.media.is_paused:
+                    ntp = self.media.mb_play(self.media.elapsed_track_time())
+                    self.send_media_broadcast_play(track.type, self.media.elapsed_track_time())
                     self.media_event_timer(ntp)
         else:
             self.send_bot_msg('Command not enabled.')
 
     def do_media_pause(self):
         """ Pause the media playing. """
-        if self._is_client_mod:
-            track = self.media_manager.track()
+        if self.is_client_mod:
+            track = self.media.track()
             if track is not None:
-                if self.media_manager.has_active_track():
+                if self.media.has_active_track():
                     self.cancel_media_event_timer()
-                self.media_manager.mb_pause()
+                self.media.mb_pause()
                 self.send_media_broadcast_pause(track.type)
         else:
             self.send_bot_msg('Command not enabled.')
 
     def do_close_media(self):
         """ Closes the active media broadcast."""
-        if self._is_client_mod:
-            if self.media_manager.has_active_track():
+        if self.is_client_mod:
+            if self.media.has_active_track():
                 self.cancel_media_event_timer()
-                self.media_manager.mb_close()
-                self.send_media_broadcast_close(self.media_manager.track().type)
+                self.media.mb_close()
+                self.send_media_broadcast_close(self.media.track().type)
         else:
             self.send_bot_msg('Command not enabled.')
 
@@ -1353,17 +1378,17 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         Seek on a media playing.
         :param time_point str the time point to skip to.
         """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if ('h' in time_point) or ('m' in time_point) or ('s' in time_point):
                 mls = pinylib.string_util.convert_to_millisecond(time_point)
                 if mls is not 0:
-                    track = self.media_manager.track()
+                    track = self.media.track()
                     if track is not None:
                         if 0 < mls < track.time:
-                            if self.media_manager.has_active_track():
+                            if self.media.has_active_track():
                                 self.cancel_media_event_timer()
-                            new_media_time = self.media_manager.mb_skip(mls)
-                            if not self.media_manager.is_paused:
+                            new_media_time = self.media.mb_skip(mls)
+                            if not self.media.is_paused:
                                 self.media_event_timer(new_media_time)
                             self.send_media_broadcast_skip(track.type, mls)
                 else:
@@ -2726,7 +2751,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     def get_privacy_settings(self):
         """ Parse the privacy settings page. """
         log.info('Parsing %s\'s privacy page. Proxy %s' % (self.account, self._proxy))
-        self.privacy_settings = privacy_settings.TinychatPrivacyPage(self._proxy)
+        self.privacy_settings = privacy.Privacy(self._proxy)
         self.privacy_settings.parse_privacy_settings()
 
     def config_path(self):
@@ -2736,12 +2761,17 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     # TODO: Implement blocked media lists.
     def load_list(self, nicks=False, accounts=False, strings=False, blocked_media=False):
-        """
-        Loads different list to memory.
-        :param nicks: bool, True load nick bans file.
-        :param accounts: bool, True load account bans file.
-        :param strings: bool, True load ban strings file.
-        :param blocked_media: bool, True load blocked media file.
+        """ Loads different list to memory.
+
+        :param nicks: True load nick bans file.
+        :type nicks: bool
+        :param accounts: True load account bans file.
+        :type accounts: bool
+        :param strings: True load ban strings file.
+        :type strings: bool
+
+        :param blocked_media: True load blocked media file.
+        :type blocked_media: bool
         """
         if nicks:
             pinylib.CONFIG.B_NICK_BANS = pinylib.file_handler.file_reader(self.config_path(),
@@ -2758,7 +2788,11 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         #                                                                       pinylib.CONFIG.B_BLOCKED_MEDIA_FILE_NAME)
 
     def has_level(self, level):
-        """ Checks the active user for correct user level. """
+        """ Checks the active user for correct user level.
+
+        :param level: The level to check the active user against.
+        :type level: int
+        """
         if self.active_user.user_level is 6:
             return False
         elif self.active_user.user_level <= level:
@@ -2766,9 +2800,10 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         return False
 
     def cancel_media_event_timer(self):
-        """
-        Cancel the media event timer if it is running.
-        :return: True if canceled, else False
+        """ Cancel the media event timer if it is running.
+
+        :return: True if canceled, else False.
+        :rtype: bool
         """
         if self.media_timer_thread is not None:
             if self.media_timer_thread.is_alive():
@@ -2780,10 +2815,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     @staticmethod
     def format_time(milliseconds):
-        """
-        Converts milliseconds or seconds to (day(s)) hours minutes seconds.
-        :param milliseconds: int the milliseconds or seconds to convert.
-        :return: str in the format (days) hh:mm:ss
+        """ Converts milliseconds to (day(s)) hours minutes seconds.
+
+        :param milliseconds: Milliseconds to convert.
+        :type milliseconds: int
+        :return: A string in the format (days) hh:mm:ss.
+        :rtype: str
         """
         m, s = divmod(milliseconds/1000, 60)
         h, m = divmod(m, 60)
@@ -2798,9 +2835,10 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         return human_time
 
     def check_msg(self, msg):
-        """
-        Checks the chat message for bad string.
-        :param msg: str the chat message.
+        """ Checks the chat message for bad string.
+
+        :param msg: The chat message.
+        :type msg: str
         """
         was_banned = False
         chat_words = msg.split(' ')
@@ -2825,13 +2863,15 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             return False
 
     def check_nick(self, old, user_info):
-        """
-        Check a users nick.
-        :param old: str old nick.
-        :param user_info: object, user object. This will contain the new nick.
+        """ Check a users nick.
+
+        :param old: The old nickname of the user.
+        :type old: str
+        :param user_info: The User object. This will contain the new nick.
+        :type user_info: User
         """
         if self._client_id != user_info.id:
-            if str(old).startswith('guest-') and self._is_client_mod:
+            if str(old).startswith('guest-') and self.is_client_mod:
                 if str(user_info.nick).startswith('guest-'):
                     if not pinylib.CONFIG.B_ALLOW_GUESTS_NICKS:
                         self.send_ban_msg(user_info.nick, user_info.id)
@@ -3010,83 +3050,83 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             pinylib.time.sleep(1)
 
     # TODO: Support SoundCloud.
-    def _auto_play_radio_track(self):
-        """
-        Handles adding YouTube media content to the playlist from the artist and track information on
-        the Capital FM Radio website.
-        """
-        if pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY:
-            # Retrieve the artist name and track title from Capital FM.
-            radio_now_playing = apis.other.capital_fm_latest()
-            # Make sure we are not playing the same track again, if we have received the same track,
-            # we can use the timer to wait another 2 minutes before checking again.
-            if self.latest_radio_track == radio_now_playing:
-                self.similar_radio_tracks += 1
-                if self.similar_radio_tracks > 2:
-                    self.send_bot_msg('*Capital FM Radio*: If you are receiving similar/same tracks this could mean '
-                                      'the radio station has switched to another provider. Please switch the radio off'
-                                      'with *!stopradio* and use it 6 or 7 hours later.')
-                    self.similar_radio_tracks = 0
-                self.radio_event_timer(60000)
-            else:
-                self.latest_radio_track = radio_now_playing
-                print('Information received: ', radio_now_playing)
-                if radio_now_playing is not None:
-                    # Retrieve a matching video from YouTube.
-                    _radio_video = apis.youtube.search(radio_now_playing)
-                    print('video found:', _radio_video)
-                    if _radio_video is not None:
-                        # Add to the playlist if there is a track playing already.
-                        # TODO: If another track is playing when we add a new track, the radio timer thread will
-                        #       not compensate for the time remaining on the current track before starting the
-                        #       radio event timer.
-                        if self.media_manager.has_active_track():
-                            radio_track = self.media_manager.add_track(self.active_user.nick, _radio_video)
-                            self.send_bot_msg(unicode_catalog.MUSICAL_NOTE_SIXTEENTH +
-                                              ' *Added Capital FM Radio Track* ' +
-                                              unicode_catalog.MUSICAL_NOTE_SIXTEENTH + ': ' + radio_track.title)
-
-                            # TODO: Make sure the remaining time is in milliseconds and this is working.
-                            # Start the radio timer (taking into account the time remaining on the current media).
-                            self.radio_event_timer(self.media_manager.remaining_time() + radio_track.time)
-                        else:
-                            # Start the track if there was nothing playing.
-                            radio_track = self.media_manager.mb_start(self.active_user.nick, _radio_video)
-                            self.send_media_broadcast_start(radio_track.type, radio_track.id)
-                            self.media_event_timer(radio_track.time)
-
-                            # Start the radio event timer to call this function again, when the track finishes.
-                            self.radio_event_timer(radio_track.time)
-                    else:
-                        # TODO: If we can't find a video, should we wait and check again?
-                        self.send_bot_msg(unicode_catalog.INDICATE + ' We could not find a *YouTube* video for: *' +
-                                          radio_now_playing + '*')
-                        self.send_bot_msg(unicode_catalog.INDICATE + ' We will wait a while until searching for a new '
-                                                                     'track.')
-                        # If we did not find anything we will check after a minute.
-                        self.radio_event_timer(60000)
-                else:
-                    self.send_bot_msg(unicode_catalog.INDICATE +
-                                      ' We were unable to retrieve any songs from Capital FM.')
+    # def _auto_play_radio_track(self):
+    #     """
+    #     Handles adding YouTube media content to the playlist from the artist and track information on
+    #     the Capital FM Radio website.
+    #     """
+    #     if pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY:
+    #         # Retrieve the artist name and track title from Capital FM.
+    #         radio_now_playing = apis.other.capital_fm_latest()
+    #         # Make sure we are not playing the same track again, if we have received the same track,
+    #         # we can use the timer to wait another 2 minutes before checking again.
+    #         if self.latest_radio_track == radio_now_playing:
+    #             self.similar_radio_tracks += 1
+    #             if self.similar_radio_tracks > 2:
+    #                 self.send_bot_msg('*Capital FM Radio*: If you are receiving similar/same tracks this could mean '
+    #                                   'the radio station has switched to another provider. Please switch the radio off'
+    #                                   'with *!stopradio* and use it 6 or 7 hours later.')
+    #                 self.similar_radio_tracks = 0
+    #             self.radio_event_timer(60000)
+    #         else:
+    #             self.latest_radio_track = radio_now_playing
+    #             print('Information received: ', radio_now_playing)
+    #             if radio_now_playing is not None:
+    #                 # Retrieve a matching video from YouTube.
+    #                 _radio_video = apis.youtube.search(radio_now_playing)
+    #                 print('video found:', _radio_video)
+    #                 if _radio_video is not None:
+    #                     # Add to the playlist if there is a track playing already.
+    #                     # TODO: If another track is playing when we add a new track, the radio timer thread will
+    #                     #       not compensate for the time remaining on the current track before starting the
+    #                     #       radio event timer.
+    #                     if self.media_manager.has_active_track():
+    #                         radio_track = self.media_manager.add_track(self.active_user.nick, _radio_video)
+    #                         self.send_bot_msg(unicode_catalog.MUSICAL_NOTE_SIXTEENTH +
+    #                                           ' *Added Capital FM Radio Track* ' +
+    #                                           unicode_catalog.MUSICAL_NOTE_SIXTEENTH + ': ' + radio_track.title)
+    #
+    #                         # TODO: Make sure the remaining time is in milliseconds and this is working.
+    #                         # Start the radio timer (taking into account the time remaining on the current media).
+    #                         self.radio_event_timer(self.media_manager.remaining_time() + radio_track.time)
+    #                     else:
+    #                         # Start the track if there was nothing playing.
+    #                         radio_track = self.media_manager.mb_start(self.active_user.nick, _radio_video)
+    #                         self.send_media_broadcast_start(radio_track.type, radio_track.id)
+    #                         self.media_event_timer(radio_track.time)
+    #
+    #                         # Start the radio event timer to call this function again, when the track finishes.
+    #                         self.radio_event_timer(radio_track.time)
+    #                 else:
+    #                     # TODO: If we can't find a video, should we wait and check again?
+    #                     self.send_bot_msg(unicode_catalog.INDICATE + ' We could not find a *YouTube* video for: *' +
+    #                                       radio_now_playing + '*')
+    #                     self.send_bot_msg(unicode_catalog.INDICATE + ' We will wait a while until searching for a new '
+    #                                                                  'track.')
+    #                     # If we did not find anything we will check after a minute.
+    #                     self.radio_event_timer(60000)
+    #             else:
+    #                 self.send_bot_msg(unicode_catalog.INDICATE +
+    #                                   ' We were unable to retrieve any songs from Capital FM.')
 
     # TODO: Does the timer automatically start in a timer?
-    def radio_event_timer(self, wait_time):
-        """
-
-        :param wait_time: int the time to wait until we should add another track.
-        """
-        wait_time_in_seconds = wait_time / 1000
-        self.radio_timer_thread = threading.Timer(wait_time_in_seconds, self._auto_play_radio_track)
-        self.radio_timer_thread.start()
-
-    def cancel_radio_event_timer(self):
-        """
-
-        """
-        if self.radio_timer_thread is not None:
-            if self.radio_timer_thread.is_alive():
-                self.radio_timer_thread.cancel()
-                self.radio_timer_thread = None
-            return False
-        return False
+    # def radio_event_timer(self, wait_time):
+    #     """
+    #
+    #     :param wait_time: int the time to wait until we should add another track.
+    #     """
+    #     wait_time_in_seconds = wait_time / 1000
+    #     self.radio_timer_thread = threading.Timer(wait_time_in_seconds, self._auto_play_radio_track)
+    #     self.radio_timer_thread.start()
+    #
+    # def cancel_radio_event_timer(self):
+    #     """
+    #
+    #     """
+    #     if self.radio_timer_thread is not None:
+    #         if self.radio_timer_thread.is_alive():
+    #             self.radio_timer_thread.cancel()
+    #             self.radio_timer_thread = None
+    #         return False
+    #     return False
 

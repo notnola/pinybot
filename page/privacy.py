@@ -1,15 +1,18 @@
 from bs4 import BeautifulSoup
-
 import util.web
-import util.core
 
 
-class TinychatPrivacyPage:
+class Privacy:
     """
     This class represents tinychat's privacy page for a room,
     it contains methods to change a rooms privacy settings.
     """
     def __init__(self, proxy):
+        """ Create a instance of the Privacy class.
+
+        :param proxy: A proxy in the format IP:PORT
+        :type proxy: str | None
+        """
         self._proxy = proxy
         self._privacy_url = 'https://tinychat.com/settings/privacy'
         self._csrf_token = ''
@@ -22,10 +25,12 @@ class TinychatPrivacyPage:
 
     @staticmethod
     def _is_tc_account(account_name):
-        """
-        Helper method to check if a user account is a valid account name.
-        :param account_name: str the account name to check.
-        :return: bool True if it is a valid account, False if invalid account
+        """ Helper method to check if a user account is a valid account name.
+
+        :param account_name: The account name to check.
+        :type account_name: str
+        :return: True if it is a valid account, False if invalid account.
+        :rtype: bool
         """
         url = 'https://tinychat.com/api/tcinfo?username=%s' % account_name
         response = util.web.http_get(url=url, json=True)
@@ -35,7 +40,11 @@ class TinychatPrivacyPage:
             return False
 
     def clear_bans(self):
-        """ Clear all room bans. """
+        """ Clear all room bans.
+
+        :return: True if bans were cleared, else False.
+        :rtype: bool
+        """
         url = 'https://tinychat.com/gifts/settings/privacy/clearbans'
         header = {
             'X-Requested-With': 'XMLHttpRequest',
@@ -50,7 +59,11 @@ class TinychatPrivacyPage:
         return False
 
     def parse_privacy_settings(self, response=None):
-        """ Parse privacy settings. """
+        """ Parse privacy settings.
+
+        :param response: A http response.
+        :type response: dict
+        """
         if response is None:
             response = util.web.http_get(url=self._privacy_url, referer=self._privacy_url, proxy=self._proxy)
 
@@ -101,6 +114,7 @@ class TinychatPrivacyPage:
                 self._roompass_enabled = 1
             else:
                 self._roompass_enabled = 0
+            # TODO:make sure this works as expected
             if not self._form_data['greenroom']:
                 # broadcast password
                 broadcast_pass = soup.find(attrs={'name': 'broadcastPassword'})
@@ -121,9 +135,10 @@ class TinychatPrivacyPage:
                             self.room_moderators.append(mod)
 
     def set_room_password(self, password=None):
-        """
-        Set a room password or clear the password.
-        :param password: str the room password or None to clear.
+        """ Set a room password or clear the password.
+
+        :param password: The room password or None to clear.
+        :type password: str | None
         """
         if password is None:
             self._room_password = ''
@@ -143,9 +158,10 @@ class TinychatPrivacyPage:
         self.parse_privacy_settings(response=res)
 
     def set_broadcast_password(self, password=None):
-        """
-        Set a broadcast password or clear the password.
-        :param password: str the broadcast password or None to clear.
+        """ Set a broadcast password or clear the password.
+
+        :param password: The broadcast password or None to clear.
+        :type password: str | None
         """
         if password is None:
             self._broadcast_password = ''
@@ -165,13 +181,15 @@ class TinychatPrivacyPage:
         self.parse_privacy_settings(response=res)
 
     def make_moderator(self, account):
-        """
-        Make a user account a moderator.
-        :param account: str the account to make a moderator.
-        :return bool True if the account was added as a moderator, False if already a moderator
+        """ Make a user account a moderator.
+
+        :param account: The account to make a moderator.
+        :type account: str
+        :return True if the account was added as a moderator, False if already a moderator
         or None on invalid account name.
+        :rtype: bool | None
         """
-        url = 'http://tinychat.com/gifts/settings/privacy/addmoderator'
+        url = 'https://tinychat.com/gifts/settings/privacy/addmoderator'
         if self._is_tc_account(account):
             if account not in self.room_moderators:
                 form_data = {
@@ -188,10 +206,11 @@ class TinychatPrivacyPage:
         return None
 
     def remove_moderator(self, account):
-        """
-        Remove a room moderator.
-        :param account: str the moderator account
-        :return: bool True if removed else False
+        """ Remove a room moderator.
+
+        :param account: The moderator account to remove.
+        :return: True if removed else False
+        :rtype: bool
         """
         url = 'https://tinychat.com/gifts/settings/privacy/removemoderator'
         if account in self.room_moderators:
@@ -207,11 +226,13 @@ class TinychatPrivacyPage:
         return False
 
     def set_guest_mode(self):
-        """
-        Enable/disable guest mode.
+        """ Enable/disable guest mode.
+
         NOTE: I don't know if it is a bug on tinychat's end, but whether this is set or not,
         does not seem to matter, you can still join as guest.
-        :return: bool True if guests are allowed, else False
+
+        :return: True if guests are allowed, else False.
+        :rtype: bool
         """
         if not self._form_data['allow_guest']:
             self._form_data['allow_guest'] = 1
@@ -225,9 +246,10 @@ class TinychatPrivacyPage:
             return False
 
     def set_guest_mode_twitter(self):
-        """
-        Enable/disable guest mode twitter.
-        :return: bool True if guest mode is set to twitter, else False
+        """ Enable/disable guest mode twitter.
+
+        :return: True if guest mode is set to twitter, else False.
+        :rtype: bool
         """
         if self._form_data['allow_guest']:
             if not self._form_data['require_twitter']:
@@ -245,9 +267,10 @@ class TinychatPrivacyPage:
             return True
 
     def set_guest_mode_facebook(self):
-        """
-        Enable/disable guest mode facebook.
-        :return: bool True if guest mode is set to facebook, else False
+        """ Enable/disable guest mode facebook.
+
+        :return: True if guest mode is set to facebook, else False.
+        :rtype: bool
         """
         if self._form_data['allow_guest']:
             if not self._form_data['require_facebook']:
@@ -265,9 +288,10 @@ class TinychatPrivacyPage:
             return True
 
     def show_on_directory(self):
-        """
-        Enables/disables show up on directory setting.
-        :return: bool True if enabled else False
+        """ Enables/disables show up on directory setting.
+
+        :return: True if enabled else False.
+        :rtype: bool
         """
         if not self._form_data['public_directory']:
             self._form_data['public_directory'] = 1
@@ -279,9 +303,10 @@ class TinychatPrivacyPage:
             return False
 
     def set_push2talk(self):
-        """
-        Enables/disables push2talk setting.
-        :return: bool True if enabled else False
+        """ Enables/disables push2talk setting.
+
+        :return: True if enabled else False.
+        :rtype: bool
         """
         if not self._form_data['push2talk']:
             self._form_data['push2talk'] = 1
@@ -293,9 +318,10 @@ class TinychatPrivacyPage:
             return False
 
     def set_greenroom(self):
-        """
-        Enables/disables greenroom setting.
-        :return: bool True if enabled else False
+        """ Enables/disables greenroom setting.
+
+        :return: True if enabled else False.
+        :rtype: bool
         """
         if not self._form_data['greenroom']:
             self._form_data['greenroom'] = 1
@@ -307,9 +333,11 @@ class TinychatPrivacyPage:
             return False
 
     def current_settings(self):
-        """
-        Returns a dictionary of the current room settings.
-        :return dict{'broadcast_pass', 'room_pass', 'allow_guest', 'show_on_directory', 'push2talk', 'greenroom'}
+        """ Returns a dictionary of the current room settings.
+
+        :return A dictionary with the following keys: 'broadcast_pass', 'room_pass', 'allow_guest',
+        'show_on_directory', 'push2talk', 'greenroom'
+        :rtype: dict
         """
         self.parse_privacy_settings()
 
@@ -323,7 +351,7 @@ class TinychatPrivacyPage:
         else:
             settings['room_pass'] = 'Disabled'
 
-        settings['allow_guest'] = 'No login required'
+        settings['allow_guest'] = 'No login required'  #
         if self._form_data['allow_guest']:
             if self._form_data['require_twitter'] and self._form_data['require_facebook']:
                 settings['allow_guest'] = 'Twitter/Facebook'
@@ -350,11 +378,13 @@ class TinychatPrivacyPage:
         return settings
 
     def _update(self):
-        # defaults. These are sent every time changes are made.
+        """ Update the privacy page with the current settings.
+
+        This is called when ever a change is made.
+        """
         self._form_data['privacy_changes'] = 1
         self._form_data['_token'] = self._csrf_token
 
-        # If a POST value is set to 0, then it will be deleted before making the POST.
         if not self._form_data['allow_guest']:
             del self._form_data['allow_guest']
         if not self._form_data['require_twitter']:

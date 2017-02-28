@@ -49,7 +49,7 @@ B_PREFIX = '!'
 # Bot controller key.
 B_KEY = 'light'
 # Bot super key.
-B_SUPER_KEY = 'lighthouse'
+B_SUPER_KEY = 'heatwave'
 # The maximum amount of match bans.
 B_MAX_MATCH_BANS = 1
 # Public commands enabled.
