@@ -102,6 +102,8 @@ class TinychatRTMPClient:
         self._reconnect_delay = config.RECONNECT_DELAY
         self._init_time = time.time()
 
+        self._camera_published = False
+
     def console_write(self, color, message):
         """ Writes message to console.
         :param color: the colorama color representation.
@@ -307,7 +309,7 @@ class TinychatRTMPClient:
         while self.is_greenroom_connected:
             # Read a new RTMP packet from the RTMP stream.
             try:
-                amf0_data = self.greenroom_connection.reader.next()
+                amf0_data = self.greenroom_connection.amf()
                 amf0_data_type = amf0_data['msg']
             except rtmp.AmfDataReadError as e:
                 fails += 1
@@ -404,6 +406,7 @@ class TinychatRTMPClient:
                         self.connection.publish(self._client_id)
                         if config.DEBUG_MODE:
                             self.console_write(COLOR['white'], msg)
+                        self._camera_published = True
                         continue
 
                     # Set the command name, the command data and a parameters iteration variable.
@@ -567,7 +570,8 @@ class TinychatRTMPClient:
             if greenroom:
                 self.console_write(COLOR['white'], '## Greenroom result..')
             for list_item in result_info:
-                if type(list_item) is rtmp.pyamf.ASObject:
+                # if type(list_item) is rtmp.pyamf.ASObject:
+                if type(list_item) is dict:
                     for k in list_item:
                         self.console_write(COLOR['white'], k + ': ' + str(list_item[k]))
                 else:
@@ -586,7 +590,8 @@ class TinychatRTMPClient:
             if greenroom:
                 self.console_write(COLOR['bright_red'], '## Greenroom error..')
             for list_item in error_info:
-                if type(list_item) is rtmp.pyamf.ASObject:
+                # if type(list_item) is rtmp.pyamf.ASObject:
+                if type(list_item) is dict:
                     for k in list_item:
                         self.console_write(COLOR['bright_red'], k + ': ' + str(list_item[k]))
                 else:
@@ -600,7 +605,8 @@ class TinychatRTMPClient:
         """
         if config.DEBUG_MODE:
             for list_item in status_info:
-                if type(list_item) is rtmp.pyamf.ASObject:
+                # if type(list_item) is rtmp.pyamf.ASObject:
+                if type(list_item) is dict:
                     for k in list_item:
                         self.console_write(COLOR['white'], k + ': ' + str(list_item[k]))
                 else:

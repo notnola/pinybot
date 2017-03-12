@@ -1,0 +1,9 @@
+# compiled files:
+*.py[cod]
+
+# logs:
+*.log
+rooms/
+
+# ignore edited configuration files
+config.py

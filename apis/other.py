@@ -278,6 +278,27 @@ def longman_dictionary(lookup_term):
         return None
 
 
+# def bbc_radio_station_playlist(station):
+#     """
+#
+#     :param station: The number of the station you want to fetch the playlist for:
+#                     1 - BBC Radio One, 2 - BBC Radio Two, 3 - BBC Asian Network.
+#
+#     :type station: int
+#     :return:
+#     """
+#     if station is 1:
+#         station_playlist_url = 'http://www.bbc.co.uk/radio1/playlist.json'
+#     elif station is 2:
+#         station_playlist_url = 'http://www.bbc.co.uk/radio2/playlist.json'
+#     elif station is 3:
+#         station_playlist_url = 'http://www.bbc.co.uk/asiannetwork/playlist.json'
+#     else:
+#         return False
+#
+#     response = util.web.http_get(url=station_playlist_url, json=True)
+
+
 def time_is(location):
     """
     Retrieves the time in a location by parsing the time element in the html from Time.is .

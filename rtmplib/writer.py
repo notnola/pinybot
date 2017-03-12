@@ -1,7 +1,8 @@
 import logging
+import threading
 
 from pyamf import amf0, amf3
-import pyamf.util.pure
+from pyamf.util.pure import BufferedByteStream
 
 from . import header, rtmp_type
 
@@ -20,15 +21,19 @@ class RtmpWriter:
 
         self.stream_id = 0
 
+        self._write_locked = False
+
     def flush(self):
         """ Flush the underlying stream. """
         self.stream.flush()
 
     def write(self, message):
+
         log.debug('send %r', message)
         """ Encode and write the specified message into the stream. """
         datatype = message['msg']
-        body_stream = pyamf.util.BufferedByteStream()
+        # body_stream = pyamf.util.BufferedByteStream()
+        body_stream = BufferedByteStream()
         encoder = amf0.Encoder(body_stream)
 
         if datatype == rtmp_type.DT_USER_CONTROL:
@@ -49,21 +54,30 @@ class RtmpWriter:
             for command in message['command']:
                 encoder.writeElement(command)
             if 'closeStream' in message['command']:
-                self.send_msg(datatype, body_stream.getvalue(), stream_id=self.stream_id)
+                threading.Thread(target=self.send_msg,
+                                 args=(datatype, body_stream.getvalue(), 3, self.stream_id,)).start()
             elif 'deleteStream' in message['command']:
-                self.send_msg(datatype, body_stream.getvalue(), stream_id=self.stream_id)
+                threading.Thread(target=self.send_msg,
+                                 args=(datatype, body_stream.getvalue(), 3, self.stream_id)).start()
             elif 'publish' in message['command']:
-                self.send_msg(datatype, body_stream.getvalue(), stream_id=self.stream_id)
+                threading.Thread(target=self.send_msg,
+                                 args=(datatype, body_stream.getvalue(), 3, self.stream_id)).start()
             elif 'play' in message['command']:
-                self.send_msg(datatype, body_stream.getvalue(), chunk_id=8, stream_id=self.stream_id)
+                threading.Thread(target=self.send_msg,
+                                 args=(datatype, body_stream.getvalue(), 8, self.stream_id)).start()
             else:
-                self.send_msg(datatype, body_stream.getvalue())
+                threading.Thread(target=self.send_msg, args=(datatype, body_stream.getvalue(),)).start()
 
         elif datatype == rtmp_type.DT_AMF3_COMMAND:
             encoder = amf3.Encoder(body_stream)
             for command in message['command']:
                 encoder.writeElement(command)
-            self.send_msg(datatype, body_stream.getvalue())
+            threading.Thread(target=self.send_msg, args=(datatype, body_stream.getvalue(),)).start()
+
+        elif datatype == rtmp_type.DT_VIDEO_MESSAGE:
+            body_stream.write_uchar(message['control_type'])
+            body_stream.write(message['video_data'])
+            threading.Thread(target=self.send_msg, args=(datatype, body_stream.getvalue(), 6, self.stream_id)).start()
 
         elif datatype == rtmp_type.DT_SHARED_OBJECT:
             encoder.serialiseString(message['obj_name'])
@@ -72,13 +86,14 @@ class RtmpWriter:
 
             for event in message['events']:
                 self.write_shared_object_event(event, body_stream)
-            self.send_msg(datatype, body_stream.getvalue())
+            threading.Thread(self.send_msg, target=(datatype, body_stream.getvalue(),)).start()
         else:
             assert False, message
 
     @staticmethod
     def write_shared_object_event(event, body_stream):
-        inner_stream = pyamf.util.BufferedByteStream()
+        # inner_stream = pyamf.util.BufferedByteStream()
+        inner_stream = BufferedByteStream()
         encoder = amf0.Encoder(inner_stream)
 
         event_type = event['type']
@@ -125,6 +140,12 @@ class RtmpWriter:
             data_type=data_type,
             body_length=len(body),
             timestamp=timestamp)
+
+        while self._write_locked:
+            if not self._write_locked:
+                break
+
+        self._write_locked = True
         header.encode(self.stream, _header)
 
         for i in xrange(0, len(body), self.chunk_size):
@@ -132,3 +153,6 @@ class RtmpWriter:
             self.stream.write(chunk)
             if i+self.chunk_size < len(body):
                 header.encode(self.stream, _header, _header)
+        self._write_locked = False
+
+        self.flush()

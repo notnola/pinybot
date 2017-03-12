@@ -1,7 +1,7 @@
 import logging
 
 from pyamf import amf0, amf3
-import pyamf.util.pure
+from pyamf.util.pure import BufferedByteStream
 
 from . import header, rtmp_type
 
@@ -64,13 +64,17 @@ class RtmpReader:
             assert next_header.timestamp == -1, (_header, next_header)
             assert next_header.body_length == -1, (_header, next_header)
         assert _header.body_length == msg_body_len, (_header, msg_body_len)
-        body_stream = pyamf.util.BufferedByteStream(''.join(message_body))
+        body_stream = BufferedByteStream(''.join(message_body))
 
         # Decode the message based on the datatype present in the header
         ret = {'msg': _header.data_type}
 
         if ret['msg'] == rtmp_type.DT_NONE:
             log.warning('WARNING: message with datatype None received: %s' % _header)
+            return self.next()
+
+        elif ret['msg'] == rtmp_type.DT_ACKNOWLEDGEMENT:
+            log.info('Acknowledgement received.')
             return self.next()
 
         elif ret['msg'] == rtmp_type.DT_USER_CONTROL:

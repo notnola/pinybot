@@ -49,7 +49,7 @@ B_PREFIX = '!'
 # Bot controller key.
 B_KEY = 'light'
 # Bot super key.
-B_SUPER_KEY = 'heatwave'
+B_SUPER_KEY = 'radiation'
 # The maximum amount of match bans.
 B_MAX_MATCH_BANS = 1
 # Public commands enabled.
@@ -101,10 +101,11 @@ B_STRING_BANS = []
 # The name of the bot's debug file.
 B_DEBUG_FILE_NAME = 'tinybot_debug.log'
 
-#
-ROOM_EVENT_INFORMATION = True
 
-##
+# Message parsing options:
+
+# Set room event information to be displayed in the console.
+ROOM_EVENT_INFORMATION = True
 #
 B_SANITIZE_MESSAGES = True
 #
@@ -114,9 +115,12 @@ B_TINYCHAT_ROOM_LINK_SPAM = True
 #
 B_CAPITAL_CHARACTER_LIMIT = False
 #
+# TODO: Verify this works still.
 B_CAPITAL_CHARACTER_LIMIT_LENGTH = 50
 
-##
+
+# User Control features:
+
 #
 B_BAN_MOBILES = False
 #
@@ -126,7 +130,9 @@ B_ALLOW_SNAPSHOTS = True
 #
 B_BOT_REPORT_KICK = False
 
-##
+
+# Additional functions:
+
 #
 B_AUTO_GREENROOM = False
 #
@@ -140,16 +146,18 @@ B_CLEVERBOT = True
 #
 B_INSTANT_CLEVERBOT = True
 
-##
+
+# Media Options:
+
 #
-B_MEDIA_LIMIT_PUBLIC = False
+# B_MEDIA_LIMIT_PUBLIC = False
 #
-B_MEDIA_LIMIT_PLAYLIST = False
+# B_MEDIA_LIMIT_PLAYLIST = False
 #
-B_MEDIA_LIMIT_DURATION = 0
+# B_MEDIA_LIMIT_DURATION = 0
 #
 B_PLAYLIST_MODE = True
 #
 B_PUBLIC_MEDIA_MODE = False
 #
-B_RADIO_CAPITAL_FM_AUTO_PLAY = False
+# B_RADIO_CAPITAL_FM_AUTO_PLAY = False

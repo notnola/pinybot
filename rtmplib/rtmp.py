@@ -4,10 +4,9 @@ import socket
 import struct
 import time
 
-import pyamf.util.pure
+from pyamf.util.pure import DataTypeMixIn
 
 from . import packet, reader, writer, rtmp_type, socks
-
 
 log = logging.getLogger(__name__)
 
@@ -17,14 +16,15 @@ class AmfDataReadError(Exception):
     pass
 
 
-class FileDataTypeMixIn(pyamf.util.pure.DataTypeMixIn):
+class FileDataTypeMixIn(DataTypeMixIn):  # pyamf.util.pure.DataTypeMixIn
     """
     Provides a wrapper for a file object that enables reading and writing of raw
     data types for the file.
     """
     def __init__(self, fileobject):
         self.fileobject = fileobject
-        pyamf.util.pure.DataTypeMixIn.__init__(self)
+        # pyamf.util.pure.DataTypeMixIn.__init__(self)
+        DataTypeMixIn.__init__(self)
 
     def read(self, length):
         return self.fileobject.read(length)
@@ -53,7 +53,7 @@ class RtmpClient:
         self.proxy = kwargs.get('proxy', '')
         self.handle = kwargs.get('handle', True)
         self.is_win = kwargs.get('is_win', False)
-        self.flash_version = kwargs.get('flash_version', 'WIN 22.0.0.209')
+        self.flash_version = kwargs.get('flash_version', 'WIN 22,0,0,209')
         self.shared_objects = []
         self.socket = None
         self.stream = None
@@ -140,7 +140,7 @@ class RtmpClient:
             msg['command'].extend(connect_params)
 
         self.writer.write(msg)
-        self.writer.flush()
+        # self.writer.flush()
 
     def amf(self):
         """ Read the next amf packet from the stream.
@@ -173,7 +173,7 @@ class RtmpClient:
                 'event_data': amf_data['event_data'],
             }
             self.writer.write(resp)
-            self.writer.flush()
+            # self.writer.flush()
             return True
 
         elif amf_data['msg'] == rtmp_type.DT_USER_CONTROL and amf_data['event_type'] == rtmp_type.UC_PING_RESPONSE:
@@ -185,7 +185,7 @@ class RtmpClient:
             assert amf_data['window_ack_size'] == 2500000, amf_data
             ack_msg = {'msg': rtmp_type.DT_WINDOW_ACK_SIZE, 'window_ack_size': amf_data['window_ack_size']}
             self.writer.write(ack_msg)
-            self.writer.flush()
+            # self.writer.flush()
             return True
 
         elif amf_data['msg'] == rtmp_type.DT_SET_PEER_BANDWIDTH:
@@ -246,6 +246,7 @@ class RtmpClient:
         self.stream = FileDataTypeMixIn(self.file)
 
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.TCP_NODELAY, 1)
         if self.is_win:
             self.socket.ioctl(socket.SIO_KEEPALIVE_VALS, (1, 10000, 3000))
 
@@ -297,7 +298,7 @@ class RtmpClient:
         }
         try:
             self.writer.write(msg)
-            self.writer.flush()
+            # self.writer.flush()
         except Exception as ex:
             log.error('send call error: %s' % ex, exc_info=True)
 
@@ -315,7 +316,7 @@ class RtmpClient:
         }
         log.debug('sending ping request to server: %s' % msg)
         self.writer.write(msg)
-        self.writer.flush()
+        # self.writer.flush()
 
     def createstream(self):
         """ Send createStream message. """
@@ -324,7 +325,7 @@ class RtmpClient:
             'command': ['createStream', self._get_next_transaction_id(), None]
         }
         self.writer.write(msg)
-        self.writer.flush()
+        # self.writer.flush()
 
     def closestream(self):
         """ Send closeStream message. """
@@ -333,7 +334,7 @@ class RtmpClient:
             'command': ['closeStream', 0, None]
         }
         self.writer.write(msg)
-        self.writer.flush()
+        # self.writer.flush()
 
     def deletestream(self):
         """ Send deleteStream message. """
@@ -342,7 +343,7 @@ class RtmpClient:
             'command': ['deleteStream', 0, None]
         }
         self.writer.write(msg)
-        self.writer.flush()
+        # self.writer.flush()
 
     def publish(self, publishing_name, publishing_type='live'):
         """ Send publish message.
@@ -357,4 +358,18 @@ class RtmpClient:
             'command': ['publish', 0, None, str(publishing_name), publishing_type]
         }
         self.writer.write(msg)
-        self.writer.flush()
+
+    def transmit_video(self, data):
+        """ Send a video message.
+
+        :param data: The encoded video data to send.
+        :type data: bytes
+        """
+        msg = {
+            'msg': rtmp_type.DT_VIDEO_MESSAGE,
+            'control_type': 0x22,
+            'video_data': data
+        }
+        self.writer.write(msg)
+
+

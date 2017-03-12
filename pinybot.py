@@ -12,7 +12,7 @@ import threading
 
 import pinylib
 import util.media_manager
-from util import auto_url, unicode_catalog
+from util import auto_url, unicode_catalog, tag_handler
 from page import privacy
 from apis import youtube, soundcloud, lastfm, other, locals_
 
@@ -26,7 +26,7 @@ __authors_information__ = 'Nortxort (https://github.com/nortxort/tinybot ) GoelB
 
 log = logging.getLogger(__name__)
 
-
+# TODO: Replace CleverBot with cleverwrap - https://github.com/edwardslabs/cleverwrap.py.
 # TODO: Public mode layout in message handler.
 # TODO: Unicode symbols back in yt and sc commands when adding to playlist.
 
@@ -35,6 +35,11 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     """ The main bot instance which inherits the TinychatRTMPClient from pinylib. """
 
     privacy_settings = None
+
+    # Small broadcasting:
+    _tinychat_logo_flv = 'util/resources/tinychat_logo.flv'
+    _logo_publishing = False
+    _logo_to_user = False
 
     # Media event variables:
     media = util.media_manager.MediaManager()
@@ -60,8 +65,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     latest_yt_video_id = str
 
     # Initiate CleverBot related variables:
-    _cleverbot_session = None
-    _cleverbot_msg_time = int(pinylib.time.time())
+    # _cleverbot_session = None
+    # _cleverbot_msg_time = int(pinylib.time.time())
 
     # Compile regex patterns for use later:
     _automatic_url_identifier_pattern = re.compile(r'(http|ftp|https):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:/~+#-'
@@ -69,7 +74,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     _tinychat_spam_pattern = re.compile(r'tinychat.com\/\w+|tinychat. com\/\w+|tinychat .com\/\w+($| |\/+ |\/+$|\n+)\s',
                                         re.IGNORECASE)
     _youtube_pattern = re.compile(r'http(?:s*):\/\/(?:www\.youtube|youtu)\.\w+(?:\/watch\?v=|\/)(.{11})', re.IGNORECASE)
-    _character_limit_pattern = re.compile(r'[A-Z0-9]{%r,}' % pinylib.CONFIG.B_CAPITAL_CHARACTER_LIMIT_LENGTH)
+    _character_limit_pattern = re.compile(r'(\s*[A-Z0-9]){%r,}' % pinylib.CONFIG.B_CAPITAL_CHARACTER_LIMIT_LENGTH)
 
     # Message sanitation variables:
     _snapshot_message = 'I just took a video snapshot of this chatroom. Check it out here:'
@@ -278,9 +283,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                                                     time_point=self.media.elapsed_track_time(),
                                                     private_nick=new)
 
+        # TODO: Additional functions.
         # TODO: Add the AUTO PM function.
         # if pinylib.CONFIG.B_GREET_PRIVATE:
         #     self.send_auto_pm(new)
+        if self._logo_publishing:
+            self._logo_to_user = True
 
         self.console_write(pinylib.COLOR['bright_cyan'], '%s:%s changed nick to: %s' % (old, uid, new))
 
@@ -497,11 +505,15 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                     elif cmd == prefix + 'rmbotter':  # deop
                         self.do_deop_user(cmd_arg)
 
-                    elif cmd == prefix + 'up':
-                        self.do_cam_up()
-
-                    elif cmd == prefix + 'down':
-                        self.do_cam_down()
+                    # elif cmd == prefix + 'up':
+                    #     print('got request')
+                    #     self.do_cam_up()
+                    #
+                    # elif cmd == prefix + 'logo':
+                    #     threading.Thread(target=self.do_cam_logo).start()
+                    #
+                    # elif cmd == prefix + 'down':
+                    #     self.do_cam_down()
 
                     elif cmd == prefix + 'nocam':
                         self.do_nocam()
@@ -550,8 +562,9 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                     if cmd == prefix + 'close':
                         self.do_close_broadcast(cmd_arg)
 
-                    elif cmd == prefix + 'clr':
-                        self.do_clear()
+                    # TODO: This was not working or has issues.
+                    # elif cmd == prefix + 'clr':
+                    #     self.do_clear()
 
                     elif cmd == prefix + 'skip':
                         self.do_skip()
@@ -699,6 +712,16 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                     elif cmd == prefix + 'flip':
                         self.do_flip_coin()
 
+                    elif cmd == prefix + 'up':
+                        print('got request')
+                        self.do_cam_up()
+
+                    elif cmd == prefix + 'logo':
+                        threading.Thread(target=self.do_cam_logo).start()
+
+                    elif cmd == prefix + 'down':
+                        self.do_cam_down()
+
                 # Handle extra commands if they are not handled by the default ones.
                 self.custom_message_handler(cmd, cmd_arg)
 
@@ -723,8 +746,10 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         This will include the use of other external API's and basic ones, all new commands should be added here
         and linked to it's function below.
 
-        :param cmd: str the command that we received.
-        :param cmd_arg: str the command argument that we received.
+        :param cmd: The command that we received.
+        :type cmd: str
+        :param cmd_arg: The command argument that we received.
+        :type cmd_arg: str
         """
         # print('(Custom message handler) Received command, command argument:', cmd, cmd_arg)
         prefix = pinylib.CONFIG.B_PREFIX
@@ -766,8 +791,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             elif cmd == prefix + 'autourl':
                 self.do_set_auto_url_mode()
 
-            elif cmd == prefix + 'cleverbot':
-                self.do_set_cleverbot()
+            # elif cmd == prefix + 'cleverbot':
+            #     self.do_set_cleverbot()
 
             # TODO: Adjust how auto pm works.
             elif cmd == prefix + 'pm':
@@ -809,13 +834,13 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             # elif cmd == prefix + 'd':
             #     self.do_request_media_decline()
 
-            if cmd == prefix + 'playlist':
-                self.do_set_playlist_mode()
+            # if cmd == prefix + 'playlist':
+            #     self.do_set_playlist_mode()
 
             # elif cmd == prefix + 'publicmedia':
             #     self.do_set_public_media_mode()
 
-            elif cmd == prefix + 'mute':
+            if cmd == prefix + 'mute':
                 self.do_mute()
 
             elif cmd == prefix + 'p2tnow':
@@ -865,8 +890,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             elif cmd == prefix + 'advice':
                 threading.Thread(target=self.do_advice).start()
 
-            elif cmd == prefix + 'cb':
-                threading.Thread(target=self.do_cleverbot, args=(cmd_arg,)).start()
+            # elif cmd == prefix + 'cb':
+            #     threading.Thread(target=self.do_cleverbot, args=(cmd_arg,)).start()
 
             elif cmd == prefix + 'ety':
                 threading.Thread(target=self.do_etymology_search, args=(cmd_arg,)).start()
@@ -883,7 +908,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         NOTE: APIs do not need to be started in a new thread unless you need to as this function should have
               been originally called from a thread from the message handler.
 
-        :param decoded_msg: str the message received from the user.
+        :param decoded_msg: The message received from the user.
+        :type decoded_msg: str
         """
         url_message = False
         handle_message = decoded_msg.lower()
@@ -901,9 +927,9 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
         # TODO: CleverBot will only work now if it is not given a command and the message did not
         #       have a url the message.
-        if pinylib.CONFIG.B_CLEVERBOT:
-            if not url_message:
-                self.cleverbot_message_handler(handle_message)
+        # if pinylib.CONFIG.B_CLEVERBOT:
+        #     if not url_message:
+        #         self.cleverbot_message_handler(handle_message)
 
         # TODO: Moved check_msg procedure to the sanitize message procedure.
 
@@ -926,9 +952,10 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Missing account name.')
 
     def do_remove_mod(self, account):
-        """
-        Removes a Tinychat account from the moderator list.
-        :param account str the account to remove from the moderator list.
+        """ Removes a tinychat account from the moderator list.
+
+        :param account: The account to remove from the moderator list.
+        :type account: str
         """
         if self.is_client_owner:
             if len(account) is not 0:
@@ -961,16 +988,14 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         if self.is_client_owner:
             if self.privacy_settings.set_greenroom():
                 self.send_bot_msg('*Green room is enabled.*')
-                self.rtmp_parameter['greenroom'] = True
             else:
                 self.send_bot_msg('*Green room is disabled.*')
-                self.rtmp_parameter['greenroom'] = False
 
     def do_clear_room_bans(self):
         """ Clear all room bans. """
         if self.is_client_owner:
             if self.privacy_settings.clear_bans():
-                self.send_bot_msg(unicode_catalog.STATE + ' *All room bans was cleared.*')
+                self.send_bot_msg(unicode_catalog.STATE + ' *All room bans were cleared.*')
 
     def do_kill(self):
         """ Kills the bot. """
@@ -996,9 +1021,10 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_owner_run_msg('*Active Threads:* ' + str(threading.active_count()))
 
     def do_op_user(self, user_name):
-        """
-        Lets the room owner, a mod or a bot controller make another user a bot controller.
-        :param user_name: str the user to op.
+        """ Lets the room owner, a mod or a bot controller make another user a bot controller.
+
+        :param user_name: The user to op.
+        :type user_name: str
         """
         if self.is_client_mod:
             if len(user_name) is not 0:
@@ -1012,9 +1038,10 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Missing username.')
 
     def do_deop_user(self, user_name):
-        """
-        Lets the room owner, a mod or a bot controller remove a user from being a bot controller.
-        :param user_name: str the user to deop.
+        """ Lets the room owner, a mod or a bot controller remove a user from being a bot controller.
+
+        :param user_name: The user to deop.
+        :param user_name: str
         """
         if self.is_client_mod:
             if len(user_name) is not 0:
@@ -1030,12 +1057,48 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     def do_cam_up(self):
         """ Makes the bot cam up. """
-        self.send_bauth_msg()
-        self.connection.createstream()
+        print('in cam up')
+        if self._camera_published is False:
+            self.send_bauth_msg()
+            self.connection.createstream()
+        else:
+            self.send_bot_msg(unicode_catalog.CROSS_MARK + ' *Camera already published*, please close it before '
+                                                           'publishing again.')
+
+    def do_cam_logo(self):
+        """ Display Tinychat logo when the camera is broadcasting
+
+        CAUTION EXPERIMENTAL: This may stop the connection between Tinychat and your client.
+        """
+        if self._camera_published is True and not self._logo_publishing:
+            pinylib.time.sleep(5)
+            self._logo_publishing = True
+            _logo_video = open(self._tinychat_logo_flv, 'rb')
+            _logo_frames = tag_handler.iterate_frames(_logo_video)
+            _logo_video.close()
+
+            self._logo_to_user = True
+            while self._camera_published:
+                if self._logo_to_user:
+                    for x in range(5):
+                        for frame in range(len(_logo_frames)):
+                            # print([frames[frame][1]])
+                            data = bytes(_logo_frames[frame][1])
+                            self.connection.transmit_video(data)
+                            pinylib.time.sleep(1)
+                    self._logo_to_user = False
+            self._logo_publishing = False
+        # else:
+        #     self.send_bot_msg(unicode_catalog.INDICATE + ' *Camera not published*, please publish it before '
+        #                                                  'transmitting.')
 
     def do_cam_down(self):
         """ Makes the bot cam down. """
-        self.connection.closestream()
+        if self._camera_published:
+            self.connection.closestream()
+            self._camera_published = False
+        else:
+            self.send_bot_msg(unicode_catalog.CROSS_MARK + ' *Camera not published*, publish it in order to close it.')
 
     def do_nocam(self):
         """ Toggles if broadcasting is allowed or not. """
@@ -1084,9 +1147,10 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_owner_run_msg('*Greenroom:* %s' % settings['greenroom'])
 
     def do_lastfm_chart(self, chart_items):
-        """
-        Makes a playlist from the currently most played tunes on last.fm
-        :param chart_items: int the amount of tunes we want.
+        """ Makes a playlist from the currently most played tunes on last.fm
+
+        :param chart_items: The amount of tunes we want. The string must be able to be converted to int.
+        :type chart_items: str
         """
         if self.is_client_mod:
             if chart_items is 0 or chart_items is None:
@@ -1099,7 +1163,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 else:
                     if 0 < _items < 30:
                         self.send_bot_msg(unicode_catalog.STATE + ' *Please wait* while creating a playlist...')
-                        last = apis.lastfm.chart(_items)
+                        last = lastfm.chart(_items)
                         if last is not None:
                             self.media.add_track_list(self.active_user.nick, last)
                             self.send_bot_msg(unicode_catalog.PENCIL + ' *Added:* ' + str(len(last)) +
@@ -1116,9 +1180,10 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg('Command not enabled.')
 
     def do_lastfm_random_tunes(self, max_tunes):
-        """
-        Creates a playlist from what other people are listening to on last.fm.
-        :param max_tunes: int the max amount of tunes.
+        """ Creates a playlist from what other people are listening to on last.fm.
+
+        :param max_tunes: The max amount of tunes. The string must be able to be converted to int.
+        :type max_tunes: str
         """
         if self.is_client_mod:
             if max_tunes is not 0 or max_tunes is not None:
@@ -1129,7 +1194,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 else:
                     if 0 < _items < 50:
                         self.send_bot_msg(unicode_catalog.INDICATE + ' Please wait while creating a playlist...')
-                        last = apis.lastfm.listening_now(max_tunes)
+                        last = lastfm.listening_now(max_tunes)
                         if last is not None:
                             self.media.add_track_list(self.active_user.nick, last)
                             self.send_bot_msg(unicode_catalog.PENCIL + ' *Added:* ' + str(len(last)) +
@@ -1148,14 +1213,15 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg('Command not enabled.')
 
     def do_search_lastfm_by_tag(self, search_tag):
-        """
-        Searches last.fm for tunes matching the search term and creates a playlist from them.
-        :param search_tag: str the search term to search for.
+        """ Searches last.fm for tunes matching the search term and creates a playlist from them.
+
+        :param search_tag: The search term to search for.
+        :type search_tag: str
         """
         if self.is_client_mod:
             if len(search_tag) is not 0:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Please wait while creating playlist..')
-                last = apis.lastfm.tag_search(search_tag)
+                last = lastfm.tag_search(search_tag)
                 if last is not None:
                     self.media.add_track_list(self.active_user.nick, last)
                     self.send_bot_msg(unicode_catalog.PENCIL + ' *Added:* ' + str(len(last)) + ' *tunes from last.fm*')
@@ -1171,13 +1237,14 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg('Command not enabled.')
 
     def do_youtube_playlist_search(self, search_term):
-        """
-        Searches youtube for a play list matching the search term.
-        :param search_term: str the search to search for.
+        """ Searches youtube for a play list matching the search term.
+
+        :param search_term: The search to search for.
+        :type search_term: str
         """
         if self.is_client_mod:
             if len(search_term) is not 0:
-                self.search_list = apis.youtube.playlist_search(search_term)
+                self.search_list = youtube.playlist_search(search_term)
                 if len(self.search_list) is not 0:
                     self.is_search_list_youtube_playlist = True
                     for i in range(0, len(self.search_list)):
@@ -1191,9 +1258,11 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg('Command not enabled.')
 
     def do_play_youtube_playlist(self, int_choice):
-        """
-        Finds the videos from the youtube playlist search.
-        :param int_choice: int the index of the play list on the search_list.
+        """ Finds the videos from the youtube playlist search.
+
+        :param int_choice: The index of the play list on the search_list.
+        The string must be able to be converted to int.
+        :type int_choice: str
         """
         if self.is_client_mod:
             if self.is_search_list_youtube_playlist:
@@ -1204,7 +1273,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 else:
                     if 0 <= index_choice <= len(self.search_list) - 1:
                         self.send_bot_msg(unicode_catalog.STATE + ' Please wait while creating playlist..')
-                        tracks = apis.youtube.playlist_videos(self.search_list[index_choice]['playlist_id'])
+                        tracks = youtube.playlist_videos(self.search_list[index_choice]['playlist_id'])
                         if len(tracks) is not 0:
                             self.media.add_track_list(self.active_user.nick, tracks)
                             self.send_bot_msg(unicode_catalog.PENCIL + ' *Added:* %s *tracks from youtube playlist.*' %
@@ -1226,9 +1295,10 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg('Command not enabled.')
 
     def do_close_broadcast(self, user_name):
-        """
-        Close a user broadcasting.
-        :param user_name: str the username to close.
+        """ Close a user broadcasting.
+
+        :param user_name: The username to close.
+        :type user_name: str
         """
         if self.is_client_mod:
             if len(user_name) is not 0:
@@ -1241,47 +1311,49 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         else:
             self.send_bot_msg('Command not enabled.')
 
-    def do_clear(self):
-        """ Clears the chat box. """
-        if self.is_client_mod:
-            for x in range(0, 29):
-                self.send_owner_run_msg(' ')
-        else:
-            clear = '133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133' \
-                    '133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133'
-            self.connection.call('privmsg', [clear, u'#262626,en'])
+    # TODO: This seems to cause issues with the room server.
+    # def do_clear(self):
+    #     """ Clears the chat box. """
+    #     if self.is_client_mod:
+    #         for x in range(0, 29):
+    #             self.send_owner_run_msg(' ')
+    #     else:
+    #         clear = '133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133' \
+    #                 '133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133,133'
+    #         self.connection.call('privmsg', [clear, u'#262626,en'])
 
     # TODO: How does skip handle radio media event handler.
     def do_skip(self):
         """ Play the next item in the playlist. """
         if self.is_client_mod:
-            if not pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY:
-                if self.media.is_last_track():
-                    self.send_bot_msg(unicode_catalog.STATE + ' This is the *last tune in the playlist*.')
-                elif self.media.is_last_track() is None:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' *No tunes* to skip. The *playlist is empty*.')
-                else:
-                    self.cancel_media_event_timer()
-                    current_type = self.media.track().type
-                    next_track = self.media.get_next_track()
-                    if current_type != next_track.type:
-                        self.send_media_broadcast_close(media_type=current_type)
-                    self.send_media_broadcast_start(next_track.type, next_track.id)
-                    self.media_event_timer(next_track.time)
+            # if not pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY:
+            if self.media.is_last_track():
+                self.send_bot_msg(unicode_catalog.STATE + ' This is the *last tune in the playlist*.')
+            elif self.media.is_last_track() is None:
+                self.send_bot_msg(unicode_catalog.INDICATE + ' *No tunes* to skip. The *playlist is empty*.')
+            else:
+                self.cancel_media_event_timer()
+                current_type = self.media.track().type
+                next_track = self.media.get_next_track()
+                if current_type != next_track.type:
+                    self.send_media_broadcast_close(media_type=current_type)
+                self.send_media_broadcast_start(next_track.type, next_track.id)
+                self.media_event_timer(next_track.time)
 
-                    # Handle if a radio tracks are being added to the playlist, we will cancel the current timer
-                    # and adjust to the new time of the track.
-                    # if pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY and self.radio_timer_thread is not None:
-                    #     self.cancel_radio_event_timer()
-                        # threading.Thread(target=self.radio_event_timer, args=(next_track.time,)).start()
-                        # self.radio_event_timer(next_track.time)
+                # Handle if a radio tracks are being added to the playlist, we will cancel the current timer
+                # and adjust to the new time of the track.
+                # if pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY and self.radio_timer_thread is not None:
+                #     self.cancel_radio_event_timer()
+                #     threading.Thread(target=self.radio_event_timer, args=(next_track.time,)).start()
+                #     self.radio_event_timer(next_track.time)
         else:
             self.send_bot_msg('Command not enabled.')
 
     def do_delete_playlist_item(self, to_delete):
-        """
-        Delete item(s) from the playlist by index.
-        :param to_delete: str index(es) to delete.
+        """ Delete item(s) from the playlist by index.
+
+        :param to_delete: Index(es) to delete.
+        :type to_delete: str
         """
         if self.is_client_mod:
             if len(self.media.track_list) is 0:
@@ -1374,8 +1446,8 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg('Command not enabled.')
 
     def do_seek_media(self, time_point):
-        """
-        Seek on a media playing.
+        """ Seek on a media playing.
+
         :param time_point str the time point to skip to.
         """
         if self.is_client_mod:
@@ -1401,10 +1473,10 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     def do_clear_playlist(self):
         """ Clear the playlist. """
-        if self._is_client_mod:
-            if len(self.media_manager.track_list) > 0:
-                pl_length = str(len(self.media_manager.track_list))
-                self.media_manager.clear_track_list()
+        if self.is_client_mod:
+            if len(self.media.track_list) > 0:
+                pl_length = str(len(self.media.track_list))
+                self.media.clear_track_list()
                 self.send_bot_msg(unicode_catalog.SCISSORS + ' *Deleted* ' + pl_length + ' *items in the playlist.*')
             else:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' *The playlist is empty*, nothing to delete.')
@@ -1413,9 +1485,9 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     def do_playlist_info(self):
         """ Shows the next 5 tracks in the track list. """
-        if self._is_client_mod:
-            if len(self.media_manager.track_list) > 0:
-                tracks = self.media_manager.get_track_list()
+        if self.is_client_mod:
+            if len(self.media.track_list) > 0:
+                tracks = self.media.get_track_list()
                 if tracks is not None:
                     i = 0
                     for pos, track in tracks:
@@ -1446,9 +1518,10 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                                   (i, self.search_list[i]['video_title'], self.search_list[i]['video_time']))
 
     def do_nick(self, new_nick):
-        """
-        Set a new nick for the bot.
-        :param new_nick: str the new nick.
+        """ Set a new nick for the bot.
+
+        :param new_nick: The new nick.
+        :type new_nick: str
         """
         if len(new_nick) is 0:
             self.nickname = pinylib.string_util.create_random_string(5, 25)
@@ -1459,11 +1532,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 self.set_nick()
 
     def do_topic(self, topic):
+        """ Sets the room topic.
+
+        :param topic: The new topic.
+        :type topic: str
         """
-        Sets the room topic.
-        :param topic: str the new topic.
-        """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(topic) is not 0:
                 self.send_topic_msg(topic)
                 self.send_bot_msg(unicode_catalog.STATE + ' The *room topic* was set to: ' + topic)
@@ -1474,11 +1548,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Command not enabled.')
 
     def do_kick(self, user_name):
+        """ Kick a user out of the room.
+
+        :param user_name: The username to kick.
+        :type user_name: str
         """
-        Kick a user out of the room.
-        :param user_name: str the username to kick.
-        """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(user_name) is 0:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Missing username.')
             elif user_name == self.nickname:
@@ -1509,11 +1584,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Command not enabled.')
 
     def do_ban(self, user_name):
+        """ Ban a user from the room.
+
+        :param user_name: The username to ban.
+        :type user_name: str
         """
-        Ban a user from the room.
-        :param user_name: str the username to ban.
-        """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(user_name) is 0:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Missing username.')
             elif user_name == self.nickname:
@@ -1541,11 +1617,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     def do_bad_nick(self, bad_nick):
+        """ Adds a username to the nicks bans file.
+
+        :param bad_nick: The bad nick to write to file.
+        :type bad_nick: str
         """
-        Adds a username to the nicks bans file.
-        :param bad_nick: str the bad nick to write to file.
-        """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(bad_nick) is 0:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Missing username.')
             elif bad_nick in pinylib.CONFIG.B_NICK_BANS:
@@ -1559,11 +1636,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     def do_remove_bad_nick(self, bad_nick):
-        """
+        """ Removes a nick from the nick bans file.
 
-        :param bad_nick: str
+        :param bad_nick: The bad nick to remove from the nick bans file.
+        :type bad_nick: str
         """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(bad_nick) is 0:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Missing username')
             else:
@@ -1577,11 +1655,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     def do_bad_string(self, bad_string):
+        """ Adds a string to the strings bans file.
+
+        :param bad_string: The bad string to add to file.
+        :type bad_string: str
         """
-        Adds a string to the strings bans file.
-        :param bad_string: str the bad string to add to file.
-        """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(bad_string) is 0:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Ban string can\'t be blank.')
             elif len(bad_string) < 3:
@@ -1597,11 +1676,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     def do_remove_bad_string(self, bad_string):
+        """ Removes a string from the strings bans file.
+
+        :param bad_string: The bad string to remove from file.
+        :type bad_string: str
         """
-        Removes a string from the strings bans file.
-        :param bad_string: str the bad string to remove from file.
-        """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(bad_string) is 0:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' Missing word string.')
             else:
@@ -1612,18 +1692,19 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                         self.send_bot_msg('*%s* was removed.' % bad_string)
                         self.load_list(strings=True)
                 # TODO: Decide what to reply with here.
-                # else:
-                #     pass
+                else:
+                    self.send_bot_msg('The bad string you wanted to remove was *not added to the list*.')
         else:
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     # TODO: Short this issue out; order of if statements.
     def do_bad_account(self, bad_account_name):
+        """ Adds an account name to the accounts bans file.
+
+        :param bad_account_name: The bad account name to add to file.
+        :type bad_account_name: str
         """
-        Adds an account name to the accounts bans file.
-        :param bad_account_name: str the bad account name to add to file.
-        """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(bad_account_name) is not 0:
                 pinylib.file_handler.file_writer(self.config_path(),
                                                  pinylib.CONFIG.B_ACCOUNT_BANS_FILE_NAME, bad_account_name)
@@ -1641,11 +1722,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     def do_remove_bad_account(self, bad_account):
+        """ Removes an account from the accounts bans file.
+
+        :param bad_account: The bad account name to remove from file.
+        :type bad_account: str
         """
-        Removes an account from the accounts bans file.
-        :param bad_account: str the bad account name to remove from file.
-        """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(bad_account) is not 0:
                 if bad_account in pinylib.CONFIG.B_ACCOUNT_BANS:
                     rem = pinylib.file_handler.remove_from_file(self.config_path(),
@@ -1661,11 +1743,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     def do_list_info(self, list_type):
+        """ Shows info of different lists/files.
+
+        :param list_type: The type of list to find info for.
+        :type list_type: str
         """
-        Shows info of different lists/files.
-        :param list_type: str the type of list to find info for.
-        """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(list_type) is not 0:
                 if list_type.lower() == 'bn':
                     if len(pinylib.CONFIG.B_NICK_BANS) is 0:
@@ -1686,7 +1769,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                         self.send_bot_msg('%s *bad accounts in list.*' % pinylib.CONFIG.B_ACCOUNT_BANS)
 
                 elif list_type.lower() == 'mods':
-                    if self._is_client_owner:
+                    if self.is_client_owner:
                         if len(self.privacy_settings.room_moderators) is 0:
                             self.send_bot_msg(unicode_catalog.STATE +
                                               ' *There are currently no moderators for this room.*')
@@ -1702,18 +1785,19 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     def do_user_info(self, user_name):
+        """ Shows user object info for a given user name.
+
+        :param user_name: The user name of the user to show the info for.
+        :type user_name: str
         """
-        Shows user object info for a given user name.
-        :param user_name: str the user name of the user to show the info for.
-        """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(user_name) is not 0:
                 _user = self.users.search(user_name)
                 if _user is None:
                     self.send_bot_msg(unicode_catalog.INDICATE + ' No user named: %s' % user_name)
                 else:
                     if _user.account and _user.tinychat_id is None:
-                        user_info = pinylib.core.tinychat_user_info(_user.account)
+                        user_info = pinylib.apis.tinychat.user_info(_user.account)
                         if user_info is not None:
                             _user.tinychat_id = user_info['tinychat_id']
                             _user.last_login = user_info['last_active']
@@ -1732,13 +1816,14 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     def do_youtube_search(self, search_str):
+        """ Searches youtube for a given search term, and returns a list of candidates.
+
+        :param search_str: The search term to search for.
+        :type search_str: str
         """
-        Searches youtube for a given search term, and returns a list of candidates.
-        :param search_str: str the search term to search for.
-        """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(search_str) is not 0:
-                self.search_list = apis.youtube.search_list(search_str, results=5)
+                self.search_list = youtube.search_list(search_str, results=5)
                 if len(self.search_list) is not 0:
                     self.is_search_list_youtube_playlist = False
                     for i in range(0, len(self.search_list)):
@@ -1753,11 +1838,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     def do_play_youtube_search(self, int_choice):
+        """ Plays a youtube from the search list.
+
+        :param int_choice: The index in the search list to play.
+        :type int_choice: str
         """
-        Plays a youtube from the search list.
-        :param int_choice: int the index in the search list to play.
-        """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if not self.is_search_list_youtube_playlist:
                 if len(self.search_list) > 0:
                     try:
@@ -1766,14 +1852,13 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                         self.send_bot_msg(unicode_catalog.INDICATE + ' Only numbers allowed.')
                     else:
                         if 0 <= index_choice <= len(self.search_list) - 1:
-                            if self.media_manager.has_active_track():
-                                track = self.media_manager.add_track(self.active_user.nick,
-                                                                     self.search_list[index_choice])
+                            if self.media.has_active_track():
+                                track = self.media.add_track(self.active_user.nick, self.search_list[index_choice])
                                 self.send_bot_msg(unicode_catalog.PENCIL + ' *Added* (%s) *%s* %s' %
-                                                  (self.media_manager.last_track_index(), track.title, track.time))
+                                                  (self.media.last_track_index(), track.title, track.time))
                             else:
-                                track = self.media_manager.mb_start(self.active_user.nick,
-                                                                    self.search_list[index_choice], mod_play=False)
+                                track = self.media.mb_start(self.active_user.nick, self.search_list[index_choice],
+                                                            mod_play=False)
                                 self.send_media_broadcast_start(track.type, track.id)
                                 self.media_event_timer(track.time)
                         else:
@@ -1788,9 +1873,10 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     # == Public Command Methods. ==
     def do_full_screen(self, room_name):
-        """
-        Post a full screen link.
-        :param room_name: str the room name you want a full screen link for.
+        """ Post a full screen link.
+
+        :param room_name: The room name you want a full screen link for.
+        :type room_name: str
         """
         if not room_name:
             self.send_undercover_msg(self.active_user.nick, 'http://tinychat.com/embed/Tinychat-11.1-1.0.0.' +
@@ -1802,9 +1888,9 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                                      room_name)
 
     def do_who_plays(self):
-        """ shows who is playing the track. """
-        if self.media_manager.has_active_track():
-            track = self.media_manager.track()
+        """ Shows who is playing the track. """
+        if self.media.has_active_track():
+            track = self.media.track()
             time_elapsed = self.format_time(int(pinylib.time.time() - track.rq_time) * 1000)
             self.send_bot_msg(unicode_catalog.STATE + ' *' + track.owner + '* added this track: ' + time_elapsed +
                               ' ago.')
@@ -1836,9 +1922,9 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     #  == Media Related Command Methods. ==
     def do_playlist_status(self):
         """ Shows info about the playlist. """
-        if self._is_client_mod:
-            if len(self.media_manager.track_list) is not 0:
-                in_queue = self.media_manager.queue()
+        if self.is_client_mod:
+            if len(self.media.track_list) is not 0:
+                in_queue = self.media.queue()
                 if in_queue is not None:
                     self.send_bot_msg(str(in_queue[0]) + ' *items in the playlist.* ' +
                                       str(in_queue[1]) + ' *Still in queue.*')
@@ -1849,13 +1935,13 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     def do_next_tune_in_playlist(self):
         """ Shows next item in the playlist. """
-        if self._is_client_mod:
-            if self.media_manager.is_last_track():
+        if self.is_client_mod:
+            if self.media.is_last_track():
                 self.send_bot_msg(unicode_catalog.STATE + ' This is the *last track* in the playlist.')
-            elif self.media_manager.is_last_track() is None:
+            elif self.media.is_last_track() is None:
                 self.send_bot_msg(unicode_catalog.STATE + ' *No tracks in the playlist.*')
             else:
-                pos, next_track = self.media_manager.next_track_info()
+                pos, next_track = self.media.next_track_info()
                 if next_track is not None:
                     self.send_bot_msg('(' + str(pos) + ') *' + next_track.title + '* ' +
                                       self.format_time(next_track.time))
@@ -1864,12 +1950,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     def do_now_playing(self):
         """ Shows the currently playing media title. """
-        if self._is_client_mod:
-            if self.media_manager.has_active_track():
-                track = self.media_manager.track()
-                if len(self.media_manager.track_list) > 0:
+        if self.is_client_mod:
+            if self.media.has_active_track():
+                track = self.media.track()
+                if len(self.media.track_list) > 0:
                     self.send_undercover_msg(self.active_user.nick, 'Now playing (' +
-                                             str(self.media_manager.current_track_index() + 1) + '): *' + track.title +
+                                             str(self.media.current_track_index() + 1) + '): *' + track.title +
                                              '* (' + self.format_time(track.time) + ')')
                 else:
                     self.send_undercover_msg(self.active_user.nick, 'Now playing: *' + track.title + '* (' +
@@ -1878,34 +1964,35 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 self.send_undercover_msg(self.active_user.nick, '*No track playing.*')
 
     def do_play_youtube(self, search_video):
-        """
-        Plays a YouTube video matching the search term.
-        :param search_video: str the video to search for.
+        """ Plays a YouTube video matching the search term.
+
+        :param search_video: The video to search for.
+        :type search_video: str
         """
         log.info('User: %s:%s is searching youtube: %s' % (self.active_user.nick, self.active_user.id, search_video))
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(search_video) is not 0:
                 # Try checking the search term to see if matches our URL regex pattern.
                 # If so, we can extract the video id from the URL. Many thanks to Aida (Autotonic) for this feature.
                 match_url = self._youtube_pattern.match(search_video)
                 if match_url is not None:
                     video_id = match_url.group(1)
-                    _youtube = apis.youtube.video_details(video_id)
+                    _youtube = youtube.video_details(video_id)
                 else:
-                    _youtube = apis.youtube.search(search_video)
+                    _youtube = youtube.search(search_video)
 
                 if _youtube is None:
                     log.warning('Youtube request returned: %s' % _youtube)
                     self.send_bot_msg(unicode_catalog.INDICATE + ' Could not find video: ' + search_video)
                 else:
                     log.info('Youtube found: %s' % _youtube)
-                    if self.media_manager.has_active_track() and pinylib.CONFIG.B_PLAYLIST_MODE:
-                        track = self.media_manager.add_track(self.active_user.nick, _youtube)
+                    if self.media.has_active_track() and pinylib.CONFIG.B_PLAYLIST_MODE:
+                        track = self.media.add_track(self.active_user.nick, _youtube)
                         self.send_bot_msg(unicode_catalog.PENCIL + ' *' + track.title + '* (' +
                                           self.format_time(track.time) + ') at *' + unicode_catalog.NUMERO + ' ' +
-                                          str(len(self.media_manager.track_list)) + '*')
+                                          str(len(self.media.track_list)) + '*')
                     else:
-                        track = self.media_manager.mb_start(self.active_user.nick, _youtube, mod_play=False)
+                        track = self.media.mb_start(self.active_user.nick, _youtube, mod_play=False)
                         self.send_media_broadcast_start(track.type, track.id)
                         self.media_event_timer(track.time)
             else:
@@ -1914,14 +2001,15 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     def do_play_private_youtube(self, search_video):
-        """
-        Plays a YouTube matching the search term privately.
+        """ Plays a YouTube matching the search term privately.
+
         NOTE: The video will only be visible for the message sender.
-        :param search_video: str the video to search for.
+        :param search_video: The video to search for.
+        :type search_video: str
         """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(search_video) is not 0:
-                _youtube = apis.youtube.search(search_video)
+                _youtube = youtube.search(search_video)
                 if _youtube is None:
                     self.send_undercover_msg(self.active_user.nick, 'Could not find video: %s' % search_video)
                 else:
@@ -1933,23 +2021,24 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg('Not enabled right now.')
 
     def do_play_soundcloud(self, search_track):
+        """ Plays a SoundCloud matching the search term.
+
+        :param search_track: The track to search for.
+        :type search_track: str
         """
-        Plays a SoundCloud matching the search term.
-        :param search_track: str the track to search for.
-        """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(search_track) is not 0:
-                _soundcloud = apis.soundcloud.search(search_track)
+                _soundcloud = soundcloud.search(search_track)
                 if _soundcloud is None:
                     self.send_bot_msg(unicode_catalog.INDICATE + ' Could not find SoundCloud: %s' % search_track)
                 else:
-                    if self.media_manager.has_active_track() and pinylib.CONFIG.B_PLAYLIST_MODE:
-                        track = self.media_manager.add_track(self.active_user.nick, _soundcloud)
+                    if self.media.has_active_track() and pinylib.CONFIG.B_PLAYLIST_MODE:
+                        track = self.media.add_track(self.active_user.nick, _soundcloud)
                         self.send_bot_msg(unicode_catalog.PENCIL + ' *' + track.title + '* (' +
                                           self.format_time(track.time) + ') at *' + unicode_catalog.NUMERO + ' ' +
-                                          str(len(self.media_manager.track_list)) + '*')
+                                          str(len(self.media.track_list)) + '*')
                     else:
-                        track = self.media_manager.mb_start(self.active_user.nick, _soundcloud, mod_play=False)
+                        track = self.media.mb_start(self.active_user.nick, _soundcloud, mod_play=False)
                         self.send_media_broadcast_start(track.type, track.id)
                         self.media_event_timer(track.time)
             else:
@@ -1958,14 +2047,15 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     def do_play_private_soundcloud(self, search_track):
-        """
-        Plays a SoundCloud matching the search term privately.
+        """ Plays a SoundCloud matching the search term privately.
+
         NOTE: The video will only be visible for the message sender.
-        :param search_track: str the track to search for.
+        :param search_track: The track to search for.
+        :type search_track: str
         """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(search_track) is not 0:
-                _soundcloud = apis.soundcloud.search(search_track)
+                _soundcloud = soundcloud.search(search_track)
                 if _soundcloud is None:
                     self.send_undercover_msg(self.active_user.nick, 'Could not find video: ' + search_track)
                 else:
@@ -1977,56 +2067,50 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg('Not enabled right now.')
 
     def do_broadcast_approve(self, username):
-        """
-        Send a camera approval message to a user.
-        :param username: str the nickname of the user we want to send the broadcast request for.
-        """
-        if self._is_client_mod:
-            if self.rtmp_parameter['greenroom']:
-                if len(username) > 0:
-                    if self._b_password is None:
-                        conf = pinylib.core.get_roomconfig_xml(self.roomname, self.room_pass, proxy=self._proxy)
-                        self._b_password = conf['bpassword']
-                        self.rtmp_parameter['greenroom'] = conf['greenroom']
+        """ Send a camera approval message to a user.
 
-                    _approve_user = self.users.search(username)
-                    if _approve_user is not None and self.active_user.is_waiting:
-                        self.console_write(pinylib.COLOR['bright_green'], '%s sending broadcast approval for: %s' %
-                                           (self.active_user.nick, _approve_user.nick))
-                        # Send the camera approval message and set the waiting attribute to false as the
-                        # user is now broadcasting.
-                        self.send_cam_approve_msg(_approve_user.nick, _approve_user.id)
-                        self.active_user.is_waiting = False
-                        self.send_bot_msg(unicode_catalog.STATE + ' Greenroom *broadcast approved* for: %s' %
-                                          _approve_user.nick)
-                    else:
-                        self.send_bot_msg(unicode_catalog.INDICATE + ' We could not find a user named: %s' % username)
-
-                # TODO: Create a toggle function for SELF APPROVAL configuration.
-                # Allow users who are already waiting to approve themselves to broadcast
-                # (this is only applicable if it has been configured to or self approval is turned on).
-                elif pinylib.CONFIG.B_SELF_GREENROOM_APPROVAL and len(username) is 0 and self.active_user.is_waiting:
+        :param username: The nickname of the user we want to send the broadcast request for.
+        :type username: str
+        """
+        if self.is_client_mod and self.param.is_greenroom:
+            if len(username) > 0:
+                _approve_user = self.users.search(username)
+                if _approve_user is not None and self.active_user.is_waiting:
+                    self.console_write(pinylib.COLOR['bright_green'], '%s sending broadcast approval for: %s' %
+                                       (self.active_user.nick, _approve_user.nick))
+                    # Send the camera approval message and set the waiting attribute to false as the
+                    # user is now broadcasting.
+                    self.send_cam_approve_msg(_approve_user.nick, _approve_user.id)
                     self.active_user.is_waiting = False
-                    self.send_cam_approve_msg(self.active_user.nick, self.active_user.id)
-                    self.console_write(pinylib.COLOR['bright_green'], '%s:%s self-approved their greenroom broadcast.' %
-                                       (self.active_user.nick, self.active_user.id))
+                    self.send_bot_msg(unicode_catalog.STATE + ' Greenroom *broadcast approved* for: %s' %
+                                      _approve_user.nick)
                 else:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter the *nickname* you would like to '
-                                                                 'provide broadcast approval for.')
+                    self.send_bot_msg(unicode_catalog.INDICATE + ' We could not find a user named: %s' % username)
+
+            # TODO: Create a toggle function for SELF APPROVAL configuration.
+            # Allow users who are already waiting to approve themselves to broadcast
+            # (this is only applicable if it has been configured to or self approval is turned on).
+            elif pinylib.CONFIG.B_SELF_GREENROOM_APPROVAL and len(username) is 0 and self.active_user.is_waiting:
+                self.active_user.is_waiting = False
+                self.send_cam_approve_msg(self.active_user.nick, self.active_user.id)
+                self.console_write(pinylib.COLOR['bright_green'], '%s:%s self-approved their greenroom broadcast.' %
+                                   (self.active_user.nick, self.active_user.id))
             else:
-                self.send_bot_msg(unicode_catalog.INDICATE + ' The room is not currently in greenroom mode.')
+                self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter the *nickname* you would like to '
+                                                             'provide broadcast approval for.')
         else:
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     # == Tinychat API Command Methods. ==
     def do_spy(self, room_name):
+        """ Shows information for a given room.
+
+        :param room_name: The room name to find the information of.
+        :type room_name: str
         """
-        Shows information for a given room.
-        :param room_name: str the room name to find the information of.
-        """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(room_name) is not 0:
-                spy_info = pinylib.core.spy_info(room_name)
+                spy_info = pinylib.apis.tinychat.spy_info(room_name)
                 if spy_info is None:
                     self.send_undercover_msg(self.active_user.nick, 'Failed to retrieve information.')
                 elif 'error' in spy_info:
@@ -2045,13 +2129,14 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     def do_account_spy(self, account):
+        """ Shows information about a Tinychat account.
+
+        :param account: Tinychat account to fetch information from.
+        :type account: str
         """
-        Shows information about a Tinychat account.
-        :param account: str Tinychat account to fetch information from.
-        """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(account) is not 0:
-                tc_usr = pinylib.core.tinychat_user_info(account)
+                tc_usr = pinylib.apis.tinychat.user_info(account)
                 if tc_usr is None:
                     self.send_undercover_msg(self.active_user.nick, 'Could not find Tinychat info for: ' + account)
                 else:
@@ -2065,13 +2150,14 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     # == Other API Command Methods. ==
     def do_search_urban_dictionary(self, search_term):
+        """ Shows Urban-Dictionary definition of search string.
+
+        :param search_term: The search term to look up a definition for.
+        :type search_term: str
         """
-        Shows Urban-Dictionary definition of search string.
-        :param search_term: str the search term to look up a definition for.
-        """
-        if self._is_client_mod:
+        if self.is_client_mod:
             if len(search_term) is not 0:
-                urban = apis.other.urbandictionary_search(search_term)
+                urban = other.urbandictionary_search(search_term)
                 if urban is None:
                     self.send_bot_msg('Could not find a definition for: ' + search_term)
                 else:
@@ -2087,12 +2173,13 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     def do_worldwide_weather_search(self, location):
-        """
-        Shows weather information for a given location, using the World-Weather-Online website.
-        :param location: str the location to find weather data for.
+        """ Shows weather information for a given location, using the World-Weather-Online website.
+
+        :param location: The location to find weather data for.
+        :type location: str
         """
         if len(location) is not 0:
-            weather = apis.other.worldwide_weather_search(location)
+            weather = other.worldwide_weather_search(location)
             if weather is not None:
                 self.send_bot_msg(weather)
             else:
@@ -2102,12 +2189,13 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                                                          '*World-Weather-Online*.')
 
     def do_wunderground_weather_search(self, city):
-        """
-        Shows weather information given a city, using the Wunderground website.
-        :param city: str the city which we should get the weather status of.
+        """ Shows weather information given a city, using the Wunderground website.
+
+        :param city: The city which we should get the weather status of.
+        :type city: str
         """
         if len(city) is not 0:
-            weather = apis.other.wunderground_weather_search(city)
+            weather = other.wunderground_weather_search(city)
             if weather is not None:
                 self.send_bot_msg(weather)
             else:
@@ -2116,12 +2204,13 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Please specify a city to search for on *Wunderground*.')
 
     def do_who_is_ip(self, ip_address):
-        """
-        Shows who-is info for a given ip address.
-        :param ip_address: str the ip address to find info for.
+        """ Shows who-is info for a given ip address.
+
+        :param ip_address: The ip address to find info for.
+        :type ip_address: str
         """
         if len(ip_address) is not 0:
-            who_is = apis.other.who_is(ip_address)
+            who_is = other.who_is(ip_address)
             if who_is is None:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' *No information found for*: %s' % ip_address)
             else:
@@ -2132,87 +2221,96 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     # == Just For Fun Command Methods. ==
     def do_chuck_norris(self):
         """ Shows a chuck norris joke/quote. """
-        chuck = apis.other.chuck_norris()
+        chuck = other.chuck_norris()
         if chuck is not None:
             self.send_bot_msg(chuck)
 
     def do_8ball(self, question):
-        """
-        Shows magic eight ball answer to a yes/no question.
-        :param question: str the yes/no question.
+        """ Shows magic eight ball answer to a yes/no question.
+
+        :param question: The yes/no question.
+        :type question: str
         """
         if len(question) is 0:
             self.send_bot_msg(unicode_catalog.INDICATE + ' Please ask a *yes or no question* to get a reply.')
         else:
-            self.send_bot_msg('*8Ball* %s' % apis.locals.eight_ball())
+            self.send_bot_msg('*8Ball* %s' % locals_.eight_ball())
+
+    def do_dice(self):
+        """ Roll the dice. """
+        self.send_bot_msg('*The dice rolled:* %s' % locals_.roll_dice())
+
+    def do_flip_coin(self):
+        """ Flip a coin. """
+        self.send_bot_msg('*The coin was:* %s' % locals_.flip_coin())
 
     # Custom command handling functions:
     def do_set_sanitize_message(self):
-        """ """
+        """ Toggle message message sanitation configuration. """
         pinylib.CONFIG.B_SANITIZE_MESSAGES = not pinylib.CONFIG.B_SANITIZE_MESSAGES
         self.send_bot_msg('*Sanitize messages*: %s' % pinylib.CONFIG.B_SANITIZE_MESSAGES)
 
     # TODO: Handle private room commands.
     def do_set_private_room(self):
-        """ """
-        if self._is_client_mod:
+        """ Toggle 'private_room' configuration. """
+        if self.is_client_mod:
             self.send_private_room_msg(not self._private_room)
             self.send_bot_msg(unicode_catalog.STATE + 'Private room was sent as: *%s*' % (not self._private_room))
         else:
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     def do_set_allow_snapshots(self):
-        """ """
+        """ Toggle allowing snapshots configuration. """
         pinylib.CONFIG.B_ALLOW_SNAPSHOTS = not pinylib.CONFIG.B_ALLOW_SNAPSHOTS
         self.send_bot_msg('*Allow snapshots*: %s' % pinylib.CONFIG.B_ALLOW_SNAPSHOTS)
 
     def do_set_auto_close(self):
-        """ """
+        """ Toggle automatic broadcast closing configuration. """
         pinylib.CONFIG.B_AUTO_CLOSE = not pinylib.CONFIG.B_AUTO_CLOSE
         self.send_bot_msg('*Auto-close*: %s' % pinylib.CONFIG.B_AUTO_CLOSE)
 
     def do_set_ban_mobiles(self):
-        """ """
+        """ Toggle automatic mobile banning configuration. """
         pinylib.CONFIG.B_BAN_MOBILES = not pinylib.CONFIG.B_BAN_MOBILES
         self.send_bot_msg('*Ban mobiles*: %s' % pinylib.CONFIG.B_BAN_MOBILES)
 
     def do_set_auto_greenroom(self):
-        """ """
+        """ Toggle automatic monitoring greenroom broadcasts configuration. """
         pinylib.CONFIG.B_AUTO_GREENROOM = not pinylib.CONFIG.B_AUTO_GREENROOM
         self.send_bot_msg('*Automatic Greenroom*: %s' % pinylib.CONFIG.B_AUTO_GREENROOM)
 
     def do_set_self_greenroom_approval(self):
-        """ """
+        """ Toggle allowing approve to themselves configuration. """
         pinylib.CONFIG.B_SELF_GREENROOM_APPROVAL = not pinylib.CONFIG.B_SELF_GREENROOM_APPROVAL
         self.send_bot_msg('*Greenroom self-approval*: %s' % pinylib.CONFIG.B_SELF_GREENROOM_APPROVAL)
 
     def do_set_auto_url_mode(self):
-        """ """
+        """ Toggle auto URL function configuration. """
         pinylib.CONFIG.B_AUTO_URL_MODE = not pinylib.CONFIG.B_AUTO_URL_MODE
         self.send_bot_msg('*Auto URL*: %s' % pinylib.CONFIG.B_AUTO_URL_MODE)
 
-    def do_set_cleverbot(self):
-        """ """
-        pinylib.CONFIG.B_CLEVERBOT = not pinylib.CONFIG.B_CLEVERBOT
-        self.send_bot_msg('*CleverBot*: %s' % pinylib.CONFIG.B_CLEVERBOT)
+    # def do_set_cleverbot(self):
+    #     """ Toggle CleverBot function configuration. """
+    #     pinylib.CONFIG.B_CLEVERBOT = not pinylib.CONFIG.B_CLEVERBOT
+    #     self.send_bot_msg('*CleverBot*: %s' % pinylib.CONFIG.B_CLEVERBOT)
 
-    def do_set_playlist_mode(self):
-        """ """
-        pinylib.CONFIG.B_PLAYLIST_MODE = not pinylib.CONFIG.B_PLAYLIST_MODE
-        self.send_bot_msg('*Playlist Mode*: %s' % pinylib.CONFIG.B_PLAYLIST_MODE)
+    # def do_set_playlist_mode(self):
+    #     """ Toggle playlist mode for media configuration. """
+    #     pinylib.CONFIG.B_PLAYLIST_MODE = not pinylib.CONFIG.B_PLAYLIST_MODE
+    #     self.send_bot_msg('*Playlist Mode*: %s' % pinylib.CONFIG.B_PLAYLIST_MODE)
 
     # def do_set_public_media_mode(self):
-    #     """ """
+    #     """ Toggle public mode for media configuration. """
     #     pinylib.CONFIG.B_PUBLIC_MEDIA_MODE = not pinylib.CONFIG.B_PUBLIC_MEDIA_MODE
     #     self.send_bot_msg('*Public Media Mode*: %s' % pinylib.CONFIG.B_PUBLIC_MEDIA_MODE)
 
     def do_set_greet_pm(self):
-        """ """
+        """ Toggle setting a greetings private message configuration. """
         pinylib.CONFIG.B_GREET_PRIVATE = not pinylib.CONFIG.B_GREET_PRIVATE
         self.send_bot_msg('*Greet Users Private Message*: %s' % pinylib.CONFIG.B_GREET_PRIVATE)
 
     # def do_set_media_limit_public(self):
-    #     """ """
+    #     """ Toggle media limiting on all media configuration. """
     #     if pinylib.CONFIG.B_PUBLIC_MEDIA_MODE:
     #         pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC = not pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC
     #         self.send_bot_msg('*Media Limit Public*: %s' % pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC)
@@ -2221,16 +2319,17 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     #                                                      'set to media limit playlist.')
     #
     # def do_set_media_limit_playlist(self):
-    #     """ """
+    #     """ Toggle media limiting when playlist is turned on configuration. """
     #     pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST = not pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST
     #     self.send_bot_msg('*Media Limit Playlist*: %s' % pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST)
-    #
+
     # def do_media_limit_duration(self, new_duration):
-    #     """
+    #     """ Set a media duration if media limiting is turned on.
     #
-    #     :param new_duration: int the maximum number of seconds each media broadcast should played for.
+    #     :param new_duration: The maximum number of seconds each media broadcast should played for.
+    #     :type new_duration: int
     #     """
-    #     if self._is_client_mod:
+    #     if self.is_client_mod:
     #         if pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC or pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST:
     #             if len(new_duration) is not 0:
     #                 pinylib.CONFIG.B_MEDIA_LIMIT_DURATION = int(new_duration)
@@ -2245,17 +2344,17 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     #     else:
     #         self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
-    def do_set_radio(self):
-        """ """
-        pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY = not pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY
-        self.send_bot_msg('*Capital FM auto-play*: %s' % pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY)
+    # def do_set_radio(self):
+    #     """ Toggle turning on the radio (via YouTube) configuration. """
+    #     pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY = not pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY
+    #     self.send_bot_msg('*Capital FM auto-play*: %s' % pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY)
 
     # TODO: When playing a track then adding another track to the playlist, stopping the current track
     #       and turning radio and start radio on. First video on the radio plays but when playing next on radio,
     #       the song that was added to the playlist gets played next.
     # def do_start_radio_auto_play(self):
     #     """ """
-    #     if self._is_client_mod:
+    #     if self.is_client_mod:
     #         if pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY:
     #             if self.radio_timer_thread is None:
     #                 # If media limiting is turned on, the radio cannot be in use.
@@ -2281,7 +2380,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     # def do_stop_radio_auto_play(self):
     #     """ """
-    #     if self._is_client_mod:
+    #     if self.is_client_mod:
     #         self.cancel_radio_event_timer()
     #         self.do_close_media()
     #         self.send_bot_msg(unicode_catalog.STATE + ' *Stopped playing Capital FM Radio*.')
@@ -2289,11 +2388,11 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     #         self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     def do_mute(self):
-        """ """
+        """ Send a mute room message. """
         self.send_mute_msg()
 
     def do_instant_push2talk(self):
-        """ """
+        """ Send a push2talk room message. """
         self.send_push2talk_msg()
 
     # def do_request_media(self, request_info):
@@ -2315,29 +2414,27 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     #     pass
 
     def do_official_charts(self):
-        """
-
-        """
-        if self._is_client_mod:
+        """ """
+        if self.is_client_mod:
             if pinylib.CONFIG.B_PLAYLIST_MODE:
                 self.send_bot_msg(unicode_catalog.STATE + ' Retrieving *Official Charts* Top40 Singles.')
 
-                charts_list = list(reversed(apis.other.official_charts()))
+                charts_list = list(reversed(other.official_charts()))
                 if charts_list is not None and charts_list is not False:
                     video_list = []
                     for track in charts_list:
-                        youtube_search = apis.youtube.search(track)
+                        youtube_search = youtube.search(track)
                         if youtube_search is not None:
                             video_list.append(youtube_search)
 
                     if len(video_list) > 0:
-                        self.media_manager.add_track_list(self.active_user.nick, video_list)
+                        self.media.add_track_list(self.active_user.nick, video_list)
                         self.send_bot_msg(unicode_catalog.PENCIL +
                                           ' *Official Charts* have been *added*. Ready to play from *40 ' +
                                           unicode_catalog.ARROW_SIDEWAYS + ' 1*.')
                         # If there is no track playing at the moment, start this list.
-                        if not self.media_manager.has_active_track():
-                            track = self.media_manager.get_next_track()
+                        if not self.media.has_active_track():
+                            track = self.media.get_next_track()
                             self.send_media_broadcast_start(track.type, track.id)
                             self.media_event_timer(track.time)
                     else:
@@ -2353,32 +2450,30 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     def do_radio_one_top40_charts(self):
-        """
-        Retrieves the Top40 songs from the BBC Radio 1 charts and adds it to the playlist.
-        """
-        if self._is_client_mod:
+        """ Retrieves the Top40 songs from the BBC Radio 1 charts and adds it to the playlist. """
+        if self.is_client_mod:
             if pinylib.CONFIG.B_PLAYLIST_MODE:
                 self.send_bot_msg(unicode_catalog.STATE + ' *Retrieving Top40* charts list.')
 
                 # Get the latest charts list.
-                charts_list = list(reversed(apis.other.radio_top40_charts()))
+                charts_list = list(reversed(other.radio_top40_charts()))
                 if charts_list is not None and charts_list is not False:
                     # Load a list of the videos from the charts list.
                     video_list = []
                     for track in charts_list:
-                        youtube_search = apis.youtube.search(track)
+                        youtube_search = youtube.search(track)
                         if youtube_search is not None:
                             video_list.append(youtube_search)
 
                     # Verify we have some videos to play and add them to the playlist.
                     if len(video_list) > 0:
-                        self.media_manager.add_track_list(self.active_user.nick, video_list)
+                        self.media.add_track_list(self.active_user.nick, video_list)
                         self.send_bot_msg(unicode_catalog.PENCIL + ' *Top40* chart has been *added*. Ready to play from'
                                                                    ' *40 ' + unicode_catalog.ARROW_SIDEWAYS + ' 1*.')
 
                         # If there is no track playing at the moment, start this list.
-                        if not self.media_manager.has_active_track():
-                            track = self.media_manager.get_next_track()
+                        if not self.media.has_active_track():
+                            track = self.media.get_next_track()
                             self.send_media_broadcast_start(track.type, track.id)
                             self.media_event_timer(track.time)
                     else:
@@ -2394,12 +2489,13 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Not enabled right now.')
 
     def do_duckduckgo_search(self, search_query):
-        """
-        Shows information/definitions regarding a particular search on DuckDuckGo.
-        :param search_query: str search query to search for.
+        """ Shows information/definitions regarding a particular search on DuckDuckGo.
+
+        :param search_query: Search query to search for.
+        :type search_query: str
         """
         if len(search_query) is not 0:
-            search_result = apis.other.duck_duck_go_search(search_query)
+            search_result = other.duck_duck_go_search(search_query)
             if search_result is not None:
                 for part in range(len(search_result)):
                     if len(search_result[part]) > 160:
@@ -2411,12 +2507,13 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter a search term to search on DuckDuckGo.')
 
     def do_imdb_search(self, search_entertainment):
-        """
-        Shows information from the IMDb database OMDb, regarding a search for a show/movie.
-        :param search_entertainment: str the show/movie to search for on IMDb.
+        """ Shows information from the IMDb database OMDb, regarding a search for a show/movie.
+
+        :param search_entertainment: The show/movie to search for on IMDb.
+        :type search_entertainment: str
         """
         if len(search_entertainment) is not 0:
-            omdb_details = apis.other.omdb_search(search_entertainment)
+            omdb_details = other.omdb_search(search_entertainment)
             if omdb_details is not None:
                 self.send_bot_msg(omdb_details)
             else:
@@ -2426,12 +2523,13 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter a *movie or television show* to load details.')
 
     def do_definition(self, lookup_term):
-        """
-        Retrieves a definition for the term from the Longman Dictionary.
-        :param lookup_term: str the word to lookup in the dictionary.
+        """ Retrieves a definition for the term from the Longman Dictionary.
+
+        :param lookup_term: The word to lookup in the dictionary.
+        :type lookup_term: str
         """
         if len(lookup_term) is not 0:
-            definitions = apis.other.longman_dictionary(lookup_term)
+            definitions = other.longman_dictionary(lookup_term)
             if definitions is not None:
                 self.send_bot_msg('*Longman Dictionary\'s* definition(s) for: %s' % lookup_term)
                 for definition in definitions:
@@ -2443,37 +2541,36 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                                                          ' the *Longman Dictionary*.')
 
     def do_one_liner(self, category):
-        """
-        Show a random "one-liner" from a given category or one randomly picked from various categories.
-        :param category: str a specific category to pick a random joke from OR state '?' to
+        """ Show a random "one-liner" from a given category or one randomly picked from various categories.
+
+        :param category: A specific category to pick a random joke from OR state '?' to
                          list all the possible categories.
+        :type category: str
         """
         if len(category) is not 0:
-            if category in apis.other.ONE_LINER_TAGS:
-                one_liner = apis.other.one_liners(category)
+            if category in other.ONE_LINER_TAGS:
+                one_liner = other.one_liners(category)
                 if one_liner is not None:
                     self.send_bot_msg('*' + one_liner + '*')
                 else:
                     self.send_bot_msg(unicode_catalog.INDICATE + ' We were *unable to retrieve a "one-liner"* joke with'
                                                                  'under the category: %s.' % category)
             elif category == '?':
-                all_categories = ', '.join(apis.other.ONE_LINER_TAGS)
+                all_categories = ', '.join(other.ONE_LINER_TAGS)
                 self.send_undercover_msg(self.active_user.nick, '*Possible categories*: ' + str(all_categories))
             else:
                 self.send_bot_msg(unicode_catalog.INDICATE + 'We *do not recognise the category* you have entered.')
         else:
-            one_liner = apis.other.one_liners()
+            one_liner = other.one_liners()
             if one_liner is not None:
                 self.send_bot_msg('*' + one_liner + '*')
             else:
                 self.send_bot_msg(unicode_catalog.INDICATE + ' We were *unable to retrieve a "one-liner"* joke.')
 
     def do_food_recipe_search(self, search_ingredient):
-        """
-
-        """
+        """ """
         if len(search_ingredient) is not 0:
-            food_search = apis.other.food_search(search_ingredient)
+            food_search = other.food_search(search_ingredient)
             if food_search is not None:
                 self.send_bot_msg('*Food search*: ' + food_search)
             else:
@@ -2482,60 +2579,61 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_bot_msg(unicode_catalog.INDICATE + ' Please *enter an ingredient* to find recipes for.')
 
     def do_advice(self):
-        """
-        Replies with a random line of advice.
-        """
-        advice_reply = apis.other.online_advice()
+        """ Replies with a random line of advice. """
+        advice_reply = other.online_advice()
         if advice_reply is not None:
-            self.send_bot_msg(unicode_catalog.CHECKBOX_TICK + ' *' + unicode_catalog.NO_WIDTH + self.active_user.nick +
+            self.send_bot_msg('*' + unicode_catalog.NO_WIDTH + self.active_user.nick +
                               unicode_catalog.NO_WIDTH + '*, ' + advice_reply.lower())
         else:
             self.send_bot_msg(unicode_catalog.INDICATE + ' We were *unable to retrieve an advice* from the website.')
 
     # TODO: When instant is used initially without using !cb to initialise the session,
     #       the instant message is not printed.
-    def do_cleverbot(self, cleverbot_query, instant_query=False):
-        """
-        Shows the reply from CleverBot.
-        :param cleverbot_query: str the statement/question to ask CleverBot.
-        :param instant_query: bool True/False whether the request was from when a user typed in the client's nickname or
-                       manually requested a response.
-        """
-        if pinylib.CONFIG.B_CLEVERBOT:
-            if len(cleverbot_query) is not 0:
-                if self._cleverbot_session is None:
-                    # Open a new connection to CleverBot in the event we do not already have one set up.
-                    self._cleverbot_session = apis.clever_client_bot.CleverBot()
-                    # Start CleverBot message timer.
-                    threading.Thread(target=self._cleverbot_timer).start()
-                    if not instant_query:
-                        self.send_bot_msg(unicode_catalog.VICTORY_HAND + ' *Waking up* ' + self.nickname)
-
-                if self._cleverbot_session is not None:
-                    # Request the response from the server and send it as a normal user message.
-                    response = self._cleverbot_session.converse(cleverbot_query)
-                    if not instant_query:
-                        self.send_bot_msg('*CleverBot* %s: %s' % (unicode_catalog.STATE, response))
-                    else:
-                        self.send_bot_msg(response, use_chat_msg=True)
-
-                    self.console_write(pinylib.COLOR['green'], '[CleverBot]: ' + response)
-
-                # Record the time at which the response was sent.
-                self._cleverbot_msg_time = int(pinylib.time.time())
-            else:
-                if not instant_query:
-                    self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter a statement/question.')
-        else:
-            self.send_bot_msg(unicode_catalog.INDICATE + ' Please enable CleverBot to use this function.')
+    # def do_cleverbot(self, cleverbot_query, instant_query=False):
+    #     """ Shows the reply from CleverBot.
+    #
+    #     :param cleverbot_query: str the statement/question to ask CleverBot.
+    #     :type cleverbot_query: str
+    #     :param instant_query: True/False whether the request was from when a user typed in the client's nickname or
+    #                           manually requested a response.
+    #     :type instant_query: bool
+    #     """
+    #     if pinylib.CONFIG.B_CLEVERBOT:
+    #         if len(cleverbot_query) is not 0:
+    #             if self._cleverbot_session is None:
+    #                 # Open a new connection to CleverBot in the event we do not already have one set up.
+    #                 self._cleverbot_session = clever_client_bot.CleverBot()
+    #                 # Start CleverBot message timer.
+    #                 threading.Thread(target=self._cleverbot_timer).start()
+    #                 if not instant_query:
+    #                     self.send_bot_msg(unicode_catalog.VICTORY_HAND + ' *Waking up* ' + self.nickname)
+    #
+    #             if self._cleverbot_session is not None:
+    #                 # Request the response from the server and send it as a normal user message.
+    #                 response = self._cleverbot_session.converse(cleverbot_query)
+    #                 if not instant_query:
+    #                     self.send_bot_msg('*CleverBot* %s: %s' % (unicode_catalog.STATE, response))
+    #                 else:
+    #                     self.send_bot_msg(response, use_chat_msg=True)
+    #
+    #                 self.console_write(pinylib.COLOR['green'], '[CleverBot]: ' + response)
+    #
+    #             # Record the time at which the response was sent.
+    #             self._cleverbot_msg_time = int(pinylib.time.time())
+    #         else:
+    #             if not instant_query:
+    #                 self.send_bot_msg(unicode_catalog.INDICATE + ' Please enter a statement/question.')
+    #     else:
+    #         self.send_bot_msg(unicode_catalog.INDICATE + ' Please enable CleverBot to use this function.')
 
     def do_etymology_search(self, term_etymology):
-        """
-        Searches the Etymonline website to return potential etymology for a word.
-        :param term_etymology: str the term you want to search the etymology for.
+        """ Searches the Etymonline website to return potential etymology for a word.
+
+        :param term_etymology: The term you want to search the etymology for.
+        :type term_etymology: str
         """
         if len(term_etymology) is not 0:
-            etymology = apis.other.etymonline(term_etymology)
+            etymology = other.etymonline(term_etymology)
             if etymology is not None:
                 if len(etymology) > 295:
                     etymology_information = etymology[:294] + '...'
@@ -2547,9 +2645,10 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     # Private Message Command Handler.
     def private_message_handler(self, private_msg):
-        """
-        Custom private message commands.
-        :param private_msg: str the private message.
+        """ A user private message to the client.
+
+        :param private_msg: The private message.
+        :type private_msg: str
         """
 
         prefix = pinylib.CONFIG.B_PREFIX
@@ -2564,7 +2663,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
             # Super mod commands.
             if self.has_level(1):
-                if self._is_client_owner:
+                if self.is_client_owner:
                     # Only possible if bot is using the room owner account.
                     if pm_cmd == prefix + 'rp':
                         threading.Thread(target=self.do_set_room_pass, args=(pm_arg,)).start()
@@ -2598,11 +2697,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
         self.console_write(pinylib.COLOR['white'], 'Private message from %s: %s' % (self.active_user.nick, msg))
 
     def do_set_room_pass(self, password):
+        """ Set a room password for the room.
+
+        :param password: The room password.
+        :type password: str
         """
-        Set a room password for the room.
-        :param password: str the room password
-        """
-        if self._is_client_owner:
+        if self.is_client_owner:
             if not password:
                 self.privacy_settings.set_room_password()
                 self.send_bot_msg('*The room password was removed.*')
@@ -2615,11 +2715,12 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 self.send_bot_msg('*The room is now password protected.*')
 
     def do_set_broadcast_pass(self, password):
+        """ Set a broadcast password for the room.
+
+        :param password: The broadcast password.
+        :type password: str | None
         """
-        Set a broadcast password for the room.
-        :param password: str the password
-        """
-        if self._is_client_owner:
+        if self.is_client_owner:
             if not password:
                 self.privacy_settings.set_broadcast_password()
                 self.send_bot_msg('*The broadcast password was removed.*')
@@ -2632,9 +2733,10 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 self.send_bot_msg('*Broadcast password is enabled.*')
 
     def do_key(self, new_key):
-        """
-        Shows or sets a new secret key.
-        :param new_key: str the new secret key.
+        """ Shows or sets a new secret key.
+
+        :param new_key: The new secret key.
+        :type new_key: str
         """
         if len(new_key) is 0:
             self.send_private_msg('The current key is: *%s*' % pinylib.CONFIG.B_KEY, self.active_user.nick)
@@ -2666,20 +2768,21 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     # == Public PM Command Methods. ==
     def do_opme(self, key):
-        """
-        Makes a user a bot controller if user provides the right key.
-        :param key: str the secret key.
+        """ Makes a user a bot controller if user provides the right key.
+
+        :param key: A secret key.
+        :type key: str
         """
         if len(key) is 0:
             self.send_private_msg('Missing key.', self.active_user.nick)
         elif key == pinylib.CONFIG.B_SUPER_KEY:
-            if self._is_client_owner:
+            if self.is_client_owner:
                 self.active_user.user_level = 1
                 self.send_private_msg('*You are now a super mod.*', self.active_user.nick)
             else:
                 self.send_private_msg('*The client is not using the owner account.*', self.active_user.nick)
         elif key == pinylib.CONFIG.B_KEY:
-            if self._is_client_mod:
+            if self.is_client_mod:
                 self.active_user.user_level = 2
                 self.send_private_msg('*You are now a bot controller.*', self.active_user.nick)
             else:
@@ -2688,9 +2791,10 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             self.send_private_msg('Wrong key.', self.active_user.nick)
 
     def do_pm_bridge(self, pm_parts):
-        """
-        Makes the bot work as a PM message bridge between 2 user who are not signed in.
-        :param pm_parts: list the pm message as a list.
+        """ Makes the bot work as a PM message bridge between 2 user who are not signed in.
+
+        :param pm_parts: The pm message as a list separated by the words given in the message.
+        :type pm_parts: list
         """
         if len(pm_parts) == 1:
             self.send_private_msg('Missing username.', self.active_user.nick)
@@ -2713,38 +2817,39 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     def media_event_handler(self):
         """ This method gets called whenever a media is done playing. """
         # If there is a track is playing and we are limiting the media time, then close the media.
-        if pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST or pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC:
-            print('Limiting turned on.')
-            if self.media_manager.has_active_track():
-                print('Track is playing, closing it.')
-                self.do_close_media()
+        # if pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST or pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC:
+        #     print('Limiting turned on.')
+        #     if self.media.has_active_track():
+        #         print('Track is playing, closing it.')
+        #         self.do_close_media()
 
-        if len(self.media_manager.track_list) > 0:
-            if self.media_manager.is_last_track():
-                self.media_manager.clear_track_list()
+        if len(self.media.track_list) > 0:
+            if self.media.is_last_track():
+                self.media.clear_track_list()
             else:
                 # Add a media delay to add a gap between the each video/track that is played in the room.
                 pinylib.time.sleep(self.media_delay)
 
                 # Process the next track in the playlist, if we are not using the custom radio mode.
-                track = self.media_manager.get_next_track()
+                track = self.media.get_next_track()
                 if track is not None and self.is_connected:
                     self.send_media_broadcast_start(track.type, track.id)
                 self.media_event_timer(track.time)
 
     def media_event_timer(self, video_time):
-        """
-        Start a media event timer.
-        :param video_time: int the time in milliseconds.
+        """ Start a media event timer.
+
+        :param video_time: The time in milliseconds.
+        :type video_time: int
         """
         # If we are limiting the media duration set the video time to be the limited duration.
-        if not pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST and not pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC:
-            video_time_in_seconds = video_time / 1000
-        else:
-            video_time_in_seconds = pinylib.CONFIG.B_MEDIA_LIMIT_DURATION
+        # if not pinylib.CONFIG.B_MEDIA_LIMIT_PLAYLIST and not pinylib.CONFIG.B_MEDIA_LIMIT_PUBLIC:
+        #     video_time_in_seconds = video_time / 1000
+        # else:
+        #     video_time_in_seconds = pinylib.CONFIG.B_MEDIA_LIMIT_DURATION
 
         # Star the media timer thread.
-        self.media_timer_thread = threading.Timer(video_time_in_seconds, self.media_event_handler)
+        self.media_timer_thread = threading.Timer(video_time/1000, self.media_event_handler)  # video_time_in_seconds
         self.media_timer_thread.start()
 
     # Helper Methods.
@@ -2851,16 +2956,14 @@ class TinychatBot(pinylib.TinychatRTMPClient):
             elif bad in chat_words:
                     self.send_ban_msg(self.active_user.nick, self.active_user.id)
                     was_banned = True
-        if was_banned and pinylib.CONFIG.B_FORGIVE_AUTO_BANS:
-            self.send_forgive_msg(self.active_user.id)
 
-        # TODO: Make this more concise.
         # Make sure we return a boolean value, so we can indicate to stop sanitizing the message,
         # in the sanitize message function.
         if was_banned:
+            if pinylib.CONFIG.B_FORGIVE_AUTO_BANS:
+                self.send_forgive_msg(self.active_user.id)
             return True
-        else:
-            return False
+        return False
 
     def check_nick(self, old, user_info):
         """ Check a users nick.
@@ -2898,12 +3001,13 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     # TODO: Evaluate design.
     def sanitize_message(self, decoded_msg):
-        """
-        Spam checks to ensure chat box is rid any potential further spam.
-        NOTE: This function should only be executed if the client is a moderator, make sure there is
-              a check to see if that is true before allowing the this to run.
+        """ Spam checks to ensure chat box is rid any potential further spam.
 
-        :param decoded_msg: str the message the user sent.
+        NOTE: This function should only be executed if the client is a moderator,
+              make sure there is a check to see if that is true before allowing the this to run.
+
+        :param decoded_msg: The message the user sent.
+        :type decoded_msg: str
         """
         # Reset the spam check at each message check, this allows us to know if the message should be passed onto
         # any further procedures.
@@ -2972,16 +3076,18 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 return True
 
     def identify_url(self, text_to_identify):
-        """
-        This function is used to identify if a piece of text is a URL and to retrieve the address if it is.
+        """ Identify if a piece of text is a URL and to retrieve the address if it is.
 
         Search for possible URLs using a regex pattern.
         Pattern was found on StackOverflow, answered with by user
         "CodeWrite" (http://stackoverflow.com/users/454718/codewrite).
         Regex: '(http|ftp|https):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?'
 
-        :param text_to_identify: str
-        :return identified, identified_result: boolean True/False
+        :param text_to_identify:
+        :type text_to_identify: str
+        :return identified, identified_result:
+        :rtype identified: boolean
+        :rtype identified_result: boolean
         """
         # Use the regex pattern to check the text for a URL.
         url_search = self._automatic_url_identifier_pattern.search(text_to_identify)
@@ -2992,13 +3098,14 @@ class TinychatBot(pinylib.TinychatRTMPClient):
                 return True, identified_url
         return False, None
 
-    # TODO: Prevent autourl colliding with cleverbot, if part of the url is the same as the nickname of the client.
+    # TODO: Prevent auto-url colliding with CleverBot, if part of the url is the same as the nickname of the client.
     # TODO: Should we capture more than one url in a message?
     # TODO: Evaluate design.
     def do_auto_url(self, decoded_message):
-        """
-        Retrieve header information for a given link.
-        :param decoded_message: str the complete message sent by the user, which we will check for a URL.
+        """ Retrieve header information for a given link.
+
+        :param decoded_message: The complete message sent by the user, which we will check for a URL.
+        :type decoded_message: str
         """
         # TODO: We don't want auto-url to be called on every message, make sure there is a URL in the message first.
         # Make sure we read all the url's in lowercase to make processes quicker.
@@ -3018,36 +3125,40 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     # TODO: Evaluate design.
     # TODO: Added CleverBot instant call.
-    def cleverbot_message_handler(self, decoded_msg):
-        """
-        The CleverBot message handler will handle incoming decoded messages and give it to the right function.
-        :param decoded_msg: str the message that was sent into the room.
-        :return: bool True/False
-        """
-        if pinylib.CONFIG.B_CLEVERBOT and pinylib.CONFIG.B_INSTANT_CLEVERBOT:
-            if self.nickname in decoded_msg.lower():
-                query = decoded_msg.lower().replace(self.nickname, '')
-                self.console_write(pinylib.COLOR['yellow'], '%s [CleverBot]: %s' % (self.active_user.nick,
-                                                                                    query.strip()))
-                self.do_cleverbot(query, True)
+    # def cleverbot_message_handler(self, decoded_msg):
+    #     """ CleverBot message handler handles incoming decoded messages and provides it to the right function.
+    #
+    #     :param decoded_msg: The message that was sent into the room.
+    #     :type decoded_msg: str
+    #     :return: bool True/False
+    #     """
+    #     if pinylib.CONFIG.B_CLEVERBOT and pinylib.CONFIG.B_INSTANT_CLEVERBOT:
+    #         if self.nickname in decoded_msg.lower():
+    #             query = decoded_msg.lower().replace(self.nickname, '')
+    #             self.console_write(pinylib.COLOR['yellow'], '%s [CleverBot]: %s' % (self.active_user.nick,
+    #                                                                                 query.strip()))
+    #             self.do_cleverbot(query, True)
 
     # TODO: Evaluate design - we do not need this in the event that we restrict the form data.
     # TODO: Added in a timer to monitor the CleverBot session & reset the messages periodically.
-    def _cleverbot_timer(self):
-        """
-        Start clearing POST data by checking if messages are sent to CleverBot within
-        every 2.5 minutes (150 seconds), otherwise clear all the data that was previously recorded.
-        NOTE: Anything as a result asked before that to CleverBot may reply with an inaccurate reply.
-        """
-        # Reset the POST log in the CleverBot instance to an empty list in order to clear the previous
-        # message history. This occurs if it has been 5 minutes or great since the last message
-        # has been sent and stored in the log.
-        while self._cleverbot_session is not None:
-            if int(pinylib.time.time()) - self._cleverbot_msg_time >= 150 and \
-                            len(self._cleverbot_session.post_log) is not 0:
-                self._cleverbot_session.post_log = []
-                self._cleverbot_msg_time = int(pinylib.time.time())
-            pinylib.time.sleep(1)
+    # def _cleverbot_timer(self):
+    #     """ Clear POST data from CleverBot sessions
+    #
+    #     NOTE: If messages are sent to CleverBot within 2.5 minutes (150 seconds),
+    #           otherwise clear all the data that was previously recorded.
+    #
+    #           Due to clearing POST data, anything asked, before clearing, to CleverBot may
+    #           reply with an inaccurate reply as we are not including the POST data with the request.
+    #     """
+    #     # Reset the POST log in the CleverBot instance to an empty list in order to clear the previous
+    #     # message history. This occurs if it has been 5 minutes or great since the last message
+    #     # has been sent and stored in the log.
+    #     while self._cleverbot_session is not None:
+    #         if int(pinylib.time.time()) - self._cleverbot_msg_time >= 150 and \
+    #                         len(self._cleverbot_session.post_log) is not 0:
+    #             self._cleverbot_session.post_log = []
+    #             self._cleverbot_msg_time = int(pinylib.time.time())
+    #         pinylib.time.sleep(1)
 
     # TODO: Support SoundCloud.
     # def _auto_play_radio_track(self):
@@ -3057,7 +3168,7 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     #     """
     #     if pinylib.CONFIG.B_RADIO_CAPITAL_FM_AUTO_PLAY:
     #         # Retrieve the artist name and track title from Capital FM.
-    #         radio_now_playing = apis.other.capital_fm_latest()
+    #         radio_now_playing = other.capital_fm_latest()
     #         # Make sure we are not playing the same track again, if we have received the same track,
     #         # we can use the timer to wait another 2 minutes before checking again.
     #         if self.latest_radio_track == radio_now_playing:
@@ -3073,25 +3184,25 @@ class TinychatBot(pinylib.TinychatRTMPClient):
     #             print('Information received: ', radio_now_playing)
     #             if radio_now_playing is not None:
     #                 # Retrieve a matching video from YouTube.
-    #                 _radio_video = apis.youtube.search(radio_now_playing)
+    #                 _radio_video = youtube.search(radio_now_playing)
     #                 print('video found:', _radio_video)
     #                 if _radio_video is not None:
     #                     # Add to the playlist if there is a track playing already.
     #                     # TODO: If another track is playing when we add a new track, the radio timer thread will
     #                     #       not compensate for the time remaining on the current track before starting the
     #                     #       radio event timer.
-    #                     if self.media_manager.has_active_track():
-    #                         radio_track = self.media_manager.add_track(self.active_user.nick, _radio_video)
+    #                     if self.media.has_active_track():
+    #                         radio_track = self.media.add_track(self.active_user.nick, _radio_video)
     #                         self.send_bot_msg(unicode_catalog.MUSICAL_NOTE_SIXTEENTH +
     #                                           ' *Added Capital FM Radio Track* ' +
     #                                           unicode_catalog.MUSICAL_NOTE_SIXTEENTH + ': ' + radio_track.title)
     #
     #                         # TODO: Make sure the remaining time is in milliseconds and this is working.
     #                         # Start the radio timer (taking into account the time remaining on the current media).
-    #                         self.radio_event_timer(self.media_manager.remaining_time() + radio_track.time)
+    #                         self.radio_event_timer(self.media.remaining_time() + radio_track.time)
     #                     else:
     #                         # Start the track if there was nothing playing.
-    #                         radio_track = self.media_manager.mb_start(self.active_user.nick, _radio_video)
+    #                         radio_track = self.media.mb_start(self.active_user.nick, _radio_video)
     #                         self.send_media_broadcast_start(radio_track.type, radio_track.id)
     #                         self.media_event_timer(radio_track.time)
     #
@@ -3111,22 +3222,21 @@ class TinychatBot(pinylib.TinychatRTMPClient):
 
     # TODO: Does the timer automatically start in a timer?
     # def radio_event_timer(self, wait_time):
-    #     """
+    #     """ Radio Event Time to handle the radio auto-play events.
     #
-    #     :param wait_time: int the time to wait until we should add another track.
+    #     :param wait_time: The time to wait until we should add another track.
+    #     :type wait_time: int
     #     """
     #     wait_time_in_seconds = wait_time / 1000
     #     self.radio_timer_thread = threading.Timer(wait_time_in_seconds, self._auto_play_radio_track)
     #     self.radio_timer_thread.start()
     #
     # def cancel_radio_event_timer(self):
-    #     """
-    #
-    #     """
+    #     """ Cancel active radio auto-play events. """
     #     if self.radio_timer_thread is not None:
     #         if self.radio_timer_thread.is_alive():
     #             self.radio_timer_thread.cancel()
     #             self.radio_timer_thread = None
     #         return False
     #     return False
-
+    #
